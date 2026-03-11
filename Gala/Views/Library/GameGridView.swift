@@ -5,6 +5,11 @@ struct GameGridView: View {
     let games: [Game]
     @Binding var selectedGameId: UUID?
     let imageCache: ImageCache
+    let onLaunch: (Game) -> Void
+    let onDelete: (Game) -> Void
+    let onChangeExe: (Game) -> Void
+    let onSetStatus: (Game, GameStatus) -> Void
+    let onToggleFavorite: (Game) -> Void
 
     private let columns = [GridItem(.adaptive(minimum: 160, maximum: 200))]
 
@@ -18,7 +23,12 @@ struct GameGridView: View {
                         GameCoverCard(
                             game: game,
                             isSelected: selectedGameId == game.id,
-                            imageCache: imageCache
+                            imageCache: imageCache,
+                            onLaunch: { onLaunch(game) },
+                            onDelete: { onDelete(game) },
+                            onChangeExe: { onChangeExe(game) },
+                            onSetStatus: { status in onSetStatus(game, status) },
+                            onToggleFavorite: { onToggleFavorite(game) }
                         )
                         .onTapGesture {
                             selectedGameId = game.id
@@ -35,10 +45,10 @@ struct GameGridView: View {
             Image(systemName: "plus.square.dashed")
                 .font(.system(size: 48))
                 .foregroundStyle(.secondary)
-            Text("No games yet")
+            Text("还没有游戏")
                 .font(.title2)
                 .foregroundStyle(.secondary)
-            Text("Click + to add your first game")
+            Text("点击 + 添加你的第一个游戏")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }

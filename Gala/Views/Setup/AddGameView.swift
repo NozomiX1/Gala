@@ -23,6 +23,19 @@ struct AddGameView: View {
 
     var body: some View {
         VStack {
+            HStack {
+                Spacer()
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                        .font(.title2)
+                }
+                .buttonStyle(.plain)
+                .padding(8)
+            }
+
             switch step {
             case .selectFile:
                 selectFileView
@@ -44,11 +57,11 @@ struct AddGameView: View {
             Image(systemName: "doc.badge.plus")
                 .font(.system(size: 48))
                 .foregroundStyle(.secondary)
-            Text("Add a Game")
+            Text("添加游戏")
                 .font(.title2)
-            Text("Select the game's .exe file")
+            Text("选择游戏的 .exe 文件")
                 .foregroundStyle(.secondary)
-            Button("Choose .exe File...") {
+            Button("选择 .exe 文件...") {
                 selectFile()
             }
             .buttonStyle(.borderedProminent)
@@ -70,7 +83,7 @@ struct AddGameView: View {
         panel.allowedContentTypes = [.exe]
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false
-        panel.message = "Select the game's .exe file"
+        panel.message = "选择游戏的 .exe 文件"
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
@@ -125,7 +138,7 @@ struct AddGameView: View {
 
         var coverImagePath: String?
         if let coverURL, let url = URL(string: coverURL) {
-            setupStatus = "Downloading cover art..."
+            setupStatus = "下载封面..."
             if let data = try? await viewModel.vndbClient.downloadImage(from: url) {
                 let key = vndbId ?? gameId.uuidString
                 try? viewModel.imageCache.save(data, forKey: key)
@@ -135,7 +148,7 @@ struct AddGameView: View {
 
         var engine = detectedEngine
         if let vndbId, engine == nil {
-            setupStatus = "Checking engine info..."
+            setupStatus = "检测引擎信息..."
             if let releases = try? await viewModel.vndbClient.getReleases(vnId: vndbId) {
                 if let vndbEngine = releases.compactMap({ $0.engine }).first {
                     engine = Engine.allCases.first {
@@ -161,7 +174,7 @@ struct AddGameView: View {
         )
 
         if engine != .renpy {
-            setupStatus = "Creating Wine prefix..."
+            setupStatus = "创建 Wine 前缀..."
             try? FileManager.default.createDirectory(
                 atPath: prefixPath,
                 withIntermediateDirectories: true

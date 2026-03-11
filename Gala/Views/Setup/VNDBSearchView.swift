@@ -22,14 +22,14 @@ struct VNDBSearchView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Text("Match with VNDB")
+            Text("匹配 VNDB")
                 .font(.headline)
 
             HStack {
-                TextField("Search...", text: $searchText)
+                TextField("搜索...", text: $searchText)
                     .textFieldStyle(.roundedBorder)
                     .onSubmit { search() }
-                Button("Search") { search() }
+                Button("搜索") { search() }
                     .disabled(searchText.isEmpty || isSearching)
             }
 
@@ -79,7 +79,7 @@ struct VNDBSearchView: View {
 
             HStack {
                 Spacer()
-                Button("Skip") { onSkip() }
+                Button("跳过") { onSkip() }
             }
         }
         .padding()

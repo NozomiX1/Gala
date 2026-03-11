@@ -1,0 +1,420 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0432C05FA505944570B312A0 /* LibraryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 140346F74F43DA4EAE058226 /* LibraryViewModel.swift */; };
+		2053AA0E998ADCCE1DE23D03 /* VNDBSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0EB9992676195BB9A91FF32 /* VNDBSearchView.swift */; };
+		2353CD0EF1228C858CD5AB1B /* GameCoverCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2455C05F5E164D51B001526D /* GameCoverCard.swift */; };
+		2782406383AC6B5B193293DB /* GalaKit in Frameworks */ = {isa = PBXBuildFile; productRef = C62077F2BB93641DDD3FC2C0 /* GalaKit */; };
+		2C4A1461F6B331E285B9F61B /* AddGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D50D7ABC140B1B8189C56C8 /* AddGameView.swift */; };
+		470A0A9429B1982D76603015 /* GameGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A85166B7C353227958FD86DC /* GameGridView.swift */; };
+		5D33E7AEDBD049E703245A58 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6632EE7BED14C38DDDAE5B9 /* ContentView.swift */; };
+		5FD7FF6B5866108AEEAEBBCC /* GalaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 328F0455D07DAD53E5B5A249 /* GalaApp.swift */; };
+		7F50E5852F61922F00A18FD8 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7F50E5832F618EDB00A18FD8 /* Assets.xcassets */; };
+		8D6F997942AF87FA2317F009 /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31A49391A009FF99DC3510BC /* WelcomeView.swift */; };
+		AEC0A57FD3F807FE0196D8AE /* GameDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86552808963422E72287CAA1 /* GameDetailView.swift */; };
+		B0BB18C51790076EEC0976FD /* GameViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDB0300C0F6F05420C64C648 /* GameViewModel.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		140346F74F43DA4EAE058226 /* LibraryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryViewModel.swift; sourceTree = "<group>"; };
+		2455C05F5E164D51B001526D /* GameCoverCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCoverCard.swift; sourceTree = "<group>"; };
+		31A49391A009FF99DC3510BC /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
+		328F0455D07DAD53E5B5A249 /* GalaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GalaApp.swift; sourceTree = "<group>"; };
+		4D50D7ABC140B1B8189C56C8 /* AddGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddGameView.swift; sourceTree = "<group>"; };
+		7803415B9E0C4A13ED20662B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		7F50E5832F618EDB00A18FD8 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		86552808963422E72287CAA1 /* GameDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameDetailView.swift; sourceTree = "<group>"; };
+		9B3C26063BC072C7E0D5EDFF /* Gala.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Gala.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A85166B7C353227958FD86DC /* GameGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameGridView.swift; sourceTree = "<group>"; };
+		C6632EE7BED14C38DDDAE5B9 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		CDB0300C0F6F05420C64C648 /* GameViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameViewModel.swift; sourceTree = "<group>"; };
+		D673A7C4BEDAF21B2BB63B3A /* GalaKit */ = {isa = PBXFileReference; lastKnownFileType = folder; path = GalaKit; sourceTree = SOURCE_ROOT; };
+		E0EB9992676195BB9A91FF32 /* VNDBSearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VNDBSearchView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		2EDC71D920B09C5F93BC1A40 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2782406383AC6B5B193293DB /* GalaKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		243C61522E71D712B8E4CF1B /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				CDB0300C0F6F05420C64C648 /* GameViewModel.swift */,
+				140346F74F43DA4EAE058226 /* LibraryViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		480B0045AB6C7A426EE9A3E4 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				9B3C26063BC072C7E0D5EDFF /* Gala.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		70A441186F0F70C475AA9F5C /* Setup */ = {
+			isa = PBXGroup;
+			children = (
+				4D50D7ABC140B1B8189C56C8 /* AddGameView.swift */,
+				E0EB9992676195BB9A91FF32 /* VNDBSearchView.swift */,
+				31A49391A009FF99DC3510BC /* WelcomeView.swift */,
+			);
+			path = Setup;
+			sourceTree = "<group>";
+		};
+		8ABA881FBFE458CD441CCDB1 /* Detail */ = {
+			isa = PBXGroup;
+			children = (
+				86552808963422E72287CAA1 /* GameDetailView.swift */,
+			);
+			path = Detail;
+			sourceTree = "<group>";
+		};
+		8DD6E2CF763665A39398AD81 /* Gala */ = {
+			isa = PBXGroup;
+			children = (
+				7F50E5832F618EDB00A18FD8 /* Assets.xcassets */,
+				328F0455D07DAD53E5B5A249 /* GalaApp.swift */,
+				7803415B9E0C4A13ED20662B /* Info.plist */,
+				243C61522E71D712B8E4CF1B /* ViewModels */,
+				DB0D711242B76831A0CD84C6 /* Views */,
+			);
+			path = Gala;
+			sourceTree = "<group>";
+		};
+		92673EAE066ADD9EE7F8A39B /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				D673A7C4BEDAF21B2BB63B3A /* GalaKit */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		A1941CBD971B2CF61FD307A2 /* Library */ = {
+			isa = PBXGroup;
+			children = (
+				2455C05F5E164D51B001526D /* GameCoverCard.swift */,
+				A85166B7C353227958FD86DC /* GameGridView.swift */,
+			);
+			path = Library;
+			sourceTree = "<group>";
+		};
+		DB0D711242B76831A0CD84C6 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				C6632EE7BED14C38DDDAE5B9 /* ContentView.swift */,
+				8ABA881FBFE458CD441CCDB1 /* Detail */,
+				A1941CBD971B2CF61FD307A2 /* Library */,
+				70A441186F0F70C475AA9F5C /* Setup */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		FD6251E58A25C218E8DC2F05 = {
+			isa = PBXGroup;
+			children = (
+				8DD6E2CF763665A39398AD81 /* Gala */,
+				92673EAE066ADD9EE7F8A39B /* Packages */,
+				480B0045AB6C7A426EE9A3E4 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		EE8B5D93E12D136EC8039325 /* Gala */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2EDF812707C4E702B540DCC8 /* Build configuration list for PBXNativeTarget "Gala" */;
+			buildPhases = (
+				5D846420FAB211CF1994FFC4 /* Sources */,
+				2EDC71D920B09C5F93BC1A40 /* Frameworks */,
+				7F50E5842F61922700A18FD8 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Gala;
+			packageProductDependencies = (
+				C62077F2BB93641DDD3FC2C0 /* GalaKit */,
+			);
+			productName = Gala;
+			productReference = 9B3C26063BC072C7E0D5EDFF /* Gala.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		1D48C668AA8E5616A2DD2799 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1600;
+			};
+			buildConfigurationList = BB2973B4FBBF3BF4C2E5F780 /* Build configuration list for PBXProject "Gala" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = FD6251E58A25C218E8DC2F05;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				F1480C46A00E5B936C2E8F40 /* XCLocalSwiftPackageReference "GalaKit" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 480B0045AB6C7A426EE9A3E4 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				EE8B5D93E12D136EC8039325 /* Gala */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		7F50E5842F61922700A18FD8 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7F50E5852F61922F00A18FD8 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		5D846420FAB211CF1994FFC4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2C4A1461F6B331E285B9F61B /* AddGameView.swift in Sources */,
+				5D33E7AEDBD049E703245A58 /* ContentView.swift in Sources */,
+				5FD7FF6B5866108AEEAEBBCC /* GalaApp.swift in Sources */,
+				2353CD0EF1228C858CD5AB1B /* GameCoverCard.swift in Sources */,
+				AEC0A57FD3F807FE0196D8AE /* GameDetailView.swift in Sources */,
+				470A0A9429B1982D76603015 /* GameGridView.swift in Sources */,
+				B0BB18C51790076EEC0976FD /* GameViewModel.swift in Sources */,
+				0432C05FA505944570B312A0 /* LibraryViewModel.swift in Sources */,
+				2053AA0E998ADCCE1DE23D03 /* VNDBSearchView.swift in Sources */,
+				8D6F997942AF87FA2317F009 /* WelcomeView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		37FDF9228AE739978F0C341A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = Gala/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nozomi.gala;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.10;
+			};
+			name = Release;
+		};
+		4F306AE6785374A4489BC562 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		70E544701B4A601404416B5D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				INFOPLIST_FILE = Gala/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nozomi.gala;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.10;
+			};
+			name = Debug;
+		};
+		E734A71C3A7E2A16747F4630 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		2EDF812707C4E702B540DCC8 /* Build configuration list for PBXNativeTarget "Gala" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				70E544701B4A601404416B5D /* Debug */,
+				37FDF9228AE739978F0C341A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		BB2973B4FBBF3BF4C2E5F780 /* Build configuration list for PBXProject "Gala" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4F306AE6785374A4489BC562 /* Debug */,
+				E734A71C3A7E2A16747F4630 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		F1480C46A00E5B936C2E8F40 /* XCLocalSwiftPackageReference "GalaKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = GalaKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		C62077F2BB93641DDD3FC2C0 /* GalaKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = GalaKit;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 1D48C668AA8E5616A2DD2799 /* Project object */;
+}

@@ -5,6 +5,11 @@ struct GameCoverCard: View {
     let game: Game
     let isSelected: Bool
     let imageCache: ImageCache
+    let onLaunch: () -> Void
+    let onDelete: () -> Void
+    let onChangeExe: () -> Void
+    let onSetStatus: (GameStatus) -> Void
+    let onToggleFavorite: () -> Void
 
     var body: some View {
         VStack(spacing: 6) {
@@ -27,6 +32,31 @@ struct GameCoverCard: View {
                 Text(formatPlayTime(game.totalPlayTime))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+            }
+        }
+        .contextMenu {
+            Button { onLaunch() } label: {
+                Label("启动游戏", systemImage: "play.fill")
+            }
+
+            Button { onToggleFavorite() } label: {
+                Label(game.isFavorite ? "取消收藏" : "收藏", systemImage: game.isFavorite ? "star.slash" : "star")
+            }
+
+            Divider()
+
+            Button { onSetStatus(game.status == .completed ? .backlog : .completed) } label: {
+                Label(game.status == .completed ? "取消通关" : "标记为已通关", systemImage: game.status == .completed ? "checkmark.circle.badge.xmark" : "checkmark.circle")
+            }
+
+            Button { onChangeExe() } label: {
+                Label("更改启动文件", systemImage: "doc.badge.gearshape")
+            }
+
+            Divider()
+
+            Button(role: .destructive) { onDelete() } label: {
+                Label("删除游戏", systemImage: "trash")
             }
         }
     }

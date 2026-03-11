@@ -22,7 +22,7 @@ final class GameViewModel {
         }
 
         guard let wineBinary = wineManager.wineBinaryURL else {
-            errorMessage = "Wine is not installed. Please install it from Settings."
+            errorMessage = "Wine 未安装，请先安装。"
             return
         }
 
@@ -33,17 +33,17 @@ final class GameViewModel {
             // First launch: set up bottle if not ready
             if !bottleManager.isBottleReady(for: game) {
                 isSettingUp = true
-                setupStatus = "Initializing Wine prefix..."
+                setupStatus = "初始化 Wine 前缀..."
 
                 do {
                     try await bottleManager.createBottle(for: game)
 
                     if game.engine != nil {
-                        setupStatus = "Applying engine preset..."
+                        setupStatus = "应用引擎预设..."
                         try await bottleManager.applyEnginePreset(for: game)
                     }
                 } catch {
-                    errorMessage = "Bottle setup failed: \(error.localizedDescription)"
+                    errorMessage = "环境配置失败：\(error.localizedDescription)"
                     isSettingUp = false
                     return
                 }
@@ -60,12 +60,12 @@ final class GameViewModel {
                         self?.isRunning = false
                         // Show Wine output if game exited quickly (likely crashed)
                         if duration < 5, let output = self?.wineProcess.lastOutput, !output.isEmpty {
-                            self?.errorMessage = "Game exited quickly. Wine output:\n\(String(output.suffix(500)))"
+                            self?.errorMessage = "游戏快速退出。Wine 输出：\n\(String(output.suffix(500)))"
                         }
                     }
                 }
             } catch {
-                errorMessage = "Launch failed: \(error.localizedDescription)"
+                errorMessage = "启动失败：\(error.localizedDescription)"
                 isRunning = false
             }
         }
@@ -92,6 +92,6 @@ final class GameViewModel {
                 return
             }
         }
-        errorMessage = "No native macOS binary found. Wine will be used."
+        errorMessage = "未找到原生 macOS 程序，将使用 Wine 启动。"
     }
 }

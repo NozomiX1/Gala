@@ -21,6 +21,7 @@ public struct Game: Identifiable, Codable, Sendable {
     public var description: String?
     public var tags: [String]
     public var status: GameStatus
+    public var isFavorite: Bool
     public var bottleConfig: BottleConfig
 
     public init(
@@ -40,6 +41,7 @@ public struct Game: Identifiable, Codable, Sendable {
         description: String? = nil,
         tags: [String] = [],
         status: GameStatus = .backlog,
+        isFavorite: Bool = false,
         bottleConfig: BottleConfig? = nil
     ) {
         self.id = id
@@ -58,6 +60,29 @@ public struct Game: Identifiable, Codable, Sendable {
         self.description = description
         self.tags = tags
         self.status = status
+        self.isFavorite = isFavorite
         self.bottleConfig = bottleConfig ?? BottleConfig(prefixPath: "")
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        originalTitle = try container.decodeIfPresent(String.self, forKey: .originalTitle)
+        vndbId = try container.decodeIfPresent(String.self, forKey: .vndbId)
+        executablePath = try container.decode(String.self, forKey: .executablePath)
+        coverImagePath = try container.decodeIfPresent(String.self, forKey: .coverImagePath)
+        engine = try container.decodeIfPresent(Engine.self, forKey: .engine)
+        totalPlayTime = try container.decodeIfPresent(TimeInterval.self, forKey: .totalPlayTime) ?? 0
+        lastPlayedAt = try container.decodeIfPresent(Date.self, forKey: .lastPlayedAt)
+        addedAt = try container.decodeIfPresent(Date.self, forKey: .addedAt) ?? Date()
+        rating = try container.decodeIfPresent(Double.self, forKey: .rating)
+        developer = try container.decodeIfPresent(String.self, forKey: .developer)
+        releasedAt = try container.decodeIfPresent(String.self, forKey: .releasedAt)
+        description = try container.decodeIfPresent(String.self, forKey: .description)
+        tags = try container.decodeIfPresent([String].self, forKey: .tags) ?? []
+        status = try container.decodeIfPresent(GameStatus.self, forKey: .status) ?? .backlog
+        isFavorite = try container.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
+        bottleConfig = try container.decode(BottleConfig.self, forKey: .bottleConfig)
     }
 }

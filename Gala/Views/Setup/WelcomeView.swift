@@ -14,7 +14,7 @@ struct WelcomeView: View {
                 .font(.system(size: 64))
                 .foregroundStyle(.tint)
 
-            Text("Welcome to Gala")
+            Text("欢迎使用 Gala")
                 .font(.largeTitle.bold())
 
             if let error = errorMessage {
@@ -24,7 +24,7 @@ struct WelcomeView: View {
                         .foregroundStyle(.red)
                         .frame(maxWidth: 400)
 
-                    Button("Retry") {
+                    Button("重试") {
                         errorMessage = nil
                         isRetrying = true
                         startDownload()
@@ -35,7 +35,7 @@ struct WelcomeView: View {
             } else {
                 VStack(spacing: 8) {
                     ProgressView()
-                    Text("Preparing environment...\nDownloading Wine Staging 11.4")
+                    Text("正在准备环境...\n下载 Wine Staging 11.4")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
@@ -62,7 +62,7 @@ struct WelcomeView: View {
                 await MainActor.run { onComplete() }
             } catch {
                 await MainActor.run {
-                    errorMessage = "Download failed: \(error.localizedDescription)"
+                    errorMessage = "下载失败：\(error.localizedDescription)"
                     isRetrying = false
                 }
             }

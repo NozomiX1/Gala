@@ -55,7 +55,7 @@ struct GameDetailView: View {
                                 gameVM.launchGame(game, viewModel: viewModel)
                             } label: {
                                 Label(
-                                    gameVM.isRunning ? "Running..." : "Launch",
+                                    gameVM.isRunning ? "运行中..." : "启动",
                                     systemImage: gameVM.isRunning ? "stop.circle" : "play.fill"
                                 )
                                 .frame(width: 120)
@@ -77,18 +77,17 @@ struct GameDetailView: View {
                 Divider()
 
                 HStack(spacing: 30) {
-                    statItem(label: "Play Time", value: formatPlayTime(game.totalPlayTime))
+                    statItem(label: "游玩时间", value: formatPlayTime(game.totalPlayTime))
                     if let lastPlayed = game.lastPlayedAt {
-                        statItem(label: "Last Played", value: lastPlayed.formatted(date: .abbreviated, time: .omitted))
+                        statItem(label: "上次游玩", value: lastPlayed.formatted(date: .abbreviated, time: .omitted))
                     }
                     if let rating = game.rating {
-                        statItem(label: "VNDB Rating", value: String(format: "%.0f", rating))
+                        statItem(label: "VNDB 评分", value: String(format: "%.0f", rating))
                     }
-                    statItem(label: "Status", value: game.status.rawValue.capitalized)
                 }
 
                 if let description = game.description {
-                    Text("About")
+                    Text("简介")
                         .font(.headline)
                     Text(description)
                         .font(.body)
@@ -96,7 +95,7 @@ struct GameDetailView: View {
                 }
 
                 if !game.tags.isEmpty {
-                    Text("Tags")
+                    Text("标签")
                         .font(.headline)
                     FlowLayout(spacing: 6) {
                         ForEach(game.tags, id: \.self) { tag in
@@ -143,12 +142,21 @@ struct GameDetailView: View {
         }
     }
 
+    private func statusText(_ status: GameStatus) -> String {
+        switch status {
+        case .backlog: return "待玩"
+        case .playing: return "正在游玩"
+        case .completed: return "已通关"
+        case .dropped: return "已搁置"
+        }
+    }
+
     private func formatPlayTime(_ seconds: TimeInterval) -> String {
         let hours = Int(seconds) / 3600
         let minutes = (Int(seconds) % 3600) / 60
-        if hours > 0 { return "\(hours)h \(minutes)m" }
-        if minutes > 0 { return "\(minutes)m" }
-        return "Not played"
+        if hours > 0 { return "\(hours)小时\(minutes)分钟" }
+        if minutes > 0 { return "\(minutes)分钟" }
+        return "未游玩"
     }
 }
 
