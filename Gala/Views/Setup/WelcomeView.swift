@@ -17,7 +17,7 @@ struct WelcomeView: View {
         VStack(spacing: 24) {
             Image(systemName: "gamecontroller.fill")
                 .font(.system(size: 64))
-                .foregroundStyle(.accent)
+                .foregroundStyle(.tint)
 
             Text("Welcome to Gala")
                 .font(.largeTitle.bold())

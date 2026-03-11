@@ -1,0 +1,34 @@
+name: Gala
+options:
+  bundleIdPrefix: com.nozomi
+  deploymentTarget:
+    macOS: "14.0"
+  xcodeVersion: "16.0"
+  minimumXcodeGenVersion: "2.40"
+
+packages:
+  GalaKit:
+    path: GalaKit
+
+targets:
+  Gala:
+    type: application
+    platform: macOS
+    sources:
+      - Gala
+    dependencies:
+      - package: GalaKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.nozomi.gala
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: 1
+        SWIFT_VERSION: "5.10"
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        INFOPLIST_KEY_LSApplicationCategoryType: "public.app-category.games"
+    info:
+      path: Gala/Info.plist
+      properties:
+        CFBundleDisplayName: Gala
+        CFBundleName: Gala
+        LSMinimumSystemVersion: "14.0"
