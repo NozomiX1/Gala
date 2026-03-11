@@ -2,7 +2,6 @@ import Foundation
 
 public final class WineProcess: ObservableObject, @unchecked Sendable {
     private var process: Process?
-    private var outputPipe: Pipe?
 
     @Published public var isRunning = false
     @Published public var lastOutput: String = ""
@@ -16,42 +15,42 @@ public final class WineProcess: ObservableObject, @unchecked Sendable {
     ) throws {
         guard !isRunning else { return }
 
+        let launchConfig = try WineLaunchConfig.resolve(game: game)
+
         let process = Process()
         process.executableURL = wineBinary
-        process.arguments = game.bottleConfig.launchArguments + [game.executablePath]
-        process.currentDirectoryURL = URL(fileURLWithPath: game.executablePath).deletingLastPathComponent()
-
-        var env: [String: String] = [
-            "WINEPREFIX": game.bottleConfig.prefixPath,
-            "LANG": game.bottleConfig.locale,
-            "LC_ALL": game.bottleConfig.locale,
-        ]
-        // Merge DLL overrides into WINEDLLOVERRIDES env var
-        if !game.bottleConfig.dllOverrides.isEmpty {
-            let overrides = game.bottleConfig.dllOverrides.map { "\($0.key)=\($0.value)" }.joined(separator: ";")
-            env["WINEDLLOVERRIDES"] = overrides
+        process.arguments = launchConfig.arguments
+        if let workingDir = launchConfig.workingDirectory {
+            process.currentDirectoryURL = workingDir
         }
-        for (key, value) in game.bottleConfig.environment {
-            env[key] = value
-        }
-        process.environment = env
 
-        // Capture stderr for diagnostics
-        let pipe = Pipe()
-        process.standardError = pipe
-        self.outputPipe = pipe
+        process.environment = WineLaunchConfig.buildEnvironment(
+            game: game, wineBinary: wineBinary
+        )
+
+        // Write stderr to a temp file instead of a Pipe to avoid deadlocks.
+        // Pipes have a 64KB buffer; when Wine + child processes fill it, they block.
+        // Files have no such limit.
+        let stderrFile = FileManager.default.temporaryDirectory
+            .appendingPathComponent("gala-wine-\(UUID().uuidString).log")
+        FileManager.default.createFile(atPath: stderrFile.path, contents: nil)
+        let stderrHandle = try FileHandle(forWritingTo: stderrFile)
+        process.standardError = stderrHandle
 
         let startTime = Date()
 
         process.terminationHandler = { [weak self] proc in
             let duration = Date().timeIntervalSince(startTime)
-            // Read output for diagnostics
-            if let data = try? pipe.fileHandleForReading.availableData,
+            stderrHandle.closeFile()
+            // Read last 500 chars of stderr for diagnostics
+            if let data = try? Data(contentsOf: stderrFile),
                let output = String(data: data, encoding: .utf8), !output.isEmpty {
+                let tail = String(output.suffix(500))
                 DispatchQueue.main.async {
-                    self?.lastOutput = output
+                    self?.lastOutput = tail
                 }
             }
+            try? FileManager.default.removeItem(at: stderrFile)
             DispatchQueue.main.async {
                 self?.isRunning = false
             }

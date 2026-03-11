@@ -5,6 +5,7 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
 
     public var wineDirectory: URL { baseURL.appendingPathComponent("Wine") }
     public var bottlesDirectory: URL { baseURL.appendingPathComponent("Bottles") }
+    public var fontsDirectory: URL { baseURL.appendingPathComponent("Fonts") }
     private var activeLink: URL { wineDirectory.appendingPathComponent("active") }
 
     @Published public var isDownloading = false
@@ -14,6 +15,7 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
         self.baseURL = baseURL
         try? FileManager.default.createDirectory(at: wineDirectory, withIntermediateDirectories: true)
         try? FileManager.default.createDirectory(at: bottlesDirectory, withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(at: fontsDirectory, withIntermediateDirectories: true)
     }
 
     public var isWineInstalled: Bool {
@@ -21,39 +23,57 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
     }
 
     public var wineBinaryURL: URL? {
-        // 1. Check our managed active symlink
-        let managedBinary = activeLink.appendingPathComponent("bin").appendingPathComponent("wine64")
-        if FileManager.default.fileExists(atPath: managedBinary.path) {
-            return managedBinary
+        // Check managed Wine installations (prefer wine over wine64 for better WoW64 support)
+        for name in ["wine", "wine64"] {
+            let managedBinary = activeLink
+                .appendingPathComponent("Contents/Resources/wine/bin/\(name)")
+            if FileManager.default.fileExists(atPath: managedBinary.path) {
+                return managedBinary
+            }
+            let flatBinary = activeLink.appendingPathComponent("bin/\(name)")
+            if FileManager.default.fileExists(atPath: flatBinary.path) {
+                return flatBinary
+            }
         }
-        // 2. Check Homebrew GPTK installation
-        for path in Self.homebrewWinePaths {
-            if FileManager.default.fileExists(atPath: path) {
-                return URL(fileURLWithPath: path)
+        // Scan managed Wine directory for any installed version
+        if let found = findManagedWineBinary() { return found }
+        return nil
+    }
+
+    private func findManagedWineBinary() -> URL? {
+        guard let contents = try? FileManager.default.contentsOfDirectory(
+            at: wineDirectory, includingPropertiesForKeys: nil
+        ) else { return nil }
+        for dir in contents where dir.lastPathComponent != "active" {
+            for name in ["wine", "wine64"] {
+                let appBundle = dir.appendingPathComponent("Contents/Resources/wine/bin/\(name)")
+                if FileManager.default.fileExists(atPath: appBundle.path) { return appBundle }
+                let flat = dir.appendingPathComponent("bin/\(name)")
+                if FileManager.default.fileExists(atPath: flat.path) { return flat }
             }
         }
         return nil
     }
 
-    /// Common Homebrew Wine/GPTK binary paths
-    private static let homebrewWinePaths = [
-        "/opt/homebrew/bin/wine64",
-        "/opt/homebrew/opt/game-porting-toolkit/bin/wine64",
-        "/usr/local/bin/wine64",
-        "/usr/local/opt/game-porting-toolkit/bin/wine64",
-    ]
+    /// Download URL for Wine Staging (Gcenx macOS builds)
+    public static let wineDownloadURL = URL(string: "https://github.com/Gcenx/macOS_Wine_builds/releases/download/11.4/wine-staging-11.4-osx64.tar.xz")!
 
-    /// Link an externally installed Wine binary (e.g. from Homebrew or user-provided path)
-    public func linkExternalWine(at binaryPath: URL) throws {
-        let binDir = binaryPath.deletingLastPathComponent()
-        let wineRoot = binDir.deletingLastPathComponent() // go up from bin/
-        let versionName = "external-\(wineRoot.lastPathComponent)"
-        let symlinkTarget = wineDirectory.appendingPathComponent(versionName)
+    /// Download URL for Source Han Sans SC (OFL-licensed CJK font)
+    public static let fontDownloadURL = URL(string: "https://github.com/adobe-fonts/source-han-sans/raw/release/OTF/SimplifiedChinese/SourceHanSansSC-Regular.otf")!
+    public static let bundledFontName = "SourceHanSansSC-Regular.otf"
 
-        // Create symlink to external Wine installation
-        try? FileManager.default.removeItem(at: symlinkTarget)
-        try FileManager.default.createSymbolicLink(at: symlinkTarget, withDestinationURL: wineRoot)
-        try setActiveVersion(versionName)
+    public var fontFileURL: URL {
+        fontsDirectory.appendingPathComponent(Self.bundledFontName)
+    }
+
+    public var isFontInstalled: Bool {
+        FileManager.default.fileExists(atPath: fontFileURL.path)
+    }
+
+    public func downloadFont() async throws {
+        guard !isFontInstalled else { return }
+        let (tempURL, _) = try await URLSession.shared.download(from: Self.fontDownloadURL)
+        try FileManager.default.moveItem(at: tempURL, to: fontFileURL)
     }
 
     public func installedVersions() -> [String] {
@@ -93,7 +113,7 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
         try FileManager.default.createDirectory(at: destinationDir, withIntermediateDirectories: true)
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/tar")
-        process.arguments = ["xzf", tempURL.path, "-C", destinationDir.path, "--strip-components=1"]
+        process.arguments = ["xf", tempURL.path, "-C", destinationDir.path, "--strip-components=1"]
         try process.run()
         process.waitUntilExit()
 
@@ -103,6 +123,9 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
 
         try setActiveVersion(versionName)
         try? FileManager.default.removeItem(at: tempURL)
+
+        // Download CJK font alongside Wine
+        try? await downloadFont()
 
         await MainActor.run {
             downloadProgress = 1.0

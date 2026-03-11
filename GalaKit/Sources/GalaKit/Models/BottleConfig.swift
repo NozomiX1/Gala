@@ -21,7 +21,7 @@ public struct BottleConfig: Codable, Sendable {
         dllOverrides: [String: String] = [:],
         environment: [String: String] = [:],
         launchArguments: [String] = [],
-        locale: String = "ja_JP.UTF-8",
+        locale: String = "zh_CN.UTF-8",
         winetricksComponents: [String] = []
     ) {
         self.prefixPath = prefixPath

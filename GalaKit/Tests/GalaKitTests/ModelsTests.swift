@@ -16,7 +16,7 @@ import Foundation
     #expect(decoded.totalPlayTime == 0)
     #expect(decoded.status == .backlog)
     #expect(decoded.engine == nil)
-    #expect(decoded.bottleConfig.locale == "ja_JP.UTF-8")
+    #expect(decoded.bottleConfig.locale == "zh_CN.UTF-8")
 }
 
 @Test func engineHasPreset() {
@@ -34,7 +34,7 @@ import Foundation
 
 @Test func bottleConfigDefaults() {
     let config = BottleConfig(prefixPath: "/tmp/test")
-    #expect(config.locale == "ja_JP.UTF-8")
+    #expect(config.locale == "zh_CN.UTF-8")
     #expect(config.windowsVersion == .win10)
     #expect(config.dllOverrides.isEmpty)
 }

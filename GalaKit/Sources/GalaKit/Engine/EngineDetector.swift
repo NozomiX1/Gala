@@ -98,7 +98,7 @@ public enum EngineDetector {
 
         switch engine {
         case .bgi:
-            // BGI/Ethornell: look for BGI.exe or Ethornell.exe
+            // BGI/Ethornell: BGI.exe is the game engine
             if let match = exeFiles.first(where: { $0.lowercased() == "bgi.exe" }) {
                 return directory.appendingPathComponent(match)
             }

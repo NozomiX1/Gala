@@ -36,7 +36,29 @@ public final class BottleManager: @unchecked Sendable {
             locale: game.bottleConfig.locale
         )
 
-        try await configureJapaneseLocale(
+        try await configureLocale(
+            wineBinary: wineBinary,
+            prefix: game.bottleConfig.prefixPath,
+            locale: game.bottleConfig.locale
+        )
+
+        if let fontURL = wineManager?.fontFileURL {
+            try Self.installBundledFont(prefix: game.bottleConfig.prefixPath, fontSource: fontURL)
+        }
+
+        try await registerFont(
+            wineBinary: wineBinary,
+            prefix: game.bottleConfig.prefixPath,
+            locale: game.bottleConfig.locale
+        )
+
+        try await configureFontSubstitutes(
+            wineBinary: wineBinary,
+            prefix: game.bottleConfig.prefixPath,
+            locale: game.bottleConfig.locale
+        )
+
+        try await configureFontSmoothing(
             wineBinary: wineBinary,
             prefix: game.bottleConfig.prefixPath,
             locale: game.bottleConfig.locale
@@ -73,12 +95,18 @@ public final class BottleManager: @unchecked Sendable {
         }
     }
 
-    private func configureJapaneseLocale(wineBinary: URL, prefix: String, locale: String) async throws {
+    private func configureLocale(wineBinary: URL, prefix: String, locale: String) async throws {
+        let (acp, oemcp, lang): (String, String, String) = if locale.hasPrefix("zh_CN") {
+            ("936", "936", "0804")
+        } else {
+            ("932", "932", "0411")
+        }
+
         let regCommands: [(key: String, value: String, data: String)] = [
-            ("HKLM\\System\\CurrentControlSet\\Control\\Nls\\CodePage", "ACP", "932"),
-            ("HKLM\\System\\CurrentControlSet\\Control\\Nls\\CodePage", "OEMCP", "932"),
-            ("HKLM\\System\\CurrentControlSet\\Control\\Nls\\Language", "Default", "0411"),
-            ("HKLM\\System\\CurrentControlSet\\Control\\Nls\\Language", "InstallLanguage", "0411"),
+            ("HKLM\\System\\CurrentControlSet\\Control\\Nls\\CodePage", "ACP", acp),
+            ("HKLM\\System\\CurrentControlSet\\Control\\Nls\\CodePage", "OEMCP", oemcp),
+            ("HKLM\\System\\CurrentControlSet\\Control\\Nls\\Language", "Default", lang),
+            ("HKLM\\System\\CurrentControlSet\\Control\\Nls\\Language", "InstallLanguage", lang),
         ]
 
         for cmd in regCommands {
@@ -91,14 +119,104 @@ public final class BottleManager: @unchecked Sendable {
         }
     }
 
-    private func installWinetricks(components: [String], prefix: String) async throws {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = ["winetricks", "-q"] + components
-        process.environment = [
-            "WINEPREFIX": prefix,
-            "PATH": "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin"
+    // MARK: - CJK Fonts
+
+    /// Install the downloaded Source Han Sans SC font into a Wine prefix's Fonts directory.
+    public static func installBundledFont(prefix: String, fontSource: URL) throws {
+        let fontsDir = URL(fileURLWithPath: prefix)
+            .appendingPathComponent("drive_c/windows/Fonts")
+        try FileManager.default.createDirectory(at: fontsDir, withIntermediateDirectories: true)
+
+        let dest = fontsDir.appendingPathComponent(fontSource.lastPathComponent)
+        guard !FileManager.default.fileExists(atPath: dest.path) else { return }
+        guard FileManager.default.fileExists(atPath: fontSource.path) else { return }
+
+        try FileManager.default.copyItem(at: fontSource, to: dest)
+    }
+
+    private func registerFont(wineBinary: URL, prefix: String, locale: String) async throws {
+        let regKey = "HKLM\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Fonts"
+        try await runWineCommand(
+            wineBinary: wineBinary,
+            arguments: ["reg", "add", regKey,
+                       "/v", "Source Han Sans SC Regular (TrueType)",
+                       "/t", "REG_SZ",
+                       "/d", "SourceHanSansSC-Regular.otf",
+                       "/f"],
+            prefix: prefix,
+            locale: locale
+        )
+    }
+
+    private func configureFontSubstitutes(wineBinary: URL, prefix: String, locale: String) async throws {
+        // Map common Windows CJK fonts to macOS system fonts so Wine can render
+        // CJK text in window titles, dialogs, and game UI.
+        let regKey = "HKLM\\Software\\Microsoft\\Windows NT\\CurrentVersion\\FontSubstitutes"
+        let fontName = "Source Han Sans SC"
+        let substitutes: [(String, String)] = [
+            ("SimSun", fontName),
+            ("NSimSun", fontName),
+            ("MS Gothic", fontName),
+            ("MS PGothic", fontName),
+            ("MS UI Gothic", fontName),
+            ("MS Mincho", fontName),
+            ("MS PMincho", fontName),
+            ("Microsoft YaHei", fontName),
+            ("\\u5B8B\\u4F53", fontName),
+            ("\\u9ED1\\u4F53", fontName),
+            // Full-width Japanese names (BGI engine uses these)
+            ("\u{FF2D}\u{FF33} \u{660E}\u{671D}", fontName),           // ＭＳ 明朝
+            ("\u{FF2D}\u{FF33} \u{30B4}\u{30B7}\u{30C3}\u{30AF}", fontName), // ＭＳ ゴシック
+            ("\u{FF2D}\u{FF33} \u{FF30}\u{660E}\u{671D}", fontName),   // ＭＳ Ｐ明朝
+            ("\u{FF2D}\u{FF33} \u{FF30}\u{30B4}\u{30B7}\u{30C3}\u{30AF}", fontName), // ＭＳ Ｐゴシック
         ]
+
+        for (from, to) in substitutes {
+            try await runWineCommand(
+                wineBinary: wineBinary,
+                arguments: ["reg", "add", regKey, "/v", from, "/t", "REG_SZ", "/d", to, "/f"],
+                prefix: prefix,
+                locale: locale
+            )
+        }
+    }
+
+    private func configureFontSmoothing(wineBinary: URL, prefix: String, locale: String) async throws {
+        let regKey = "HKCU\\Control Panel\\Desktop"
+        let settings: [(String, String)] = [
+            ("FontSmoothing", "2"),
+            ("FontSmoothingType", "2"),        // FreeType subpixel rendering
+            ("FontSmoothingGamma", "1000"),
+            ("FontSmoothingOrientation", "1"),  // RGB
+        ]
+        for (name, data) in settings {
+            try await runWineCommand(
+                wineBinary: wineBinary,
+                arguments: ["reg", "add", regKey, "/v", name, "/t", "REG_SZ", "/d", data, "/f"],
+                prefix: prefix,
+                locale: locale
+            )
+        }
+    }
+
+    // MARK: - Winetricks (optional, for engine presets)
+
+    private static func findWinetricks() -> String? {
+        ["/opt/homebrew/bin/winetricks", "/usr/local/bin/winetricks"]
+            .first { FileManager.default.fileExists(atPath: $0) }
+    }
+
+    private func installWinetricks(components: [String], prefix: String) async throws {
+        guard let winetricksPath = Self.findWinetricks() else { return }
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: winetricksPath)
+        process.arguments = ["-q"] + components
+        var env = ProcessInfo.processInfo.environment
+        env["WINEPREFIX"] = prefix
+        if let wineBinary = wineManager?.wineBinaryURL {
+            env["WINE"] = wineBinary.path
+        }
+        process.environment = env
         try process.run()
         process.waitUntilExit()
     }
@@ -107,11 +225,11 @@ public final class BottleManager: @unchecked Sendable {
         let process = Process()
         process.executableURL = wineBinary
         process.arguments = arguments
-        process.environment = [
-            "WINEPREFIX": prefix,
-            "LANG": locale,
-            "LC_ALL": locale,
-        ]
+        var env = ProcessInfo.processInfo.environment
+        env["WINEPREFIX"] = prefix
+        env["LANG"] = locale
+        env["LC_ALL"] = locale
+        process.environment = env
         try process.run()
         process.waitUntilExit()
     }
