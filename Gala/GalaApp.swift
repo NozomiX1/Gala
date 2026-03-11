@@ -2,13 +2,6 @@ import SwiftUI
 
 @main
 struct GalaApp: App {
-    init() {
-        // Register with LaunchServices so the app appears in macOS 26 Apps view
-        if let bundleURL = Bundle.main.bundleURL as CFURL? {
-            LSRegisterURL(bundleURL, true)
-        }
-    }
-
     var body: some Scene {
         WindowGroup {
             ContentView()
