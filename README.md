@@ -30,6 +30,12 @@
 - macOS 14 (Sonoma) 或更高版本
 - Apple Silicon Mac (M1+)
 
+## 安装
+
+1. 下载 [Gala.dmg](https://github.com/NozomiX1/Gala/releases/latest)，打开后将 Gala 拖入 Applications
+2. 首次打开：右键点击 Gala → 打开，或前往 系统设置 → 隐私与安全性 → 点击"仍要打开"
+3. 首次启动自动下载 Wine 和 CJK 字体
+
 ## 构建
 
 ```bash
