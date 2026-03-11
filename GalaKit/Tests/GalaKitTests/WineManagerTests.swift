@@ -13,14 +13,20 @@ import Foundation
     #expect(manager.bottlesDirectory.lastPathComponent == "Bottles")
 }
 
-@Test func wineManagerDetectsNoInstallation() throws {
+@Test func wineManagerManagedPathNotInstalled() throws {
     let tempDir = FileManager.default.temporaryDirectory
         .appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: tempDir) }
 
     let manager = WineManager(baseURL: tempDir)
-    #expect(manager.isWineInstalled == false)
+    // Managed Wine (active symlink) should not exist in a fresh temp dir.
+    // isWineInstalled may still be true if Homebrew Wine is present globally.
+    let managedBinary = manager.wineDirectory
+        .appendingPathComponent("active")
+        .appendingPathComponent("bin")
+        .appendingPathComponent("wine64")
+    #expect(!FileManager.default.fileExists(atPath: managedBinary.path))
 }
 
 @Test func bottleManagerCreatesDirectory() throws {

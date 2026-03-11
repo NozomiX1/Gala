@@ -14,6 +14,13 @@ public final class BottleManager: @unchecked Sendable {
         bottlesDirectory.appendingPathComponent(gameId.uuidString).path
     }
 
+    /// Check if a bottle has been fully initialized (has system.reg from wineboot)
+    public func isBottleReady(for game: Game) -> Bool {
+        let systemReg = URL(fileURLWithPath: game.bottleConfig.prefixPath)
+            .appendingPathComponent("system.reg")
+        return FileManager.default.fileExists(atPath: systemReg.path)
+    }
+
     public func createBottle(for game: Game) async throws {
         let prefixURL = URL(fileURLWithPath: game.bottleConfig.prefixPath)
         try FileManager.default.createDirectory(at: prefixURL, withIntermediateDirectories: true)

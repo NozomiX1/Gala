@@ -4,16 +4,19 @@ import GalaKit
 @Observable
 final class GameViewModel {
     var isRunning = false
+    var isSettingUp = false
+    var setupStatus = ""
     var errorMessage: String?
 
     private let wineProcess = WineProcess()
 
     func launchGame(_ game: Game, viewModel: LibraryViewModel) {
-        guard !isRunning else { return }
+        guard !isRunning && !isSettingUp else { return }
 
         let wineManager = viewModel.wineManagerInstance
 
-        if game.engine == .renpy {
+        // Native engines skip Wine entirely
+        if game.engine?.supportsNativeLaunch == true {
             launchNative(game, viewModel: viewModel)
             return
         }
@@ -23,19 +26,48 @@ final class GameViewModel {
             return
         }
 
-        isRunning = true
         errorMessage = nil
+        let bottleManager = viewModel.bottleManager
 
-        do {
-            try wineProcess.launch(game: game, wineBinary: wineBinary) { [weak self] duration in
-                viewModel.recordPlayTime(gameId: game.id, duration: duration)
-                DispatchQueue.main.async {
-                    self?.isRunning = false
+        Task { @MainActor in
+            // First launch: set up bottle if not ready
+            if !bottleManager.isBottleReady(for: game) {
+                isSettingUp = true
+                setupStatus = "Initializing Wine prefix..."
+
+                do {
+                    try await bottleManager.createBottle(for: game)
+
+                    if game.engine != nil {
+                        setupStatus = "Applying engine preset..."
+                        try await bottleManager.applyEnginePreset(for: game)
+                    }
+                } catch {
+                    errorMessage = "Bottle setup failed: \(error.localizedDescription)"
+                    isSettingUp = false
+                    return
                 }
+
+                isSettingUp = false
             }
-        } catch {
-            errorMessage = error.localizedDescription
-            isRunning = false
+
+            // Now launch the game
+            isRunning = true
+            do {
+                try wineProcess.launch(game: game, wineBinary: wineBinary) { [weak self] duration in
+                    viewModel.recordPlayTime(gameId: game.id, duration: duration)
+                    DispatchQueue.main.async {
+                        self?.isRunning = false
+                        // Show Wine output if game exited quickly (likely crashed)
+                        if duration < 5, let output = self?.wineProcess.lastOutput, !output.isEmpty {
+                            self?.errorMessage = "Game exited quickly. Wine output:\n\(String(output.suffix(500)))"
+                        }
+                    }
+                }
+            } catch {
+                errorMessage = "Launch failed: \(error.localizedDescription)"
+                isRunning = false
+            }
         }
     }
 

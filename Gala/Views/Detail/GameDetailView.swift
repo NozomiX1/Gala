@@ -43,23 +43,33 @@ struct GameDetailView: View {
 
                         Spacer()
 
-                        Button {
-                            gameVM.launchGame(game, viewModel: viewModel)
-                        } label: {
-                            Label(
-                                gameVM.isRunning ? "Running..." : "Launch",
-                                systemImage: gameVM.isRunning ? "stop.circle" : "play.fill"
-                            )
-                            .frame(width: 120)
+                        if gameVM.isSettingUp {
+                            VStack(spacing: 4) {
+                                ProgressView()
+                                Text(gameVM.setupStatus)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        } else {
+                            Button {
+                                gameVM.launchGame(game, viewModel: viewModel)
+                            } label: {
+                                Label(
+                                    gameVM.isRunning ? "Running..." : "Launch",
+                                    systemImage: gameVM.isRunning ? "stop.circle" : "play.fill"
+                                )
+                                .frame(width: 120)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.large)
+                            .disabled(gameVM.isRunning)
                         }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
-                        .disabled(gameVM.isRunning)
 
                         if let error = gameVM.errorMessage {
                             Text(error)
                                 .font(.caption)
                                 .foregroundStyle(.red)
+                                .textSelection(.enabled)
                         }
                     }
                 }

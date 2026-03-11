@@ -2,8 +2,10 @@ import Foundation
 
 public final class WineProcess: ObservableObject, @unchecked Sendable {
     private var process: Process?
+    private var outputPipe: Pipe?
 
     @Published public var isRunning = false
+    @Published public var lastOutput: String = ""
 
     public init() {}
 
@@ -24,15 +26,32 @@ public final class WineProcess: ObservableObject, @unchecked Sendable {
             "LANG": game.bottleConfig.locale,
             "LC_ALL": game.bottleConfig.locale,
         ]
+        // Merge DLL overrides into WINEDLLOVERRIDES env var
+        if !game.bottleConfig.dllOverrides.isEmpty {
+            let overrides = game.bottleConfig.dllOverrides.map { "\($0.key)=\($0.value)" }.joined(separator: ";")
+            env["WINEDLLOVERRIDES"] = overrides
+        }
         for (key, value) in game.bottleConfig.environment {
             env[key] = value
         }
         process.environment = env
 
+        // Capture stderr for diagnostics
+        let pipe = Pipe()
+        process.standardError = pipe
+        self.outputPipe = pipe
+
         let startTime = Date()
 
-        process.terminationHandler = { [weak self] _ in
+        process.terminationHandler = { [weak self] proc in
             let duration = Date().timeIntervalSince(startTime)
+            // Read output for diagnostics
+            if let data = try? pipe.fileHandleForReading.availableData,
+               let output = String(data: data, encoding: .utf8), !output.isEmpty {
+                DispatchQueue.main.async {
+                    self?.lastOutput = output
+                }
+            }
             DispatchQueue.main.async {
                 self?.isRunning = false
             }
