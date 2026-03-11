@@ -23,3 +23,4 @@ Package.resolved
 
 # App data (for development)
 *.app
+*.dmg
