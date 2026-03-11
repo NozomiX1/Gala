@@ -118,7 +118,14 @@ struct AddGameView: View {
         description: String? = nil,
         coverURL: String? = nil
     ) async {
-        guard let exePath = selectedExePath else { return }
+        guard var exePath = selectedExePath else { return }
+
+        // If engine detected, try to resolve the actual engine executable
+        if let engine = detectedEngine, let dir = gameDirectory {
+            if let resolvedExe = EngineDetector.resolveExecutable(engine: engine, in: dir) {
+                exePath = resolvedExe.path
+            }
+        }
 
         let gameId = UUID()
         let prefixPath = viewModel.bottleManager.prefixPath(for: gameId)

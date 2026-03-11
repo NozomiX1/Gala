@@ -83,4 +83,57 @@ public enum EngineDetector {
         if lowercased.contains(where: { $0.contains("artemis") }) { return .artemis }
         return nil
     }
+
+    // MARK: - Engine Executable Resolution
+
+    /// Given a detected engine and game directory, find the actual engine executable.
+    /// Returns nil if no engine-specific exe is found (caller should use the user-selected exe).
+    public static func resolveExecutable(engine: Engine, in directory: URL) -> URL? {
+        guard let contents = try? FileManager.default.contentsOfDirectory(atPath: directory.path) else {
+            return nil
+        }
+
+        let exeFiles = contents.filter { $0.lowercased().hasSuffix(".exe") }
+        let lowercasedExes = exeFiles.map { $0.lowercased() }
+
+        switch engine {
+        case .bgi:
+            // BGI/Ethornell: look for BGI.exe or Ethornell.exe
+            if let match = exeFiles.first(where: { $0.lowercased() == "bgi.exe" }) {
+                return directory.appendingPathComponent(match)
+            }
+            if let match = exeFiles.first(where: { $0.lowercased().contains("ethornell") }) {
+                return directory.appendingPathComponent(match)
+            }
+        case .kirikiri:
+            // KiriKiri: look for kirikiri.exe or *.exe that is NOT a patcher/launcher
+            if let match = exeFiles.first(where: { $0.lowercased() == "kirikiri.exe" }) {
+                return directory.appendingPathComponent(match)
+            }
+        case .siglusEngine:
+            // SiglusEngine: SiglusEngine.exe
+            if let match = exeFiles.first(where: { $0.lowercased() == "siglusengine.exe" }) {
+                return directory.appendingPathComponent(match)
+            }
+        case .catSystem2:
+            // CatSystem2: cs2.exe or cs2_*.exe
+            if let match = exeFiles.first(where: { $0.lowercased().hasPrefix("cs2") }) {
+                return directory.appendingPathComponent(match)
+            }
+        case .nscripter:
+            // NScripter: nscript.exe or arc.nsa-based
+            if let match = exeFiles.first(where: { $0.lowercased() == "nscript.exe" }) {
+                return directory.appendingPathComponent(match)
+            }
+        case .rpgMaker:
+            // RPG Maker: Game.exe is the standard name
+            if let match = exeFiles.first(where: { $0.lowercased() == "game.exe" }) {
+                return directory.appendingPathComponent(match)
+            }
+        default:
+            break
+        }
+
+        return nil
+    }
 }

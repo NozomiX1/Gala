@@ -62,3 +62,26 @@ import Foundation
     let result = EngineDetector.detect(in: dir)
     #expect(result == nil)
 }
+
+@Test func resolvesBGIExecutable() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+
+    FileManager.default.createFile(atPath: dir.appendingPathComponent("BGI.exe").path, contents: nil)
+    FileManager.default.createFile(atPath: dir.appendingPathComponent("launcher.exe").path, contents: nil)
+
+    let resolved = EngineDetector.resolveExecutable(engine: .bgi, in: dir)
+    #expect(resolved?.lastPathComponent == "BGI.exe")
+}
+
+@Test func resolvesReturnsNilForUnknownEngine() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+
+    FileManager.default.createFile(atPath: dir.appendingPathComponent("game.exe").path, contents: nil)
+
+    let resolved = EngineDetector.resolveExecutable(engine: .unknown, in: dir)
+    #expect(resolved == nil)
+}
