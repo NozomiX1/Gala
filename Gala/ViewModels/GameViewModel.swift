@@ -58,9 +58,18 @@ final class GameViewModel {
                     viewModel.recordPlayTime(gameId: game.id, duration: duration)
                     DispatchQueue.main.async {
                         self?.isRunning = false
-                        // Show Wine output if game exited quickly (likely crashed)
+                        // Show Wine output if game exited quickly (likely crashed),
+                        // but filter out harmless Wine fixme/stub noise
                         if duration < 5, let output = self?.wineProcess.lastOutput, !output.isEmpty {
-                            self?.errorMessage = "游戏快速退出。Wine 输出：\n\(String(output.suffix(500)))"
+                            let meaningful = output.components(separatedBy: "\n")
+                                .filter { line in
+                                    let l = line.trimmingCharacters(in: .whitespaces)
+                                    return !l.isEmpty && !l.contains(":fixme:") && !l.contains(") stub")
+                                }
+                                .joined(separator: "\n")
+                            if !meaningful.isEmpty {
+                                self?.errorMessage = "游戏快速退出。Wine 输出：\n\(String(meaningful.suffix(500)))"
+                            }
                         }
                     }
                 }
