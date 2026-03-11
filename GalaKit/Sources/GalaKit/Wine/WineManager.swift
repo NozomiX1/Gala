@@ -17,13 +17,43 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
     }
 
     public var isWineInstalled: Bool {
-        let wineBinary = activeLink.appendingPathComponent("bin").appendingPathComponent("wine64")
-        return FileManager.default.fileExists(atPath: wineBinary.path)
+        wineBinaryURL != nil
     }
 
     public var wineBinaryURL: URL? {
-        guard isWineInstalled else { return nil }
-        return activeLink.appendingPathComponent("bin").appendingPathComponent("wine64")
+        // 1. Check our managed active symlink
+        let managedBinary = activeLink.appendingPathComponent("bin").appendingPathComponent("wine64")
+        if FileManager.default.fileExists(atPath: managedBinary.path) {
+            return managedBinary
+        }
+        // 2. Check Homebrew GPTK installation
+        for path in Self.homebrewWinePaths {
+            if FileManager.default.fileExists(atPath: path) {
+                return URL(fileURLWithPath: path)
+            }
+        }
+        return nil
+    }
+
+    /// Common Homebrew Wine/GPTK binary paths
+    private static let homebrewWinePaths = [
+        "/opt/homebrew/bin/wine64",
+        "/opt/homebrew/opt/game-porting-toolkit/bin/wine64",
+        "/usr/local/bin/wine64",
+        "/usr/local/opt/game-porting-toolkit/bin/wine64",
+    ]
+
+    /// Link an externally installed Wine binary (e.g. from Homebrew or user-provided path)
+    public func linkExternalWine(at binaryPath: URL) throws {
+        let binDir = binaryPath.deletingLastPathComponent()
+        let wineRoot = binDir.deletingLastPathComponent() // go up from bin/
+        let versionName = "external-\(wineRoot.lastPathComponent)"
+        let symlinkTarget = wineDirectory.appendingPathComponent(versionName)
+
+        // Create symlink to external Wine installation
+        try? FileManager.default.removeItem(at: symlinkTarget)
+        try FileManager.default.createSymbolicLink(at: symlinkTarget, withDestinationURL: wineRoot)
+        try setActiveVersion(versionName)
     }
 
     public func installedVersions() -> [String] {
