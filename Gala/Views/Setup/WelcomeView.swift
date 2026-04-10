@@ -35,7 +35,7 @@ struct WelcomeView: View {
             } else {
                 VStack(spacing: 8) {
                     ProgressView()
-                    Text("正在准备环境...\n下载 Wine Staging 11.4")
+                    Text("正在准备环境...\n下载 Wine Staging 11.6")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
@@ -45,7 +45,11 @@ struct WelcomeView: View {
         .frame(width: 500, height: 400)
         .onAppear {
             if wineManager.isWineInstalled {
-                onComplete()
+                // Wine already present (e.g. manually installed) — ensure font is downloaded
+                Task {
+                    try? await wineManager.downloadFont()
+                    await MainActor.run { onComplete() }
+                }
             } else {
                 startDownload()
             }
@@ -57,8 +61,10 @@ struct WelcomeView: View {
             do {
                 try await wineManager.downloadWine(
                     from: WineManager.wineDownloadURL,
-                    versionName: "wine-staging-11.4"
+                    versionName: WineManager.wineVersionName
                 )
+                // Download font independently — failure doesn't block setup
+                try? await wineManager.downloadFont()
                 await MainActor.run { onComplete() }
             } catch {
                 await MainActor.run {

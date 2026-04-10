@@ -24,3 +24,6 @@ Package.resolved
 # App data (for development)
 *.app
 *.dmg
+
+# Promotional content (not for repo)
+docs/promotional.md

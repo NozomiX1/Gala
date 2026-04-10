@@ -6,6 +6,7 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
     public var wineDirectory: URL { baseURL.appendingPathComponent("Wine") }
     public var bottlesDirectory: URL { baseURL.appendingPathComponent("Bottles") }
     public var fontsDirectory: URL { baseURL.appendingPathComponent("Fonts") }
+    public var toolsDirectory: URL { baseURL.appendingPathComponent("Tools") }
     private var activeLink: URL { wineDirectory.appendingPathComponent("active") }
 
     @Published public var isDownloading = false
@@ -16,6 +17,7 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
         try? FileManager.default.createDirectory(at: wineDirectory, withIntermediateDirectories: true)
         try? FileManager.default.createDirectory(at: bottlesDirectory, withIntermediateDirectories: true)
         try? FileManager.default.createDirectory(at: fontsDirectory, withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(at: toolsDirectory, withIntermediateDirectories: true)
     }
 
     public var isWineInstalled: Bool {
@@ -55,12 +57,16 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
         return nil
     }
 
-    /// Download URL for Wine Staging (Gcenx macOS builds)
-    public static let wineDownloadURL = URL(string: "https://github.com/Gcenx/macOS_Wine_builds/releases/download/11.4/wine-staging-11.4-osx64.tar.xz")!
+    /// Download URL for Wine Staging (hosted in Gala releases for stability)
+    public static let wineDownloadURL = URL(string: "https://github.com/NozomiX1/Gala/releases/download/deps-v1/wine-staging-11.6-osx64.tar.xz")!
+    public static let wineVersionName = "wine-staging-11.6"
 
-    /// Download URL for Source Han Sans SC (OFL-licensed CJK font)
-    public static let fontDownloadURL = URL(string: "https://github.com/adobe-fonts/source-han-sans/raw/release/OTF/SimplifiedChinese/SourceHanSansSC-Regular.otf")!
+    /// Download URL for Source Han Sans SC (OFL-licensed CJK font, hosted in Gala releases)
+    public static let fontDownloadURL = URL(string: "https://github.com/NozomiX1/Gala/releases/download/deps-v1/SourceHanSansSC-Regular.otf")!
     public static let bundledFontName = "SourceHanSansSC-Regular.otf"
+
+    /// Download URL for cabextract (needed by winetricks to install Windows components)
+    public static let cabextractDownloadURL = URL(string: "https://github.com/NozomiX1/Gala/releases/download/deps-v1/cabextract")!
 
     public var fontFileURL: URL {
         fontsDirectory.appendingPathComponent(Self.bundledFontName)
@@ -74,6 +80,22 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
         guard !isFontInstalled else { return }
         let (tempURL, _) = try await URLSession.shared.download(from: Self.fontDownloadURL)
         try FileManager.default.moveItem(at: tempURL, to: fontFileURL)
+    }
+
+    public var cabextractURL: URL {
+        toolsDirectory.appendingPathComponent("cabextract")
+    }
+
+    public var isCabextractInstalled: Bool {
+        FileManager.default.fileExists(atPath: cabextractURL.path)
+    }
+
+    public func downloadCabextract() async throws {
+        guard !isCabextractInstalled else { return }
+        let (tempURL, _) = try await URLSession.shared.download(from: Self.cabextractDownloadURL)
+        try FileManager.default.moveItem(at: tempURL, to: cabextractURL)
+        // Make executable
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: cabextractURL.path)
     }
 
     public func installedVersions() -> [String] {
@@ -118,14 +140,13 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
         process.waitUntilExit()
 
         guard process.terminationStatus == 0 else {
+            // Clean up failed extraction directory so retries can work
+            try? FileManager.default.removeItem(at: destinationDir)
             throw WineError.extractionFailed
         }
 
         try setActiveVersion(versionName)
         try? FileManager.default.removeItem(at: tempURL)
-
-        // Download CJK font alongside Wine
-        try? await downloadFont()
 
         await MainActor.run {
             downloadProgress = 1.0

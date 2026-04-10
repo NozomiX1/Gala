@@ -42,8 +42,12 @@ public final class BottleManager: @unchecked Sendable {
             locale: game.bottleConfig.locale
         )
 
-        if let fontURL = wineManager?.fontFileURL {
-            try Self.installBundledFont(prefix: game.bottleConfig.prefixPath, fontSource: fontURL)
+        if let wm = wineManager {
+            // Ensure font is downloaded before installing into prefix
+            if !wm.isFontInstalled {
+                try? await wm.downloadFont()
+            }
+            try Self.installBundledFont(prefix: game.bottleConfig.prefixPath, fontSource: wm.fontFileURL)
         }
 
         try await registerFont(
@@ -154,6 +158,11 @@ public final class BottleManager: @unchecked Sendable {
         let regKey = "HKLM\\Software\\Microsoft\\Windows NT\\CurrentVersion\\FontSubstitutes"
         let fontName = "Source Han Sans SC"
         let substitutes: [(String, String)] = [
+            // Wine system UI fonts (menus, dialogs, title bars)
+            ("MS Shell Dlg", fontName),
+            ("MS Shell Dlg 2", fontName),
+            ("Tahoma", fontName),
+            // Common Windows CJK fonts
             ("SimSun", fontName),
             ("NSimSun", fontName),
             ("MS Gothic", fontName),
@@ -208,6 +217,12 @@ public final class BottleManager: @unchecked Sendable {
 
     private func installWinetricks(components: [String], prefix: String) async throws {
         guard let winetricksPath = Self.findWinetricks() else { return }
+
+        // Ensure cabextract is available for winetricks
+        if let wm = wineManager {
+            try? await wm.downloadCabextract()
+        }
+
         let process = Process()
         process.executableURL = URL(fileURLWithPath: winetricksPath)
         process.arguments = ["-q"] + components
@@ -215,6 +230,10 @@ public final class BottleManager: @unchecked Sendable {
         env["WINEPREFIX"] = prefix
         if let wineBinary = wineManager?.wineBinaryURL {
             env["WINE"] = wineBinary.path
+        }
+        // Add managed tools directory to PATH so winetricks can find cabextract
+        if let toolsDir = wineManager?.toolsDirectory.path {
+            env["PATH"] = toolsDir + ":" + (env["PATH"] ?? "/usr/bin:/bin")
         }
         process.environment = env
         try process.run()
