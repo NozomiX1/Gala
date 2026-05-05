@@ -6,7 +6,7 @@
 
 <p align="center">
   macOS 原生 Galgame 启动器<br>
-  添加游戏，点击启动。Wine 配置、字体、引擎适配全部自动完成。
+  添加游戏，配置环境，点击启动。Wine、字体、引擎适配全部自动完成。
 </p>
 
 ---
@@ -29,10 +29,10 @@
 
 ## 功能
 
-- **一键启动** — 自动配置 Wine 前缀、中日文 locale / codepage / 字体
+- **显式运行环境** — 添加游戏后按需配置 Wine 前缀、中日文 locale / codepage / 字体
 - **引擎识别** — 自动检测 KiriKiri、BGI、Leaf/AQUAPLUS、Artemis、SiglusEngine 等 10+ 引擎，应用最佳 Wine 预设
 - **VNDB 集成** — 搜索匹配游戏，自动拉取封面、简介、标签和评分
-- **游戏库管理** — 网格视图，支持搜索、收藏、右键菜单快捷操作
+- **游戏库管理** — 网格视图，支持搜索、收藏、移除运行环境和从库中移除
 - **游戏时间统计** — 自动记录游玩时长
 - **原生引擎支持** — Ren'Py / RPG Maker / Unity 游戏无需 Wine，直接原生启动
 - **非 ASCII 路径** — 中日文游戏目录通过 Wine 驱动器映射自动处理
@@ -89,7 +89,7 @@ macOS 不会在拖拽删除 `Gala.app` 时自动清理应用支持目录。Gala 
 ~/Library/Application Support/Gala
 ```
 
-如果需要彻底释放空间，可以在卸载 Gala 后手动删除该目录。
+可以在 Gala 的「运行环境」页面清理 Wine 配置，或在卸载前清除所有 Gala 本地数据。如果已经卸载 Gala，也可以手动删除该目录来彻底释放空间。
 
 ## 架构
 

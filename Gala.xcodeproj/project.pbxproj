@@ -17,6 +17,7 @@
 		5FD7FF6B5866108AEEAEBBCC /* GalaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 328F0455D07DAD53E5B5A249 /* GalaApp.swift */; };
 		7F50E5852F61922F00A18FD8 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7F50E5832F618EDB00A18FD8 /* Assets.xcassets */; };
 		8D6F997942AF87FA2317F009 /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31A49391A009FF99DC3510BC /* WelcomeView.swift */; };
+		A7C92D4E163F4B30A8D1E5C2 /* RuntimeEnvironmentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4B36A7920E74B138C5A1F0D /* RuntimeEnvironmentView.swift */; };
 		AEC0A57FD3F807FE0196D8AE /* GameDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86552808963422E72287CAA1 /* GameDetailView.swift */; };
 		B0BB18C51790076EEC0976FD /* GameViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDB0300C0F6F05420C64C648 /* GameViewModel.swift */; };
 /* End PBXBuildFile section */
@@ -35,6 +36,7 @@
 		C6632EE7BED14C38DDDAE5B9 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		CDB0300C0F6F05420C64C648 /* GameViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameViewModel.swift; sourceTree = "<group>"; };
 		D673A7C4BEDAF21B2BB63B3A /* GalaKit */ = {isa = PBXFileReference; lastKnownFileType = folder; path = GalaKit; sourceTree = SOURCE_ROOT; };
+		D4B36A7920E74B138C5A1F0D /* RuntimeEnvironmentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeEnvironmentView.swift; sourceTree = "<group>"; };
 		E0EB9992676195BB9A91FF32 /* VNDBSearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VNDBSearchView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -118,6 +120,7 @@
 			isa = PBXGroup;
 			children = (
 				C6632EE7BED14C38DDDAE5B9 /* ContentView.swift */,
+				D4B36A7920E74B138C5A1F0D /* RuntimeEnvironmentView.swift */,
 				8ABA881FBFE458CD441CCDB1 /* Detail */,
 				A1941CBD971B2CF61FD307A2 /* Library */,
 				70A441186F0F70C475AA9F5C /* Setup */,
@@ -213,6 +216,7 @@
 				B0BB18C51790076EEC0976FD /* GameViewModel.swift in Sources */,
 				0432C05FA505944570B312A0 /* LibraryViewModel.swift in Sources */,
 				2053AA0E998ADCCE1DE23D03 /* VNDBSearchView.swift in Sources */,
+				A7C92D4E163F4B30A8D1E5C2 /* RuntimeEnvironmentView.swift in Sources */,
 				8D6F997942AF87FA2317F009 /* WelcomeView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -52,13 +52,17 @@ struct GameDetailView: View {
                             }
                         } else {
                             Button {
-                                gameVM.launchGame(game, viewModel: viewModel)
+                                if game.isRuntimeConfigured {
+                                    gameVM.launchGame(game, viewModel: viewModel)
+                                } else {
+                                    gameVM.configureRuntime(for: game, viewModel: viewModel)
+                                }
                             } label: {
                                 Label(
-                                    gameVM.isRunning ? "运行中..." : "启动",
-                                    systemImage: gameVM.isRunning ? "stop.circle" : "play.fill"
+                                    primaryButtonTitle,
+                                    systemImage: primaryButtonIcon
                                 )
-                                .frame(width: 120)
+                                .frame(width: 130)
                             }
                             .buttonStyle(.borderedProminent)
                             .controlSize(.large)
@@ -140,6 +144,16 @@ struct GameDetailView: View {
             Text(value).font(.headline)
             Text(label).font(.caption).foregroundStyle(.secondary)
         }
+    }
+
+    private var primaryButtonTitle: String {
+        if gameVM.isRunning { return "运行中..." }
+        return game.isRuntimeConfigured ? "启动" : "配置环境"
+    }
+
+    private var primaryButtonIcon: String {
+        if gameVM.isRunning { return "stop.circle" }
+        return game.isRuntimeConfigured ? "play.fill" : "wrench.and.screwdriver"
     }
 
     private func statusText(_ status: GameStatus) -> String {

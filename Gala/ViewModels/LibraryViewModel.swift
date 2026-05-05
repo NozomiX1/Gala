@@ -58,6 +58,40 @@ final class LibraryViewModel {
         saveLibrary()
     }
 
+    func markRuntimeConfigured(for game: Game) {
+        var updated = game
+        updated.isRuntimeConfigured = true
+        updateGame(updated)
+    }
+
+    func removeRuntime(for game: Game) {
+        deleteRuntimeConfigurationIfLastUser(for: game)
+
+        var updated = game
+        updated.isRuntimeConfigured = false
+        updateGame(updated)
+    }
+
+    func removeFromLibrary(_ game: Game) {
+        deleteRuntimeConfigurationIfLastUser(for: game)
+
+        let cacheKey = game.vndbId ?? game.id.uuidString
+        imageCache.delete(forKey: cacheKey)
+        removeGame(game)
+    }
+
+    func markWineRuntimesUnconfigured() {
+        var didChange = false
+        for index in games.indices where games[index].engine?.supportsNativeLaunch != true && games[index].isRuntimeConfigured {
+            games[index].isRuntimeConfigured = false
+            didChange = true
+        }
+
+        if didChange {
+            saveLibrary()
+        }
+    }
+
     func updateGame(_ game: Game) {
         if let index = games.firstIndex(where: { $0.id == game.id }) {
             games[index] = game
@@ -76,5 +110,10 @@ final class LibraryViewModel {
     var wineManagerInstance: WineManager { wineManager }
     var bottleManager: BottleManager {
         BottleManager(bottlesDirectory: wineManager.bottlesDirectory, wineManager: wineManager)
+    }
+
+    private func deleteRuntimeConfigurationIfLastUser(for game: Game) {
+        guard RuntimeConfigurationPolicy.shouldDeleteRuntimeConfiguration(for: game, in: games) else { return }
+        try? bottleManager.deleteBottle(for: game)
     }
 }

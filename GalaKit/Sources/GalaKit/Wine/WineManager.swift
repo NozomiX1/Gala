@@ -1,5 +1,16 @@
 import Foundation
 
+public struct RuntimeEnvironmentStatus: Sendable {
+    public let isWineInstalled: Bool
+    public let isFontInstalled: Bool
+    public let isHelperToolInstalled: Bool
+    public let hasWineConfiguration: Bool
+
+    public var isReady: Bool {
+        isWineInstalled && isFontInstalled && isHelperToolInstalled
+    }
+}
+
 public final class WineManager: ObservableObject, @unchecked Sendable {
     private let baseURL: URL
 
@@ -22,6 +33,15 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
 
     public var isWineInstalled: Bool {
         wineBinaryURL != nil
+    }
+
+    public func runtimeEnvironmentStatus() -> RuntimeEnvironmentStatus {
+        RuntimeEnvironmentStatus(
+            isWineInstalled: isWineInstalled,
+            isFontInstalled: isFontInstalled,
+            isHelperToolInstalled: isCabextractInstalled,
+            hasWineConfiguration: directoryHasContents(bottlesDirectory)
+        )
     }
 
     public var wineBinaryURL: URL? {
@@ -57,12 +77,39 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
         return nil
     }
 
-    public func resetRuntimeEnvironment() throws {
-        for directory in [wineDirectory, bottlesDirectory, fontsDirectory, toolsDirectory] {
-            if FileManager.default.fileExists(atPath: directory.path) {
-                try FileManager.default.removeItem(at: directory)
-            }
-            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    private func directoryHasContents(_ url: URL) -> Bool {
+        guard let contents = try? FileManager.default.contentsOfDirectory(
+            at: url, includingPropertiesForKeys: nil
+        ) else { return false }
+        return contents.contains { !$0.lastPathComponent.hasPrefix(".") }
+    }
+
+    public func resetWineConfiguration() throws {
+        if FileManager.default.fileExists(atPath: bottlesDirectory.path) {
+            try FileManager.default.removeItem(at: bottlesDirectory)
+        }
+        try FileManager.default.createDirectory(at: bottlesDirectory, withIntermediateDirectories: true)
+    }
+
+    public func resetAllApplicationData() throws {
+        if FileManager.default.fileExists(atPath: baseURL.path) {
+            try FileManager.default.removeItem(at: baseURL)
+        }
+        try FileManager.default.createDirectory(at: wineDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: bottlesDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: fontsDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: toolsDirectory, withIntermediateDirectories: true)
+    }
+
+    public func repairMissingDependencies() async throws {
+        if !isWineInstalled {
+            try await downloadWine(from: Self.wineDownloadURL, versionName: Self.wineVersionName)
+        }
+        if !isFontInstalled {
+            try await downloadFont()
+        }
+        if !isCabextractInstalled {
+            try await downloadCabextract()
         }
     }
 

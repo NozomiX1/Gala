@@ -171,16 +171,9 @@ struct AddGameView: View {
             developer: developer,
             releasedAt: released,
             description: description,
+            isRuntimeConfigured: false,
             bottleConfig: BottleConfig(prefixPath: prefixPath)
         )
-
-        if engine?.supportsNativeLaunch != true {
-            setupStatus = "创建 Wine 前缀..."
-            try? FileManager.default.createDirectory(
-                atPath: prefixPath,
-                withIntermediateDirectories: true
-            )
-        }
 
         viewModel.addGame(game)
         dismiss()

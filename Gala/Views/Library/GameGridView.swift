@@ -6,7 +6,9 @@ struct GameGridView: View {
     @Binding var selectedGameId: UUID?
     let imageCache: ImageCache
     let onLaunch: (Game) -> Void
-    let onDelete: (Game) -> Void
+    let onConfigureRuntime: (Game) -> Void
+    let onRemoveRuntime: (Game) -> Void
+    let onRemoveFromLibrary: (Game) -> Void
     let onChangeExe: (Game) -> Void
     let onSetStatus: (Game, GameStatus) -> Void
     let onToggleFavorite: (Game) -> Void
@@ -25,7 +27,9 @@ struct GameGridView: View {
                             isSelected: selectedGameId == game.id,
                             imageCache: imageCache,
                             onLaunch: { onLaunch(game) },
-                            onDelete: { onDelete(game) },
+                            onConfigureRuntime: { onConfigureRuntime(game) },
+                            onRemoveRuntime: { onRemoveRuntime(game) },
+                            onRemoveFromLibrary: { onRemoveFromLibrary(game) },
                             onChangeExe: { onChangeExe(game) },
                             onSetStatus: { status in onSetStatus(game, status) },
                             onToggleFavorite: { onToggleFavorite(game) }

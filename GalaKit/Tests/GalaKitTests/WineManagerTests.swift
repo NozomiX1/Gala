@@ -29,6 +29,51 @@ import Foundation
     #expect(!FileManager.default.fileExists(atPath: managedBinary.path))
 }
 
+@Test func runtimeEnvironmentStatusReportsMissingDependencies() throws {
+    let tempDir = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: tempDir) }
+
+    let manager = WineManager(baseURL: tempDir)
+    let status = manager.runtimeEnvironmentStatus()
+
+    #expect(!status.isWineInstalled)
+    #expect(!status.isFontInstalled)
+    #expect(!status.isHelperToolInstalled)
+    #expect(!status.hasWineConfiguration)
+    #expect(!status.isReady)
+}
+
+@Test func runtimeEnvironmentStatusReportsInstalledDependencies() throws {
+    let tempDir = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: tempDir) }
+
+    let manager = WineManager(baseURL: tempDir)
+    let wineBinary = manager.wineDirectory
+        .appendingPathComponent("wine-staging-11.6/bin/wine")
+    let bottleMarker = manager.bottlesDirectory
+        .appendingPathComponent("Profiles/legacy-video/system.reg")
+
+    for file in [wineBinary, manager.fontFileURL, manager.cabextractURL, bottleMarker] {
+        try FileManager.default.createDirectory(
+            at: file.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        FileManager.default.createFile(atPath: file.path, contents: Data("x".utf8))
+    }
+
+    let status = manager.runtimeEnvironmentStatus()
+
+    #expect(status.isWineInstalled)
+    #expect(status.isFontInstalled)
+    #expect(status.isHelperToolInstalled)
+    #expect(status.hasWineConfiguration)
+    #expect(status.isReady)
+}
+
 @Test func bottleManagerCreatesDirectory() throws {
     let tempDir = FileManager.default.temporaryDirectory
         .appendingPathComponent(UUID().uuidString)
@@ -80,7 +125,7 @@ import Foundation
     #expect(bottleManager.prefixPath(for: nil) == bottlesDir.appendingPathComponent("Profiles/base").path)
 }
 
-@Test func wineManagerResetRuntimeEnvironmentKeepsLibraryData() throws {
+@Test func wineManagerResetWineConfigurationKeepsDependenciesAndLibraryData() throws {
     let tempDir = FileManager.default.temporaryDirectory
         .appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
@@ -94,25 +139,57 @@ import Foundation
     let fontFile = manager.fontsDirectory.appendingPathComponent("SourceHanSansSC-Regular.otf")
     let toolFile = manager.toolsDirectory.appendingPathComponent("cabextract")
 
-    for file in [coverFile, wineFile, bottleFile, fontFile, toolFile] {
+    for file in [libraryFile, coverFile, wineFile, bottleFile, fontFile, toolFile] {
         try FileManager.default.createDirectory(
             at: file.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
         FileManager.default.createFile(atPath: file.path, contents: Data("x".utf8))
     }
-    FileManager.default.createFile(atPath: libraryFile.path, contents: Data("[]".utf8))
 
-    try manager.resetRuntimeEnvironment()
+    try manager.resetWineConfiguration()
 
     #expect(FileManager.default.fileExists(atPath: libraryFile.path))
     #expect(FileManager.default.fileExists(atPath: coverFile.path))
-    #expect(FileManager.default.fileExists(atPath: manager.wineDirectory.path))
+    #expect(FileManager.default.fileExists(atPath: wineFile.path))
+    #expect(FileManager.default.fileExists(atPath: fontFile.path))
+    #expect(FileManager.default.fileExists(atPath: toolFile.path))
     #expect(FileManager.default.fileExists(atPath: manager.bottlesDirectory.path))
-    #expect(FileManager.default.fileExists(atPath: manager.fontsDirectory.path))
-    #expect(FileManager.default.fileExists(atPath: manager.toolsDirectory.path))
+    #expect(!FileManager.default.fileExists(atPath: bottleFile.path))
+}
+
+@Test func wineManagerResetAllApplicationDataRemovesLibraryCacheAndRuntimeData() throws {
+    let tempDir = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: tempDir) }
+
+    let manager = WineManager(baseURL: tempDir)
+    let libraryFile = tempDir.appendingPathComponent("library.json")
+    let coverFile = tempDir.appendingPathComponent("Cache/covers/v1.jpg")
+    let wineFile = manager.wineDirectory.appendingPathComponent("active/bin/wine")
+    let bottleFile = manager.bottlesDirectory.appendingPathComponent("Profiles/kirikiri/system.reg")
+    let fontFile = manager.fontsDirectory.appendingPathComponent("SourceHanSansSC-Regular.otf")
+    let toolFile = manager.toolsDirectory.appendingPathComponent("cabextract")
+
+    for file in [libraryFile, coverFile, wineFile, bottleFile, fontFile, toolFile] {
+        try FileManager.default.createDirectory(
+            at: file.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        FileManager.default.createFile(atPath: file.path, contents: Data("x".utf8))
+    }
+
+    try manager.resetAllApplicationData()
+
+    #expect(!FileManager.default.fileExists(atPath: libraryFile.path))
+    #expect(!FileManager.default.fileExists(atPath: coverFile.path))
     #expect(!FileManager.default.fileExists(atPath: wineFile.path))
     #expect(!FileManager.default.fileExists(atPath: bottleFile.path))
     #expect(!FileManager.default.fileExists(atPath: fontFile.path))
     #expect(!FileManager.default.fileExists(atPath: toolFile.path))
+    #expect(FileManager.default.fileExists(atPath: manager.wineDirectory.path))
+    #expect(FileManager.default.fileExists(atPath: manager.bottlesDirectory.path))
+    #expect(FileManager.default.fileExists(atPath: manager.fontsDirectory.path))
+    #expect(FileManager.default.fileExists(atPath: manager.toolsDirectory.path))
 }

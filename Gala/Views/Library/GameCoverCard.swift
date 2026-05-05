@@ -6,7 +6,9 @@ struct GameCoverCard: View {
     let isSelected: Bool
     let imageCache: ImageCache
     let onLaunch: () -> Void
-    let onDelete: () -> Void
+    let onConfigureRuntime: () -> Void
+    let onRemoveRuntime: () -> Void
+    let onRemoveFromLibrary: () -> Void
     let onChangeExe: () -> Void
     let onSetStatus: (GameStatus) -> Void
     let onToggleFavorite: () -> Void
@@ -35,8 +37,14 @@ struct GameCoverCard: View {
             }
         }
         .contextMenu {
-            Button { onLaunch() } label: {
-                Label("启动游戏", systemImage: "play.fill")
+            if game.isRuntimeConfigured {
+                Button { onLaunch() } label: {
+                    Label("启动游戏", systemImage: "play.fill")
+                }
+            } else {
+                Button { onConfigureRuntime() } label: {
+                    Label("配置环境", systemImage: "wrench.and.screwdriver")
+                }
             }
 
             Button { onToggleFavorite() } label: {
@@ -55,8 +63,14 @@ struct GameCoverCard: View {
 
             Divider()
 
-            Button(role: .destructive) { onDelete() } label: {
-                Label("删除游戏", systemImage: "trash")
+            if game.isRuntimeConfigured {
+                Button(role: .destructive) { onRemoveRuntime() } label: {
+                    Label("移除运行环境", systemImage: "wrench.and.screwdriver")
+                }
+            }
+
+            Button(role: .destructive) { onRemoveFromLibrary() } label: {
+                Label("从库中移除", systemImage: "trash")
             }
         }
     }

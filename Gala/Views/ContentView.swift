@@ -22,16 +22,39 @@ struct ContentView: View {
     @State private var viewModel = LibraryViewModel()
     @State private var selectedCategory: SidebarCategory = .all
     @State private var showingAddGame = false
+    @State private var showingRuntimeEnvironment = false
     @State private var gameVM = GameViewModel()
     @State private var changeExeGame: Game?
 
     var body: some View {
-        if !viewModel.isWineInstalled {
-            WelcomeView(wineManager: viewModel.wineManagerInstance) {
-                viewModel.isWineInstalled = true
+        Group {
+            if !viewModel.isWineInstalled {
+                WelcomeView(
+                    wineManager: viewModel.wineManagerInstance,
+                    onComplete: {
+                        viewModel.isWineInstalled = true
+                    },
+                    onOpenEnvironment: {
+                        showingRuntimeEnvironment = true
+                    }
+                )
+            } else {
+                mainContent
             }
-        } else {
-            mainContent
+        }
+        .sheet(isPresented: $showingRuntimeEnvironment) {
+            RuntimeEnvironmentView(wineManager: viewModel.wineManagerInstance) { change in
+                switch change {
+                case .dependenciesRepaired:
+                    break
+                case .wineConfigurationReset:
+                    viewModel.markWineRuntimesUnconfigured()
+                case .allApplicationDataReset:
+                    viewModel.loadLibrary()
+                    viewModel.selectedGameId = nil
+                }
+                viewModel.isWineInstalled = viewModel.wineManagerInstance.isWineInstalled
+            }
         }
     }
 
@@ -50,13 +73,17 @@ struct ContentView: View {
                 onLaunch: { game in
                     gameVM.launchGame(game, viewModel: viewModel)
                 },
-                onDelete: { game in
+                onConfigureRuntime: { game in
+                    gameVM.configureRuntime(for: game, viewModel: viewModel)
+                },
+                onRemoveRuntime: { game in
+                    viewModel.removeRuntime(for: game)
+                },
+                onRemoveFromLibrary: { game in
                     if viewModel.selectedGameId == game.id {
                         viewModel.selectedGameId = nil
                     }
-                    let cacheKey = game.vndbId ?? game.id.uuidString
-                    viewModel.imageCache.delete(forKey: cacheKey)
-                    viewModel.removeGame(game)
+                    viewModel.removeFromLibrary(game)
                 },
                 onChangeExe: { game in
                     changeExeGame = game
@@ -75,6 +102,13 @@ struct ContentView: View {
             .searchable(text: $viewModel.searchText, prompt: "搜索游戏...")
             .navigationSplitViewColumnWidth(min: 300, ideal: 500)
             .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showingRuntimeEnvironment = true
+                    } label: {
+                        Label("运行环境", systemImage: "wrench.and.screwdriver")
+                    }
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         showingAddGame = true

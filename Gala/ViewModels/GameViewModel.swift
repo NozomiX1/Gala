@@ -10,8 +10,51 @@ final class GameViewModel {
 
     private let wineProcess = WineProcess()
 
+    func configureRuntime(for game: Game, viewModel: LibraryViewModel) {
+        guard !isRunning && !isSettingUp else { return }
+
+        errorMessage = nil
+
+        if game.engine?.supportsNativeLaunch == true {
+            viewModel.markRuntimeConfigured(for: game)
+            return
+        }
+
+        guard viewModel.wineManagerInstance.wineBinaryURL != nil else {
+            errorMessage = "Wine 未安装，请先安装。"
+            return
+        }
+
+        let bottleManager = viewModel.bottleManager
+
+        Task { @MainActor in
+            isSettingUp = true
+            setupStatus = "初始化 Wine 前缀..."
+
+            do {
+                try await bottleManager.createBottle(for: game)
+
+                if game.engine != nil {
+                    setupStatus = "应用引擎预设..."
+                    try await bottleManager.applyEnginePreset(for: game)
+                }
+
+                viewModel.markRuntimeConfigured(for: game)
+            } catch {
+                errorMessage = "环境配置失败：\(error.localizedDescription)"
+            }
+
+            isSettingUp = false
+        }
+    }
+
     func launchGame(_ game: Game, viewModel: LibraryViewModel) {
         guard !isRunning && !isSettingUp else { return }
+
+        guard game.isRuntimeConfigured else {
+            errorMessage = "请先配置运行环境。"
+            return
+        }
 
         let wineManager = viewModel.wineManagerInstance
 
@@ -29,28 +72,15 @@ final class GameViewModel {
         errorMessage = nil
         let bottleManager = viewModel.bottleManager
 
+        guard bottleManager.isBottleReady(for: game) else {
+            errorMessage = "运行环境不存在或未完成，请重新配置环境。"
+            var updated = game
+            updated.isRuntimeConfigured = false
+            viewModel.updateGame(updated)
+            return
+        }
+
         Task { @MainActor in
-            // First launch: set up bottle if not ready
-            if !bottleManager.isBottleReady(for: game) {
-                isSettingUp = true
-                setupStatus = "初始化 Wine 前缀..."
-
-                do {
-                    try await bottleManager.createBottle(for: game)
-
-                    if game.engine != nil {
-                        setupStatus = "应用引擎预设..."
-                        try await bottleManager.applyEnginePreset(for: game)
-                    }
-                } catch {
-                    errorMessage = "环境配置失败：\(error.localizedDescription)"
-                    isSettingUp = false
-                    return
-                }
-
-                isSettingUp = false
-            }
-
             // Now launch the game
             isRunning = true
             do {
