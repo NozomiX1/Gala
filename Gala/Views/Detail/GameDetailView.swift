@@ -45,10 +45,17 @@ struct GameDetailView: View {
 
                         if gameVM.isSettingUp {
                             VStack(spacing: 4) {
-                                ProgressView()
+                                if let setupProgress = gameVM.setupProgress {
+                                    ProgressView(value: setupProgress)
+                                        .frame(width: 160)
+                                } else {
+                                    ProgressView()
+                                }
                                 Text(gameVM.setupStatus)
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
+                                    .multilineTextAlignment(.center)
+                                    .frame(width: 200)
                             }
                         } else {
                             Button {

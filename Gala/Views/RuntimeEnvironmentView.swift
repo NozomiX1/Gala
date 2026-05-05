@@ -8,7 +8,7 @@ enum RuntimeEnvironmentChange {
 }
 
 struct RuntimeEnvironmentView: View {
-    let wineManager: WineManager
+    @ObservedObject var wineManager: WineManager
     let onEnvironmentChanged: (RuntimeEnvironmentChange) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -20,7 +20,7 @@ struct RuntimeEnvironmentView: View {
     @State private var showingAllDataResetConfirmation = false
 
     init(wineManager: WineManager, onEnvironmentChanged: @escaping (RuntimeEnvironmentChange) -> Void) {
-        self.wineManager = wineManager
+        _wineManager = ObservedObject(wrappedValue: wineManager)
         self.onEnvironmentChanged = onEnvironmentChanged
         _status = State(initialValue: wineManager.runtimeEnvironmentStatus())
     }
@@ -57,6 +57,19 @@ struct RuntimeEnvironmentView: View {
                 Text(resultMessage)
                     .font(.callout)
                     .foregroundStyle(.secondary)
+            }
+
+            if isWorking && wineManager.isDownloading {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(wineManager.currentDownloadDescription)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                    if wineManager.isDownloadProgressIndeterminate {
+                        ProgressView()
+                    } else {
+                        ProgressView(value: wineManager.downloadProgress)
+                    }
+                }
             }
 
             if let errorMessage {

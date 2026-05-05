@@ -155,6 +155,32 @@ import Foundation
     #expect(env["MVK_CONFIG_LOG_LEVEL"] == "0")
 }
 
+@Test func wineManagerProvidesAppManagedWinetricksCacheDirectory() throws {
+    let tempDir = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: tempDir) }
+
+    let manager = WineManager(baseURL: tempDir)
+
+    #expect(manager.winetricksCacheDirectory.path == tempDir.appendingPathComponent("Cache/winetricks").path)
+}
+
+@Test func bottleManagerWinetricksEnvironmentUsesAppManagedCache() {
+    let env = BottleManager.winetricksEnvironment(
+        prefix: "/tmp/prefix",
+        locale: "zh_CN.UTF-8",
+        wineBinary: "/tmp/Wine/bin/wine",
+        toolsDirectory: "/tmp/Gala/Tools",
+        cacheDirectory: "/tmp/Gala/Cache/winetricks"
+    )
+
+    #expect(env["WINEPREFIX"] == "/tmp/prefix")
+    #expect(env["WINE"] == "/tmp/Wine/bin/wine")
+    #expect(env["PATH"]?.hasPrefix("/tmp/Gala/Tools:") == true)
+    #expect(env["W_CACHE"] == "/tmp/Gala/Cache/winetricks")
+}
+
 @Test func bottleManagerCreatesDirectory() throws {
     let tempDir = FileManager.default.temporaryDirectory
         .appendingPathComponent(UUID().uuidString)
@@ -220,8 +246,9 @@ import Foundation
     let fontFile = manager.fontsDirectory.appendingPathComponent("SourceHanSansSC-Regular.otf")
     let cabextractFile = manager.toolsDirectory.appendingPathComponent("cabextract")
     let winetricksFile = manager.toolsDirectory.appendingPathComponent("winetricks")
+    let winetricksCacheFile = manager.winetricksCacheDirectory.appendingPathComponent("win7sp1/windows6.1-KB976932-X64.exe")
 
-    for file in [libraryFile, coverFile, wineFile, bottleFile, fontFile, cabextractFile, winetricksFile] {
+    for file in [libraryFile, coverFile, wineFile, bottleFile, fontFile, cabextractFile, winetricksFile, winetricksCacheFile] {
         try FileManager.default.createDirectory(
             at: file.deletingLastPathComponent(),
             withIntermediateDirectories: true
@@ -237,6 +264,7 @@ import Foundation
     #expect(FileManager.default.fileExists(atPath: fontFile.path))
     #expect(FileManager.default.fileExists(atPath: cabextractFile.path))
     #expect(FileManager.default.fileExists(atPath: winetricksFile.path))
+    #expect(FileManager.default.fileExists(atPath: winetricksCacheFile.path))
     #expect(FileManager.default.fileExists(atPath: manager.bottlesDirectory.path))
     #expect(!FileManager.default.fileExists(atPath: bottleFile.path))
 }
@@ -255,8 +283,9 @@ import Foundation
     let fontFile = manager.fontsDirectory.appendingPathComponent("SourceHanSansSC-Regular.otf")
     let cabextractFile = manager.toolsDirectory.appendingPathComponent("cabextract")
     let winetricksFile = manager.toolsDirectory.appendingPathComponent("winetricks")
+    let winetricksCacheFile = manager.winetricksCacheDirectory.appendingPathComponent("win7sp1/windows6.1-KB976932-X64.exe")
 
-    for file in [libraryFile, coverFile, wineFile, bottleFile, fontFile, cabextractFile, winetricksFile] {
+    for file in [libraryFile, coverFile, wineFile, bottleFile, fontFile, cabextractFile, winetricksFile, winetricksCacheFile] {
         try FileManager.default.createDirectory(
             at: file.deletingLastPathComponent(),
             withIntermediateDirectories: true
@@ -273,8 +302,10 @@ import Foundation
     #expect(!FileManager.default.fileExists(atPath: fontFile.path))
     #expect(!FileManager.default.fileExists(atPath: cabextractFile.path))
     #expect(!FileManager.default.fileExists(atPath: winetricksFile.path))
+    #expect(!FileManager.default.fileExists(atPath: winetricksCacheFile.path))
     #expect(FileManager.default.fileExists(atPath: manager.wineDirectory.path))
     #expect(FileManager.default.fileExists(atPath: manager.bottlesDirectory.path))
     #expect(FileManager.default.fileExists(atPath: manager.fontsDirectory.path))
     #expect(FileManager.default.fileExists(atPath: manager.toolsDirectory.path))
+    #expect(FileManager.default.fileExists(atPath: manager.cacheDirectory.path))
 }

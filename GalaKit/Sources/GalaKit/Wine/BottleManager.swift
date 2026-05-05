@@ -10,6 +10,36 @@ struct WindowMetricFont: Sendable {
     let data: [UInt8]
 }
 
+private struct WinetricksCachedDownload: Sendable {
+    let relativePath: String
+    let displayName: String
+    let expectedByteCount: Int64
+}
+
+public struct EnginePresetProgress: Equatable, Sendable {
+    public let message: String
+    public let completedUnitCount: Int
+    public let totalUnitCount: Int
+    public let currentItemProgress: Double?
+
+    public init(
+        message: String,
+        completedUnitCount: Int,
+        totalUnitCount: Int,
+        currentItemProgress: Double? = nil
+    ) {
+        self.message = message
+        self.completedUnitCount = completedUnitCount
+        self.totalUnitCount = totalUnitCount
+        self.currentItemProgress = currentItemProgress
+    }
+
+    public var fraction: Double? {
+        guard totalUnitCount > 0 else { return nil }
+        return Double(completedUnitCount) / Double(totalUnitCount)
+    }
+}
+
 public final class BottleManager: @unchecked Sendable {
     private let bottlesDirectory: URL
     private let wineManager: WineManager?
@@ -93,18 +123,52 @@ public final class BottleManager: @unchecked Sendable {
         )
     }
 
-    public func applyEnginePreset(for game: Game) async throws {
+    public func applyEnginePreset(
+        for game: Game,
+        progressHandler: (@Sendable (EnginePresetProgress) -> Void)? = nil
+    ) async throws {
         guard let engine = game.engine else { return }
         let preset = engine.preset
         guard !preset.components.isEmpty || !preset.dllOverrides.isEmpty || !preset.registryValues.isEmpty else { return }
 
-        if !preset.components.isEmpty {
-            try await installWinetricks(components: preset.components, prefix: game.bottleConfig.prefixPath)
+        let totalUnitCount = preset.components.count + preset.dllOverrides.count + preset.registryValues.count
+        var completedUnitCount = 0
+
+        for component in preset.components {
+            progressHandler?(
+                EnginePresetProgress(
+                    message: "正在安装 \(Self.displayName(forWinetricksComponent: component))...",
+                    completedUnitCount: completedUnitCount,
+                    totalUnitCount: totalUnitCount
+                )
+            )
+            try await installWinetricks(
+                components: [component],
+                prefix: game.bottleConfig.prefixPath,
+                completedUnitCount: completedUnitCount,
+                totalUnitCount: totalUnitCount,
+                progressHandler: progressHandler
+            )
+            completedUnitCount += 1
+            progressHandler?(
+                EnginePresetProgress(
+                    message: "\(Self.displayName(forWinetricksComponent: component)) 已安装",
+                    completedUnitCount: completedUnitCount,
+                    totalUnitCount: totalUnitCount
+                )
+            )
         }
 
         if !preset.dllOverrides.isEmpty || !preset.registryValues.isEmpty {
             guard let wineBinary = wineManager?.wineBinaryURL else { return }
             for (dll, mode) in preset.dllOverrides {
+                progressHandler?(
+                    EnginePresetProgress(
+                        message: "正在写入 DLL 覆盖 \(dll)...",
+                        completedUnitCount: completedUnitCount,
+                        totalUnitCount: totalUnitCount
+                    )
+                )
                 try await runWineCommand(
                     wineBinary: wineBinary,
                     arguments: ["reg", "add", "HKCU\\Software\\Wine\\DllOverrides",
@@ -112,9 +176,17 @@ public final class BottleManager: @unchecked Sendable {
                     prefix: game.bottleConfig.prefixPath,
                     locale: game.bottleConfig.locale
                 )
+                completedUnitCount += 1
             }
 
             for value in preset.registryValues {
+                progressHandler?(
+                    EnginePresetProgress(
+                        message: "正在写入注册表 \(value.valueName)...",
+                        completedUnitCount: completedUnitCount,
+                        totalUnitCount: totalUnitCount
+                    )
+                )
                 try await runWineCommand(
                     wineBinary: wineBinary,
                     arguments: [
@@ -127,6 +199,7 @@ public final class BottleManager: @unchecked Sendable {
                     prefix: game.bottleConfig.prefixPath,
                     locale: game.bottleConfig.locale
                 )
+                completedUnitCount += 1
             }
         }
     }
@@ -261,10 +334,17 @@ public final class BottleManager: @unchecked Sendable {
             .first { FileManager.default.isExecutableFile(atPath: $0) }
     }
 
-    private func installWinetricks(components: [String], prefix: String) async throws {
+    private func installWinetricks(
+        components: [String],
+        prefix: String,
+        completedUnitCount: Int = 0,
+        totalUnitCount: Int = 0,
+        progressHandler: (@Sendable (EnginePresetProgress) -> Void)? = nil
+    ) async throws {
         if let wm = wineManager {
             try await wm.downloadCabextract()
             try await wm.downloadWinetricks()
+            try FileManager.default.createDirectory(at: wm.winetricksCacheDirectory, withIntermediateDirectories: true)
         }
 
         guard let winetricksPath = Self.findWinetricks(wineManager: wineManager) else {
@@ -274,21 +354,138 @@ public final class BottleManager: @unchecked Sendable {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: winetricksPath)
         process.arguments = ["-q"] + components
-        var env = Self.wineCommandEnvironment(prefix: prefix, locale: "zh_CN.UTF-8")
-        if let wineBinary = wineManager?.wineBinaryURL {
-            env["WINE"] = wineBinary.path
+        process.environment = Self.winetricksEnvironment(
+            prefix: prefix,
+            locale: "zh_CN.UTF-8",
+            wineBinary: wineManager?.wineBinaryURL?.path,
+            toolsDirectory: wineManager?.toolsDirectory.path,
+            cacheDirectory: wineManager?.winetricksCacheDirectory.path
+        )
+
+        let monitor = Self.startWinetricksDownloadMonitor(
+            components: components,
+            cacheDirectory: wineManager?.winetricksCacheDirectory,
+            completedUnitCount: completedUnitCount,
+            totalUnitCount: totalUnitCount,
+            progressHandler: progressHandler
+        )
+        defer {
+            monitor?.cancel()
         }
-        // Add managed tools directory to PATH so winetricks can find cabextract
-        if let toolsDir = wineManager?.toolsDirectory.path {
-            env["PATH"] = toolsDir + ":" + (env["PATH"] ?? "/usr/bin:/bin")
-        }
-        process.environment = env
+
         try process.run()
         process.waitUntilExit()
 
         guard process.terminationStatus == 0 else {
             throw WineError.helperToolFailed("winetricks", process.terminationStatus)
         }
+    }
+
+    static func winetricksEnvironment(
+        prefix: String,
+        locale: String,
+        wineBinary: String?,
+        toolsDirectory: String?,
+        cacheDirectory: String?
+    ) -> [String: String] {
+        var env = Self.wineCommandEnvironment(prefix: prefix, locale: locale)
+        if let wineBinary {
+            env["WINE"] = wineBinary
+        }
+        if let toolsDirectory {
+            env["PATH"] = toolsDirectory + ":" + (env["PATH"] ?? "/usr/bin:/bin")
+        }
+        if let cacheDirectory {
+            env["W_CACHE"] = cacheDirectory
+        }
+        return env
+    }
+
+    private static func displayName(forWinetricksComponent component: String) -> String {
+        switch component {
+        case "quartz":
+            return "DirectShow 核心组件 quartz"
+        case "amstream":
+            return "DirectShow 流媒体组件 amstream"
+        case "lavfilters":
+            return "LAV Filters 解码器"
+        default:
+            return component
+        }
+    }
+
+    private static func startWinetricksDownloadMonitor(
+        components: [String],
+        cacheDirectory: URL?,
+        completedUnitCount: Int,
+        totalUnitCount: Int,
+        progressHandler: (@Sendable (EnginePresetProgress) -> Void)?
+    ) -> Task<Void, Never>? {
+        guard let cacheDirectory, let progressHandler else { return nil }
+
+        let downloads = components.flatMap(Self.cachedDownloads(forWinetricksComponent:))
+        guard !downloads.isEmpty else { return nil }
+
+        return Task.detached {
+            while !Task.isCancelled {
+                for download in downloads {
+                    let fileURL = cacheDirectory.appendingPathComponent(download.relativePath)
+                    guard let byteCount = Self.fileSize(at: fileURL),
+                          byteCount > 0,
+                          byteCount < download.expectedByteCount else {
+                        continue
+                    }
+
+                    progressHandler(
+                        EnginePresetProgress(
+                            message: "正在下载 \(download.displayName)...",
+                            completedUnitCount: completedUnitCount,
+                            totalUnitCount: totalUnitCount,
+                            currentItemProgress: Double(byteCount) / Double(download.expectedByteCount)
+                        )
+                    )
+                    break
+                }
+
+                try? await Task.sleep(nanoseconds: 500_000_000)
+            }
+        }
+    }
+
+    private static func cachedDownloads(forWinetricksComponent component: String) -> [WinetricksCachedDownload] {
+        switch component {
+        case "quartz", "amstream":
+            return [
+                WinetricksCachedDownload(
+                    relativePath: "win7sp1/windows6.1-KB976932-X86.exe",
+                    displayName: "Windows 7 SP1 x86 组件包",
+                    expectedByteCount: 563_934_504
+                ),
+                WinetricksCachedDownload(
+                    relativePath: "win7sp1/windows6.1-KB976932-X64.exe",
+                    displayName: "Windows 7 SP1 x64 组件包",
+                    expectedByteCount: 947_070_088
+                ),
+            ]
+        case "lavfilters":
+            return [
+                WinetricksCachedDownload(
+                    relativePath: "lavfilters/LAVFilters-0.74.1-Installer.exe",
+                    displayName: "LAV Filters 安装器",
+                    expectedByteCount: 12_560_912
+                ),
+            ]
+        default:
+            return []
+        }
+    }
+
+    private static func fileSize(at url: URL) -> Int64? {
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
+              let size = attributes[.size] as? NSNumber else {
+            return nil
+        }
+        return size.int64Value
     }
 
     private func runWineCommand(wineBinary: URL, arguments: [String], prefix: String, locale: String) async throws {

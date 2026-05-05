@@ -25,20 +25,36 @@ struct ContentView: View {
     @State private var showingRuntimeEnvironment = false
     @State private var gameVM = GameViewModel()
     @State private var changeExeGame: Game?
+    @State private var didResetAllApplicationData = false
 
     var body: some View {
         Group {
-            if !viewModel.isRuntimeEnvironmentReady {
+            switch RuntimeEnvironmentEntryPolicy.presentation(
+                isRuntimeEnvironmentReady: viewModel.isRuntimeEnvironmentReady,
+                didResetAllApplicationData: didResetAllApplicationData
+            ) {
+            case .prepareEnvironment:
                 WelcomeView(
                     wineManager: viewModel.wineManagerInstance,
                     onComplete: {
+                        didResetAllApplicationData = false
                         viewModel.refreshRuntimeEnvironmentStatus()
                     },
                     onOpenEnvironment: {
                         showingRuntimeEnvironment = true
                     }
                 )
-            } else {
+            case .resetComplete:
+                ResetCompleteView(
+                    onInstallRuntime: {
+                        didResetAllApplicationData = false
+                        viewModel.refreshRuntimeEnvironmentStatus()
+                    },
+                    onQuit: {
+                        NSApplication.shared.terminate(nil)
+                    }
+                )
+            case .library:
                 mainContent
             }
         }
@@ -46,12 +62,14 @@ struct ContentView: View {
             RuntimeEnvironmentView(wineManager: viewModel.wineManagerInstance) { change in
                 switch change {
                 case .dependenciesRepaired:
-                    break
+                    didResetAllApplicationData = false
                 case .wineConfigurationReset:
                     viewModel.markWineRuntimesUnconfigured()
                 case .allApplicationDataReset:
                     viewModel.loadLibrary()
                     viewModel.selectedGameId = nil
+                    didResetAllApplicationData = true
+                    showingRuntimeEnvironment = false
                 }
                 viewModel.refreshRuntimeEnvironmentStatus()
             }
