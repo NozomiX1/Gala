@@ -17,6 +17,22 @@ import Foundation
     #expect(loaded == testData)
 }
 
+@Test func saveRecreatesCacheDirectoryIfDeleted() throws {
+    let tempDir = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: tempDir) }
+
+    let cacheDir = tempDir.appendingPathComponent("Cache/covers")
+    let cache = ImageCache(cacheDirectory: cacheDir)
+    try FileManager.default.removeItem(at: cacheDir)
+
+    let testData = Data("fake image data".utf8)
+    try cache.save(testData, forKey: "v7771")
+
+    #expect(cache.load(forKey: "v7771") == testData)
+}
+
 @Test func loadMissingImageReturnsNil() throws {
     let tempDir = FileManager.default.temporaryDirectory
         .appendingPathComponent(UUID().uuidString)

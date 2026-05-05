@@ -9,6 +9,7 @@ public final class ImageCache: Sendable {
     }
 
     public func save(_ data: Data, forKey key: String) throws {
+        try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
         let fileURL = fileURL(forKey: key)
         try data.write(to: fileURL, options: .atomic)
     }
