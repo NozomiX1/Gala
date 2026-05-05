@@ -74,6 +74,16 @@ import Foundation
     #expect(status.isReady)
 }
 
+@Test func bottleManagerWineCommandEnvironmentSuppressesVerboseLogs() {
+    let env = BottleManager.wineCommandEnvironment(prefix: "/tmp/prefix", locale: "zh_CN.UTF-8")
+
+    #expect(env["WINEPREFIX"] == "/tmp/prefix")
+    #expect(env["LANG"] == "zh_CN.UTF-8")
+    #expect(env["LC_ALL"] == "zh_CN.UTF-8")
+    #expect(env["WINEDEBUG"] == "-all")
+    #expect(env["MVK_CONFIG_LOG_LEVEL"] == "0")
+}
+
 @Test func bottleManagerCreatesDirectory() throws {
     let tempDir = FileManager.default.temporaryDirectory
         .appendingPathComponent(UUID().uuidString)

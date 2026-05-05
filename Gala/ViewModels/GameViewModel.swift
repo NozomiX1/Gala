@@ -29,14 +29,22 @@ final class GameViewModel {
 
         Task { @MainActor in
             isSettingUp = true
-            setupStatus = "初始化 Wine 前缀..."
+            setupStatus = "检查运行环境..."
 
             do {
-                try await bottleManager.createBottle(for: game)
+                if RuntimeConfigurationPolicy.needsRuntimeConfiguration(
+                    for: game,
+                    bottleReady: bottleManager.isBottleReady(for: game)
+                ) {
+                    setupStatus = "初始化 Wine 前缀..."
+                    try await bottleManager.createBottle(for: game)
 
-                if game.engine != nil {
-                    setupStatus = "应用引擎预设..."
-                    try await bottleManager.applyEnginePreset(for: game)
+                    if game.engine != nil {
+                        setupStatus = "应用引擎预设..."
+                        try await bottleManager.applyEnginePreset(for: game)
+                    }
+                } else {
+                    setupStatus = "复用已有运行环境..."
                 }
 
                 viewModel.markRuntimeConfigured(for: game)

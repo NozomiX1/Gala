@@ -46,6 +46,42 @@ import Foundation
     #expect(!RuntimeConfigurationPolicy.shouldDeleteRuntimeConfiguration(for: game, in: [game]))
 }
 
+@Test func runtimePolicySkipsConfigurationWhenBottleIsAlreadyReady() {
+    let game = Game(
+        title: "Shared Prefix Game",
+        executablePath: "/game.exe",
+        engine: .bgi,
+        isRuntimeConfigured: false,
+        bottleConfig: BottleConfig(prefixPath: "/tmp/Gala/Bottles/Profiles/legacy-video")
+    )
+
+    #expect(!RuntimeConfigurationPolicy.needsRuntimeConfiguration(for: game, bottleReady: true))
+}
+
+@Test func runtimePolicyNeedsConfigurationWhenBottleIsMissing() {
+    let game = Game(
+        title: "New Prefix Game",
+        executablePath: "/game.exe",
+        engine: .bgi,
+        isRuntimeConfigured: false,
+        bottleConfig: BottleConfig(prefixPath: "/tmp/Gala/Bottles/Profiles/legacy-video")
+    )
+
+    #expect(RuntimeConfigurationPolicy.needsRuntimeConfiguration(for: game, bottleReady: false))
+}
+
+@Test func runtimePolicySkipsConfigurationForNativeEngine() {
+    let game = Game(
+        title: "Native Game",
+        executablePath: "/game.exe",
+        engine: .renpy,
+        isRuntimeConfigured: false,
+        bottleConfig: BottleConfig(prefixPath: "")
+    )
+
+    #expect(!RuntimeConfigurationPolicy.needsRuntimeConfiguration(for: game, bottleReady: false))
+}
+
 private func configuredGame(id: UUID, title: String, engine: Engine, prefix: String) -> Game {
     Game(
         id: id,

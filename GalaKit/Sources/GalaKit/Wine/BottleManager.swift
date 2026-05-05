@@ -267,8 +267,7 @@ public final class BottleManager: @unchecked Sendable {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: winetricksPath)
         process.arguments = ["-q"] + components
-        var env = ProcessInfo.processInfo.environment
-        env["WINEPREFIX"] = prefix
+        var env = Self.wineCommandEnvironment(prefix: prefix, locale: "zh_CN.UTF-8")
         if let wineBinary = wineManager?.wineBinaryURL {
             env["WINE"] = wineBinary.path
         }
@@ -285,13 +284,19 @@ public final class BottleManager: @unchecked Sendable {
         let process = Process()
         process.executableURL = wineBinary
         process.arguments = arguments
+        process.environment = Self.wineCommandEnvironment(prefix: prefix, locale: locale)
+        try process.run()
+        process.waitUntilExit()
+    }
+
+    static func wineCommandEnvironment(prefix: String, locale: String) -> [String: String] {
         var env = ProcessInfo.processInfo.environment
         env["WINEPREFIX"] = prefix
         env["LANG"] = locale
         env["LC_ALL"] = locale
-        process.environment = env
-        try process.run()
-        process.waitUntilExit()
+        env["WINEDEBUG"] = "-all"
+        env["MVK_CONFIG_LOG_LEVEL"] = "0"
+        return env
     }
 }
 
