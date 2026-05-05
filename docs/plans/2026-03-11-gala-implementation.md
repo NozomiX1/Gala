@@ -186,6 +186,9 @@ public struct EnginePreset: Sendable {
 
 extension Engine {
     public var preset: EnginePreset {
+        // Update note: current implementation factors these into a shared
+        // legacyVideoComponents preset and also covers Artemis, NScripter,
+        // YU-RIS, RealLive, and Leaf/AQUAPLUS.
         switch self {
         case .kirikiri:
             return EnginePreset(

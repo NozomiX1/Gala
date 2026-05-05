@@ -48,3 +48,42 @@ import Foundation
     // Should not throw — just skips
     try BottleManager.installBundledFont(prefix: prefix.path, fontSource: missingFont)
 }
+
+@Test func fontSubstitutesCoverLegacyWin32MenuFonts() {
+    let sourceNames = Set(BottleManager.cjkFontSubstitutes.map(\.sourceName))
+
+    #expect(sourceNames.contains("MS Sans Serif"))
+    #expect(sourceNames.contains("Microsoft Sans Serif"))
+    #expect(sourceNames.contains("System"))
+    #expect(sourceNames.contains("Small Fonts"))
+    #expect(sourceNames.contains("Arial"))
+    #expect(sourceNames.contains("Arial Unicode MS"))
+}
+
+@Test func windowMetricFontsCoverLegacyWin32Dialogs() {
+    let valueNames = Set(BottleManager.cjkWindowMetricFonts.map(\.valueName))
+
+    #expect(valueNames.contains("CaptionFont"))
+    #expect(valueNames.contains("IconFont"))
+    #expect(valueNames.contains("MenuFont"))
+    #expect(valueNames.contains("MessageFont"))
+    #expect(valueNames.contains("SmCaptionFont"))
+    #expect(valueNames.contains("StatusFont"))
+}
+
+@Test func windowMetricFontUsesCJKFaceAndCharset() throws {
+    let metric = try #require(BottleManager.cjkWindowMetricFonts.first { $0.valueName == "MessageFont" })
+
+    #expect(metric.data.count == 92)
+    #expect(metric.data[23] == 0x86)
+
+    let faceBytes = metric.data[28...]
+    let faceCodeUnits = stride(from: 0, to: faceBytes.count, by: 2).compactMap { offset -> UInt16? in
+        guard offset + 1 < faceBytes.count else { return nil }
+        let value = UInt16(faceBytes[faceBytes.index(faceBytes.startIndex, offsetBy: offset)])
+            | UInt16(faceBytes[faceBytes.index(faceBytes.startIndex, offsetBy: offset + 1)]) << 8
+        return value == 0 ? nil : value
+    }
+
+    #expect(String(decoding: faceCodeUnits, as: UTF16.self) == "Source Han Sans SC")
+}

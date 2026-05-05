@@ -32,6 +32,51 @@ import Foundation
     #expect(preset.dllOverrides.isEmpty)
 }
 
+@Test func legacyVideoPresetCoversDirectShowBasedEngines() {
+    let engines: [Engine] = [.artemis, .nscripter, .yuris, .realLive]
+
+    for engine in engines {
+        let preset = engine.preset
+        #expect(preset.components.contains("quartz"))
+        #expect(preset.components.contains("amstream"))
+        #expect(preset.components.contains("lavfilters"))
+        #expect(preset.dllOverrides.isEmpty)
+        #expect(preset.registryValues.isEmpty)
+    }
+}
+
+@Test func leafPresetInstallsLegacyVideoComponents() {
+    let preset = Engine.leaf.preset
+    #expect(preset.components.contains("quartz"))
+    #expect(preset.components.contains("amstream"))
+    #expect(preset.components.contains("lavfilters"))
+    #expect(preset.dllOverrides["quartz"] == "builtin")
+    #expect(preset.dllOverrides["amstream"] == "builtin")
+    #expect(preset.dllOverrides["devenum"] == "builtin")
+    #expect(preset.dllOverrides["*quartz"] == "builtin")
+    #expect(preset.dllOverrides["*amstream"] == "builtin")
+    #expect(preset.dllOverrides["*devenum"] == "builtin")
+    #expect(preset.dllOverrides["wmvdecod"] == "disabled")
+    #expect(preset.dllOverrides["wmadmod"] == "disabled")
+    #expect(preset.dllOverrides["winegstreamer"] == "disabled")
+}
+
+@Test func leafPresetForcesLAVVideoToRGBOutput() {
+    let lavOutputKey = "HKCU\\Software\\LAV\\Video\\Output"
+    let preset = Engine.leaf.preset
+    let values = Dictionary(uniqueKeysWithValues: preset.registryValues
+        .filter { $0.key == lavOutputKey }
+        .map { ($0.valueName, $0.data) })
+
+    #expect(values["nv12"] == "0")
+    #expect(values["yv12"] == "0")
+    #expect(values["yuy2"] == "0")
+    #expect(values["uyvy"] == "0")
+    #expect(values["rgb24"] == "1")
+    #expect(values["rgb32"] == "1")
+    #expect(preset.registryValues.allSatisfy { $0.type == "REG_DWORD" })
+}
+
 @Test func bottleConfigDefaults() {
     let config = BottleConfig(prefixPath: "/tmp/test")
     #expect(config.locale == "zh_CN.UTF-8")

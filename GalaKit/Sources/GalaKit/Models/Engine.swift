@@ -3,32 +3,90 @@ import Foundation
 public enum Engine: String, Codable, CaseIterable, Sendable {
     case kirikiri, nscripter, renpy, rpgMaker, unity
     case bgi, catSystem2, siglusEngine, artemis, yuris
-    case majiro, advHD, realLive, qlie, unknown
+    case majiro, advHD, realLive, qlie, leaf, unknown
+}
+
+public struct RegistryValue: Sendable {
+    public let key: String
+    public let valueName: String
+    public let type: String
+    public let data: String
+
+    public init(key: String, valueName: String, type: String, data: String) {
+        self.key = key
+        self.valueName = valueName
+        self.type = type
+        self.data = data
+    }
 }
 
 public struct EnginePreset: Sendable {
     public let components: [String]
     public let dllOverrides: [String: String]
+    public let registryValues: [RegistryValue]
+
+    public init(
+        components: [String],
+        dllOverrides: [String: String],
+        registryValues: [RegistryValue] = []
+    ) {
+        self.components = components
+        self.dllOverrides = dllOverrides
+        self.registryValues = registryValues
+    }
+
     public static let empty = EnginePreset(components: [], dllOverrides: [:])
 }
 
 extension Engine {
+    private static let legacyVideoComponents = ["quartz", "amstream", "lavfilters"]
+    private static let legacyVideoPreset = EnginePreset(
+        components: legacyVideoComponents,
+        dllOverrides: [:]
+    )
+
     public var preset: EnginePreset {
         switch self {
         case .kirikiri:
-            return EnginePreset(components: ["quartz", "amstream", "lavfilters"], dllOverrides: ["quartz": "native"])
+            return EnginePreset(components: Self.legacyVideoComponents, dllOverrides: ["quartz": "native"])
         case .bgi:
-            return EnginePreset(components: ["quartz", "amstream", "lavfilters"], dllOverrides: [:])
+            return Self.legacyVideoPreset
         case .catSystem2:
             return EnginePreset(components: ["dotnet40", "quartz", "vcrun2015"], dllOverrides: [:])
         case .siglusEngine:
-            return EnginePreset(components: ["quartz", "amstream", "lavfilters", "xact", "xinput", "vcrun2019"],
+            return EnginePreset(components: Self.legacyVideoComponents + ["xact", "xinput", "vcrun2019"],
                               dllOverrides: ["xaudio2_7": "native", "xactengine3_7": "native"])
+        case .artemis, .nscripter, .yuris, .realLive:
+            return Self.legacyVideoPreset
+        case .leaf:
+            let lavOutputKey = "HKCU\\Software\\LAV\\Video\\Output"
+            return EnginePreset(
+                components: Self.legacyVideoComponents,
+                dllOverrides: [
+                    "quartz": "builtin",
+                    "amstream": "builtin",
+                    "devenum": "builtin",
+                    "*quartz": "builtin",
+                    "*amstream": "builtin",
+                    "*devenum": "builtin",
+                    "wmvdecod": "disabled",
+                    "wmadmod": "disabled",
+                    "winegstreamer": "disabled",
+                ],
+                registryValues: [
+                    RegistryValue(key: lavOutputKey, valueName: "nv12", type: "REG_DWORD", data: "0"),
+                    RegistryValue(key: lavOutputKey, valueName: "yv12", type: "REG_DWORD", data: "0"),
+                    RegistryValue(key: lavOutputKey, valueName: "yuy2", type: "REG_DWORD", data: "0"),
+                    RegistryValue(key: lavOutputKey, valueName: "uyvy", type: "REG_DWORD", data: "0"),
+                    RegistryValue(key: lavOutputKey, valueName: "rgb24", type: "REG_DWORD", data: "1"),
+                    RegistryValue(key: lavOutputKey, valueName: "rgb32", type: "REG_DWORD", data: "1"),
+                ]
+            )
         case .rpgMaker:
             return EnginePreset(components: ["d3dx9"], dllOverrides: [:])
         case .unity:
             return EnginePreset(components: ["dotnet48", "d3dcompiler_47"], dllOverrides: [:])
-        case .nscripter, .renpy, .artemis, .yuris, .majiro, .advHD, .realLive, .qlie, .unknown:
+        case .renpy, .majiro, .advHD, .qlie, .unknown:
             return .empty
         }
     }
@@ -49,6 +107,7 @@ extension Engine {
         case .advHD: return "AdvHD"
         case .realLive: return "RealLive"
         case .qlie: return "QLIE"
+        case .leaf: return "Leaf/AQUAPLUS"
         case .unknown: return "Unknown"
         }
     }

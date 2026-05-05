@@ -22,12 +22,21 @@ public enum EngineDetector {
         if lowercased.contains("seen.txt") { return .realLive }
         if lowercased.contains("rio.arc") { return .advHD }
         if lowercased.contains(where: { $0.hasSuffix(".ypf") }) { return .yuris }
+        if detectsLeafAQUAPLUS(contents: lowercased) { return .leaf }
         if lowercased.contains("unityplayer.dll") { return .unity }
         if lowercased.contains(where: { $0.hasPrefix("rgss") && $0.hasSuffix(".dll") }) { return .rpgMaker }
         if lowercased.contains(where: { $0.hasPrefix("cs2") && $0.hasSuffix(".exe") }) { return .catSystem2 }
         if fm.fileExists(atPath: directory.appendingPathComponent("www").path) &&
            lowercased.contains("package.json") { return .rpgMaker }
         return nil
+    }
+
+    private static func detectsLeafAQUAPLUS(contents lowercased: [String]) -> Bool {
+        let hasWA2Executable = lowercased.contains("wa2.exe") || lowercased.contains("wa2_chs.exe")
+        let hasMoviePacks = lowercased.contains { name in
+            name.hasPrefix("mv") && name.hasSuffix(".pak")
+        }
+        return hasWA2Executable && hasMoviePacks
     }
 
     private struct MagicSignature {
@@ -94,7 +103,6 @@ public enum EngineDetector {
         }
 
         let exeFiles = contents.filter { $0.lowercased().hasSuffix(".exe") }
-        let lowercasedExes = exeFiles.map { $0.lowercased() }
 
         switch engine {
         case .bgi:
@@ -128,6 +136,14 @@ public enum EngineDetector {
         case .rpgMaker:
             // RPG Maker: Game.exe is the standard name
             if let match = exeFiles.first(where: { $0.lowercased() == "game.exe" }) {
+                return directory.appendingPathComponent(match)
+            }
+        case .leaf:
+            // Leaf/AQUAPLUS: prefer localized launchers when present.
+            if let match = exeFiles.first(where: { $0.lowercased() == "wa2_chs.exe" }) {
+                return directory.appendingPathComponent(match)
+            }
+            if let match = exeFiles.first(where: { $0.lowercased() == "wa2.exe" }) {
                 return directory.appendingPathComponent(match)
             }
         default:

@@ -54,22 +54,16 @@ final class GameViewModel {
             // Now launch the game
             isRunning = true
             do {
-                try wineProcess.launch(game: game, wineBinary: wineBinary) { [weak self] duration in
+                try wineProcess.launch(game: game, wineBinary: wineBinary) { [weak self] duration, terminationStatus, output in
                     viewModel.recordPlayTime(gameId: game.id, duration: duration)
                     DispatchQueue.main.async {
                         self?.isRunning = false
-                        // Show Wine output if game exited quickly (likely crashed),
-                        // but filter out harmless Wine fixme/stub noise
-                        if duration < 5, let output = self?.wineProcess.lastOutput, !output.isEmpty {
-                            let meaningful = output.components(separatedBy: "\n")
-                                .filter { line in
-                                    let l = line.trimmingCharacters(in: .whitespaces)
-                                    return !l.isEmpty && !l.contains(":fixme:") && !l.contains(") stub")
-                                }
-                                .joined(separator: "\n")
-                            if !meaningful.isEmpty {
-                                self?.errorMessage = "游戏快速退出。Wine 输出：\n\(String(meaningful.suffix(500)))"
-                            }
+                        if let meaningful = WineLaunchDiagnostics.meaningfulQuickExitOutput(
+                            duration: duration,
+                            terminationStatus: terminationStatus,
+                            output: output
+                        ) {
+                            self?.errorMessage = "游戏快速退出。Wine 输出：\n\(meaningful)"
                         }
                     }
                 }
@@ -88,7 +82,7 @@ final class GameViewModel {
                 let appPath = gameDir.appendingPathComponent(app).path
                 isRunning = true
                 do {
-                    try wineProcess.launchNative(path: appPath) { [weak self] duration in
+                    try wineProcess.launchNative(path: appPath) { [weak self] duration, _, _ in
                         viewModel.recordPlayTime(gameId: game.id, duration: duration)
                         DispatchQueue.main.async {
                             self?.isRunning = false

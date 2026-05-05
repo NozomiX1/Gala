@@ -152,17 +152,19 @@ Manages per-game Wine Prefixes.
 
 ### Engine Presets
 
-Base layer (all games): Japanese locale, CJK fonts, codepage 932, vcrun2019, d3dx9
+Base layer (all Wine games): locale/codepage, Source Han Sans SC CJK font, font substitutes, window metric fonts
 
 Engine-specific additions:
 
 | Engine | Components | DLL Overrides |
 |--------|-----------|---------------|
 | KiriKiri | quartz, amstream, lavfilters | quartz=native |
-| NScripter | (base only) | - |
+| NScripter | quartz, amstream, lavfilters | - |
 | BGI | quartz, amstream, lavfilters | - |
 | CatSystem2 | dotnet40, quartz, vcrun2015 | - |
 | SiglusEngine | quartz, amstream, lavfilters, xact, xinput, vcrun2019 | xaudio2_7=native, xactengine3_7=native |
+| Artemis / YU-RIS / RealLive | quartz, amstream, lavfilters | - |
+| Leaf/AQUAPLUS | quartz, amstream, lavfilters + LAV RGB-only registry | quartz/amstream/devenum=builtin, wmvdecod/wmadmod/winegstreamer=disabled |
 | RPG Maker | RTP runtime | - |
 | Unity | dotnet48, d3dcompiler_47 | - |
 

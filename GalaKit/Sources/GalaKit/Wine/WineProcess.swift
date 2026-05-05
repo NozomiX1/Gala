@@ -11,7 +11,7 @@ public final class WineProcess: ObservableObject, @unchecked Sendable {
     public func launch(
         game: Game,
         wineBinary: URL,
-        onTermination: @escaping @Sendable (TimeInterval) -> Void
+        onTermination: @escaping @Sendable (TimeInterval, Int32, String) -> Void
     ) throws {
         guard !isRunning else { return }
 
@@ -41,11 +41,13 @@ public final class WineProcess: ObservableObject, @unchecked Sendable {
 
         process.terminationHandler = { [weak self] proc in
             let duration = Date().timeIntervalSince(startTime)
+            let terminationStatus = proc.terminationStatus
             stderrHandle.closeFile()
             // Read last 500 chars of stderr for diagnostics
+            var tail = ""
             if let data = try? Data(contentsOf: stderrFile),
                let output = String(data: data, encoding: .utf8), !output.isEmpty {
-                let tail = String(output.suffix(500))
+                tail = String(output.suffix(500))
                 DispatchQueue.main.async {
                     self?.lastOutput = tail
                 }
@@ -54,7 +56,7 @@ public final class WineProcess: ObservableObject, @unchecked Sendable {
             DispatchQueue.main.async {
                 self?.isRunning = false
             }
-            onTermination(duration)
+            onTermination(duration, terminationStatus, tail)
         }
 
         try process.run()
@@ -67,7 +69,7 @@ public final class WineProcess: ObservableObject, @unchecked Sendable {
 
     public func launchNative(
         path: String,
-        onTermination: @escaping @Sendable (TimeInterval) -> Void
+        onTermination: @escaping @Sendable (TimeInterval, Int32, String) -> Void
     ) throws {
         guard !isRunning else { return }
 
@@ -77,12 +79,12 @@ public final class WineProcess: ObservableObject, @unchecked Sendable {
 
         let startTime = Date()
 
-        process.terminationHandler = { [weak self] _ in
+        process.terminationHandler = { [weak self] proc in
             let duration = Date().timeIntervalSince(startTime)
             DispatchQueue.main.async {
                 self?.isRunning = false
             }
-            onTermination(duration)
+            onTermination(duration, proc.terminationStatus, "")
         }
 
         try process.run()

@@ -1,5 +1,15 @@
 import Foundation
 
+struct FontSubstitute: Sendable {
+    let sourceName: String
+    let targetName: String
+}
+
+struct WindowMetricFont: Sendable {
+    let valueName: String
+    let data: [UInt8]
+}
+
 public final class BottleManager: @unchecked Sendable {
     private let bottlesDirectory: URL
     private let wineManager: WineManager?
@@ -62,6 +72,12 @@ public final class BottleManager: @unchecked Sendable {
             locale: game.bottleConfig.locale
         )
 
+        try await configureWindowMetricFonts(
+            wineBinary: wineBinary,
+            prefix: game.bottleConfig.prefixPath,
+            locale: game.bottleConfig.locale
+        )
+
         try await configureFontSmoothing(
             wineBinary: wineBinary,
             prefix: game.bottleConfig.prefixPath,
@@ -72,19 +88,34 @@ public final class BottleManager: @unchecked Sendable {
     public func applyEnginePreset(for game: Game) async throws {
         guard let engine = game.engine else { return }
         let preset = engine.preset
-        guard !preset.components.isEmpty || !preset.dllOverrides.isEmpty else { return }
+        guard !preset.components.isEmpty || !preset.dllOverrides.isEmpty || !preset.registryValues.isEmpty else { return }
 
         if !preset.components.isEmpty {
             try await installWinetricks(components: preset.components, prefix: game.bottleConfig.prefixPath)
         }
 
-        if !preset.dllOverrides.isEmpty {
+        if !preset.dllOverrides.isEmpty || !preset.registryValues.isEmpty {
             guard let wineBinary = wineManager?.wineBinaryURL else { return }
             for (dll, mode) in preset.dllOverrides {
                 try await runWineCommand(
                     wineBinary: wineBinary,
                     arguments: ["reg", "add", "HKCU\\Software\\Wine\\DllOverrides",
                                "/v", dll, "/t", "REG_SZ", "/d", mode, "/f"],
+                    prefix: game.bottleConfig.prefixPath,
+                    locale: game.bottleConfig.locale
+                )
+            }
+
+            for value in preset.registryValues {
+                try await runWineCommand(
+                    wineBinary: wineBinary,
+                    arguments: [
+                        "reg", "add", value.key,
+                        "/v", value.valueName,
+                        "/t", value.type,
+                        "/d", value.data,
+                        "/f"
+                    ],
                     prefix: game.bottleConfig.prefixPath,
                     locale: game.bottleConfig.locale
                 )
@@ -153,37 +184,39 @@ public final class BottleManager: @unchecked Sendable {
     }
 
     private func configureFontSubstitutes(wineBinary: URL, prefix: String, locale: String) async throws {
-        // Map common Windows CJK fonts to macOS system fonts so Wine can render
-        // CJK text in window titles, dialogs, and game UI.
+        // Map common Windows CJK and legacy UI fonts so Wine can render CJK
+        // text in window titles, menus, dialogs, and game UI.
         let regKey = "HKLM\\Software\\Microsoft\\Windows NT\\CurrentVersion\\FontSubstitutes"
-        let fontName = "Source Han Sans SC"
-        let substitutes: [(String, String)] = [
-            // Wine system UI fonts (menus, dialogs, title bars)
-            ("MS Shell Dlg", fontName),
-            ("MS Shell Dlg 2", fontName),
-            ("Tahoma", fontName),
-            // Common Windows CJK fonts
-            ("SimSun", fontName),
-            ("NSimSun", fontName),
-            ("MS Gothic", fontName),
-            ("MS PGothic", fontName),
-            ("MS UI Gothic", fontName),
-            ("MS Mincho", fontName),
-            ("MS PMincho", fontName),
-            ("Microsoft YaHei", fontName),
-            ("\\u5B8B\\u4F53", fontName),
-            ("\\u9ED1\\u4F53", fontName),
-            // Full-width Japanese names (BGI engine uses these)
-            ("\u{FF2D}\u{FF33} \u{660E}\u{671D}", fontName),           // ＭＳ 明朝
-            ("\u{FF2D}\u{FF33} \u{30B4}\u{30B7}\u{30C3}\u{30AF}", fontName), // ＭＳ ゴシック
-            ("\u{FF2D}\u{FF33} \u{FF30}\u{660E}\u{671D}", fontName),   // ＭＳ Ｐ明朝
-            ("\u{FF2D}\u{FF33} \u{FF30}\u{30B4}\u{30B7}\u{30C3}\u{30AF}", fontName), // ＭＳ Ｐゴシック
-        ]
 
-        for (from, to) in substitutes {
+        for substitute in Self.cjkFontSubstitutes {
             try await runWineCommand(
                 wineBinary: wineBinary,
-                arguments: ["reg", "add", regKey, "/v", from, "/t", "REG_SZ", "/d", to, "/f"],
+                arguments: [
+                    "reg", "add", regKey,
+                    "/v", substitute.sourceName,
+                    "/t", "REG_SZ",
+                    "/d", substitute.targetName,
+                    "/f"
+                ],
+                prefix: prefix,
+                locale: locale
+            )
+        }
+    }
+
+    private func configureWindowMetricFonts(wineBinary: URL, prefix: String, locale: String) async throws {
+        let regKey = "HKCU\\Control Panel\\Desktop\\WindowMetrics"
+
+        for metric in Self.cjkWindowMetricFonts {
+            try await runWineCommand(
+                wineBinary: wineBinary,
+                arguments: [
+                    "reg", "add", regKey,
+                    "/v", metric.valueName,
+                    "/t", "REG_BINARY",
+                    "/d", metric.data.hexString,
+                    "/f"
+                ],
                 prefix: prefix,
                 locale: locale
             )
@@ -251,5 +284,101 @@ public final class BottleManager: @unchecked Sendable {
         process.environment = env
         try process.run()
         process.waitUntilExit()
+    }
+}
+
+extension BottleManager {
+    private static let cjkUIFaceName = "Source Han Sans SC"
+
+    static let cjkFontSubstitutes: [FontSubstitute] = {
+        let fontName = cjkUIFaceName
+        return [
+            // Wine and legacy Win32 system UI fonts (menus, dialogs, title bars)
+            FontSubstitute(sourceName: "MS Shell Dlg", targetName: fontName),
+            FontSubstitute(sourceName: "MS Shell Dlg 2", targetName: fontName),
+            FontSubstitute(sourceName: "Tahoma", targetName: fontName),
+            FontSubstitute(sourceName: "MS Sans Serif", targetName: fontName),
+            FontSubstitute(sourceName: "Microsoft Sans Serif", targetName: fontName),
+            FontSubstitute(sourceName: "System", targetName: fontName),
+            FontSubstitute(sourceName: "Small Fonts", targetName: fontName),
+            FontSubstitute(sourceName: "Arial", targetName: fontName),
+            FontSubstitute(sourceName: "Arial Unicode MS", targetName: fontName),
+
+            // Common Windows CJK fonts
+            FontSubstitute(sourceName: "SimSun", targetName: fontName),
+            FontSubstitute(sourceName: "NSimSun", targetName: fontName),
+            FontSubstitute(sourceName: "SimHei", targetName: fontName),
+            FontSubstitute(sourceName: "MS Gothic", targetName: fontName),
+            FontSubstitute(sourceName: "MS PGothic", targetName: fontName),
+            FontSubstitute(sourceName: "MS UI Gothic", targetName: fontName),
+            FontSubstitute(sourceName: "MS Mincho", targetName: fontName),
+            FontSubstitute(sourceName: "MS PMincho", targetName: fontName),
+            FontSubstitute(sourceName: "Microsoft YaHei", targetName: fontName),
+            FontSubstitute(sourceName: "Microsoft JhengHei", targetName: fontName),
+            FontSubstitute(sourceName: "\\u5B8B\\u4F53", targetName: fontName),
+            FontSubstitute(sourceName: "\\u9ED1\\u4F53", targetName: fontName),
+
+            // Full-width Japanese names (BGI engine uses these)
+            FontSubstitute(sourceName: "\u{FF2D}\u{FF33} \u{660E}\u{671D}", targetName: fontName),
+            FontSubstitute(sourceName: "\u{FF2D}\u{FF33} \u{30B4}\u{30B7}\u{30C3}\u{30AF}", targetName: fontName),
+            FontSubstitute(sourceName: "\u{FF2D}\u{FF33} \u{FF30}\u{660E}\u{671D}", targetName: fontName),
+            FontSubstitute(sourceName: "\u{FF2D}\u{FF33} \u{FF30}\u{30B4}\u{30B7}\u{30C3}\u{30AF}", targetName: fontName),
+        ]
+    }()
+
+    static let cjkWindowMetricFonts: [WindowMetricFont] = [
+        WindowMetricFont(valueName: "CaptionFont", data: logFontData(height: 10, faceName: cjkUIFaceName)),
+        WindowMetricFont(valueName: "IconFont", data: logFontData(height: 8, faceName: cjkUIFaceName)),
+        WindowMetricFont(valueName: "MenuFont", data: logFontData(height: 8, faceName: cjkUIFaceName)),
+        WindowMetricFont(valueName: "MessageFont", data: logFontData(height: 8, faceName: cjkUIFaceName)),
+        WindowMetricFont(valueName: "SmCaptionFont", data: logFontData(height: 8, faceName: cjkUIFaceName)),
+        WindowMetricFont(valueName: "StatusFont", data: logFontData(height: 8, faceName: cjkUIFaceName)),
+    ]
+
+    private static func logFontData(height: Int32, faceName: String) -> [UInt8] {
+        var data: [UInt8] = []
+
+        func appendInt32(_ value: Int32) {
+            let raw = UInt32(bitPattern: value)
+            data.append(UInt8(raw & 0xff))
+            data.append(UInt8((raw >> 8) & 0xff))
+            data.append(UInt8((raw >> 16) & 0xff))
+            data.append(UInt8((raw >> 24) & 0xff))
+        }
+
+        appendInt32(height) // lfHeight
+        appendInt32(0)      // lfWidth
+        appendInt32(0)      // lfEscapement
+        appendInt32(0)      // lfOrientation
+        appendInt32(400)    // lfWeight
+        data += [
+            0x00, // lfItalic
+            0x00, // lfUnderline
+            0x00, // lfStrikeOut
+            0x86, // lfCharSet: GB2312_CHARSET
+            0x00, // lfOutPrecision
+            0x00, // lfClipPrecision
+            0x00, // lfQuality
+            0x00, // lfPitchAndFamily
+        ]
+
+        for codeUnit in faceName.utf16.prefix(31) {
+            data.append(UInt8(codeUnit & 0xff))
+            data.append(UInt8((codeUnit >> 8) & 0xff))
+        }
+        data.append(0)
+        data.append(0)
+
+        while data.count < 92 {
+            data.append(0)
+        }
+
+        return Array(data.prefix(92))
+    }
+}
+
+private extension Array where Element == UInt8 {
+    var hexString: String {
+        map { String(format: "%02x", $0) }.joined()
     }
 }

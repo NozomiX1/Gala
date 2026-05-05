@@ -63,6 +63,19 @@ import Foundation
     #expect(result == nil)
 }
 
+@Test func detectLeafAQUAPLUSByWA2ExecutableAndMoviePacks() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+
+    FileManager.default.createFile(atPath: dir.appendingPathComponent("WA2_chs.exe").path, contents: nil)
+    FileManager.default.createFile(atPath: dir.appendingPathComponent("mv000.pak").path, contents: nil)
+    FileManager.default.createFile(atPath: dir.appendingPathComponent("mv001.pak").path, contents: nil)
+
+    let result = EngineDetector.detect(in: dir)
+    #expect(result == .leaf)
+}
+
 @Test func resolvesBGIExecutable() throws {
     let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
