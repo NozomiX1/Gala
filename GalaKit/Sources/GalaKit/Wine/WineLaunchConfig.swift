@@ -16,6 +16,8 @@ public struct WineLaunchConfig: Sendable {
         env["WINEPREFIX"] = game.bottleConfig.prefixPath
         env["LANG"] = game.bottleConfig.locale
         env["LC_ALL"] = game.bottleConfig.locale
+        env["WINEDEBUG"] = "-all"
+        env["MVK_CONFIG_LOG_LEVEL"] = "0"
 
         // Only set DYLD_FALLBACK_LIBRARY_PATH if the lib directories actually exist.
         // Setting it to non-existent paths overrides system defaults and breaks Wine.

@@ -141,6 +141,56 @@ import Foundation
     #expect(env["WINEPREFIX"] != nil)
 }
 
+@Test func environmentSuppressesVerboseWineAndMoltenVKLogsByDefault() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+
+    let game = Game(
+        title: "Test",
+        executablePath: dir.appendingPathComponent("game.exe").path,
+        bottleConfig: BottleConfig(prefixPath: dir.appendingPathComponent("prefix").path)
+    )
+    let fakeBin = dir.appendingPathComponent("bin/wine")
+    try FileManager.default.createDirectory(
+        at: fakeBin.deletingLastPathComponent(), withIntermediateDirectories: true
+    )
+    FileManager.default.createFile(atPath: fakeBin.path, contents: nil)
+
+    let env = WineLaunchConfig.buildEnvironment(game: game, wineBinary: fakeBin)
+
+    #expect(env["WINEDEBUG"] == "-all")
+    #expect(env["MVK_CONFIG_LOG_LEVEL"] == "0")
+}
+
+@Test func gameEnvironmentCanOverrideWineLogDefaults() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+
+    let game = Game(
+        title: "Test",
+        executablePath: dir.appendingPathComponent("game.exe").path,
+        bottleConfig: BottleConfig(
+            prefixPath: dir.appendingPathComponent("prefix").path,
+            environment: [
+                "WINEDEBUG": "+seh",
+                "MVK_CONFIG_LOG_LEVEL": "3",
+            ]
+        )
+    )
+    let fakeBin = dir.appendingPathComponent("bin/wine")
+    try FileManager.default.createDirectory(
+        at: fakeBin.deletingLastPathComponent(), withIntermediateDirectories: true
+    )
+    FileManager.default.createFile(atPath: fakeBin.path, contents: nil)
+
+    let env = WineLaunchConfig.buildEnvironment(game: game, wineBinary: fakeBin)
+
+    #expect(env["WINEDEBUG"] == "+seh")
+    #expect(env["MVK_CONFIG_LOG_LEVEL"] == "3")
+}
+
 @Test func launchArgumentsArePrepended() throws {
     let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
