@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.1.0] - 2026-05-05
+
+### Added
+- Explicit runtime configuration flow: newly added Wine games now show "配置环境" before they can be launched.
+- Separate "移除运行环境" and "从库中移除" actions so play records can be preserved independently from Wine configuration.
+- Runtime environment page with dependency checks, one-click repair, Wine configuration cleanup, and full local data cleanup.
+- Download and setup progress for Wine, fonts, helper tools, Wine extraction, and per-engine preset components.
+- Post-reset recovery screen that lets the user reinstall the runtime environment or quit after clearing all local data.
+- App-owned winetricks cache under `~/Library/Application Support/Gala/Cache/winetricks`.
+
+### Changed
+- Reuse Wine prefixes by runtime profile instead of creating a separate bottle for every game.
+- Delete a Wine prefix by default only when the removed game is its last configured user.
+- Download Gala-managed Wine, font, cabextract, and winetricks assets from the Gala release dependency bundle.
+- Route winetricks through Gala-managed helper tools and cache paths instead of relying on user-level Homebrew or global caches.
+
+### Fixed
+- Wine launcher sessions no longer flip back to idle as soon as a small game launcher spawns the real child process.
+- Clearing Wine configuration now marks affected games as needing runtime configuration again.
+- Clearing all local data no longer leaves the running app with missing library/cache directories.
+- Missing or failed helper-tool downloads can be repaired from the runtime environment page.
+
 ## [1.0] - 2026-05-05
 
 ### Added
