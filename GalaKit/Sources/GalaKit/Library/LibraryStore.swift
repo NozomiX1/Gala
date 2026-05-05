@@ -22,6 +22,10 @@ public final class LibraryStore: Sendable {
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let data = try encoder.encode(games)
+        try FileManager.default.createDirectory(
+            at: libraryFileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
         try data.write(to: libraryFileURL, options: .atomic)
     }
 }

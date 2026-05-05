@@ -33,6 +33,25 @@ import Foundation
     #expect(loaded[0].engine == .kirikiri)
 }
 
+@Test func saveRecreatesLibraryDirectoryIfDeleted() throws {
+    let tempDir = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: tempDir) }
+
+    let libraryDir = tempDir.appendingPathComponent("Gala")
+    try FileManager.default.createDirectory(at: libraryDir, withIntermediateDirectories: true)
+    let store = LibraryStore(baseURL: libraryDir)
+    try FileManager.default.removeItem(at: libraryDir)
+
+    let game = Game(title: "After Reset", executablePath: "/game.exe")
+    try store.save([game])
+
+    let loaded = try store.load()
+    #expect(loaded.count == 1)
+    #expect(loaded[0].title == "After Reset")
+}
+
 @Test func addAndRemoveGame() throws {
     let tempDir = FileManager.default.temporaryDirectory
         .appendingPathComponent(UUID().uuidString)
