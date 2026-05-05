@@ -52,7 +52,7 @@
 
 1. 下载 [Gala.dmg](https://github.com/NozomiX1/Gala/releases/latest)，打开后将 Gala 拖入 Applications
 2. 前往访达 → 应用程序，双击 Gala 启动（首次需确认打开）
-3. 首次启动自动下载 Wine 和 CJK 字体
+3. 首次启动会自动准备 Wine 运行时和 CJK 字体依赖
 
 ## 构建
 
@@ -63,14 +63,14 @@ open Gala.xcodeproj
 
 ## 依赖
 
-首次启动时**自动下载**，无需手动安装：
+Gala 会自动下载并管理这些运行时依赖：
 
 | 依赖 | 版本 | 用途 | 许可证 |
 |------|------|------|--------|
 | [Wine Staging](https://github.com/Gcenx/macOS_Wine_builds) | 11.6 (Gcenx) | 运行 Windows exe | LGPL |
 | [思源黑体](https://github.com/adobe-fonts/source-han-sans) | Regular | Wine CJK 字体渲染 | OFL 1.1 |
 
-可选但推荐：[winetricks](https://github.com/Winetricks/winetricks) — 旧式视频播放预设需要安装 DirectShow / LAV 组件；Gala 会自动准备 `cabextract`。
+部分旧式引擎的 OP/视频播放需要 DirectShow / LAV 组件。Gala 会在创建 bottle 时通过 [winetricks](https://github.com/Winetricks/winetricks) 自动安装这些组件，并自动准备 `cabextract`；用户通常不需要手动操作。如果系统未安装 `winetricks`，相关视频组件会被跳过，游戏本体仍可能启动，但 OP/视频可能无法播放。
 
 ## 工作原理
 
@@ -88,11 +88,11 @@ Gala/           SwiftUI 应用（Views, ViewModels）
 GalaKit/        Swift Package — Wine 管理、引擎检测、VNDB 客户端
 ```
 
-## 性能与兼容性说明
+## 兼容性说明
 
-Gala 自身的启动路径开销很小，主要成本来自 Wine 和游戏引擎本身。早期 README 曾记录秽翼のユースティア（BGI）启动约 40 秒，并推测是 Rosetta 2 下的引擎初始化瓶颈；后续排查确认，实际原因是旧式 DirectShow / LAV 视频链路没有正确加载，导致 OP 被跳过，同时在进入主菜单前出现长时间黑屏。
+Gala 自身的启动路径开销很小，主要成本来自 Wine 和游戏引擎本身。早期测试中，秽翼のユースティア（BGI）曾出现启动后长时间黑屏、OP 被跳过的问题；后续排查确认，原因是旧式 DirectShow / LAV 视频链路没有正确配置，而不是单纯的引擎初始化慢。
 
-当前 legacy video 预设会自动安装 `quartz`、`amstream`、`lavfilters`，覆盖 BGI、KiriKiri、SiglusEngine、Artemis、NScripter、YU-RIS、RealLive 等依赖旧式视频播放链路的引擎。Leaf/AQUAPLUS 额外使用更严格的 DirectShow / LAV RGB 输出配置，以修复 WHITE ALBUM2 的 OP/视频播放问题。
+当前旧式视频预设会自动安装 `quartz`、`amstream`、`lavfilters`，覆盖 BGI、KiriKiri、SiglusEngine、Artemis、NScripter、YU-RIS、RealLive 等依赖旧式视频播放链路的引擎。Leaf/AQUAPLUS 额外使用更严格的 DirectShow / LAV RGB 输出配置，以修复 WHITE ALBUM2 的 OP/视频播放问题。
 
 ### 排除的方案
 
