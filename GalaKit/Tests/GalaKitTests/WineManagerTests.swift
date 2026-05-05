@@ -76,6 +76,13 @@ import Foundation
     #expect(status.isReady)
 }
 
+@Test func winetricksDownloadUsesGalaOwnedReleaseAsset() {
+    #expect(WineManager.winetricksDownloadURL.host == "github.com")
+    #expect(WineManager.winetricksDownloadURL.path == "/NozomiX1/Gala/releases/download/deps-v1/winetricks")
+    #expect(!WineManager.winetricksDownloadURL.absoluteString.contains("raw.githubusercontent.com"))
+    #expect(!WineManager.winetricksDownloadURL.absoluteString.contains("Winetricks/winetricks"))
+}
+
 @Test func runtimeEnvironmentStatusRequiresAllHelperTools() throws {
     let tempDir = FileManager.default.temporaryDirectory
         .appendingPathComponent(UUID().uuidString)

@@ -128,7 +128,7 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
     public static let cabextractDownloadURL = URL(string: "https://github.com/NozomiX1/Gala/releases/download/deps-v1/cabextract")!
 
     /// Download URL for winetricks (needed to install engine-specific Windows components)
-    public static let winetricksDownloadURL = URL(string: "https://raw.githubusercontent.com/Winetricks/winetricks/20260125/src/winetricks")!
+    public static let winetricksDownloadURL = URL(string: "https://github.com/NozomiX1/Gala/releases/download/deps-v1/winetricks")!
 
     public var fontFileURL: URL {
         fontsDirectory.appendingPathComponent(Self.bundledFontName)
