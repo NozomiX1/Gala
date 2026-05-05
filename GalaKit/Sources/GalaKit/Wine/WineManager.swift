@@ -39,7 +39,7 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
         RuntimeEnvironmentStatus(
             isWineInstalled: isWineInstalled,
             isFontInstalled: isFontInstalled,
-            isHelperToolInstalled: isCabextractInstalled,
+            isHelperToolInstalled: isHelperToolInstalled,
             hasWineConfiguration: directoryHasContents(bottlesDirectory)
         )
     }
@@ -111,6 +111,9 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
         if !isCabextractInstalled {
             try await downloadCabextract()
         }
+        if !isWinetricksInstalled {
+            try await downloadWinetricks()
+        }
     }
 
     /// Download URL for Wine Staging (hosted in Gala releases for stability)
@@ -123,6 +126,9 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
 
     /// Download URL for cabextract (needed by winetricks to install Windows components)
     public static let cabextractDownloadURL = URL(string: "https://github.com/NozomiX1/Gala/releases/download/deps-v1/cabextract")!
+
+    /// Download URL for winetricks (needed to install engine-specific Windows components)
+    public static let winetricksDownloadURL = URL(string: "https://raw.githubusercontent.com/Winetricks/winetricks/20260125/src/winetricks")!
 
     public var fontFileURL: URL {
         fontsDirectory.appendingPathComponent(Self.bundledFontName)
@@ -143,15 +149,36 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
     }
 
     public var isCabextractInstalled: Bool {
-        FileManager.default.fileExists(atPath: cabextractURL.path)
+        FileManager.default.isExecutableFile(atPath: cabextractURL.path)
+    }
+
+    public var winetricksURL: URL {
+        toolsDirectory.appendingPathComponent("winetricks")
+    }
+
+    public var isWinetricksInstalled: Bool {
+        FileManager.default.isExecutableFile(atPath: winetricksURL.path)
+    }
+
+    public var isHelperToolInstalled: Bool {
+        isCabextractInstalled && isWinetricksInstalled
     }
 
     public func downloadCabextract() async throws {
         guard !isCabextractInstalled else { return }
         let (tempURL, _) = try await URLSession.shared.download(from: Self.cabextractDownloadURL)
+        try? FileManager.default.removeItem(at: cabextractURL)
         try FileManager.default.moveItem(at: tempURL, to: cabextractURL)
         // Make executable
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: cabextractURL.path)
+    }
+
+    public func downloadWinetricks() async throws {
+        guard !isWinetricksInstalled else { return }
+        let (tempURL, _) = try await URLSession.shared.download(from: Self.winetricksDownloadURL)
+        try? FileManager.default.removeItem(at: winetricksURL)
+        try FileManager.default.moveItem(at: tempURL, to: winetricksURL)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: winetricksURL.path)
     }
 
     public func installedVersions() -> [String] {
@@ -214,12 +241,16 @@ public enum WineError: Error, LocalizedError {
     case versionNotFound(String)
     case extractionFailed
     case wineNotInstalled
+    case helperToolNotInstalled(String)
+    case helperToolFailed(String, Int32)
 
     public var errorDescription: String? {
         switch self {
         case .versionNotFound(let v): return "Wine version '\(v)' not found"
         case .extractionFailed: return "Failed to extract Wine archive"
         case .wineNotInstalled: return "Wine is not installed"
+        case .helperToolNotInstalled(let name): return "\(name) is not installed"
+        case .helperToolFailed(let name, let status): return "\(name) failed with exit code \(status)"
         }
     }
 }

@@ -251,17 +251,24 @@ public final class BottleManager: @unchecked Sendable {
 
     // MARK: - Winetricks (optional, for engine presets)
 
-    private static func findWinetricks() -> String? {
-        ["/opt/homebrew/bin/winetricks", "/usr/local/bin/winetricks"]
-            .first { FileManager.default.fileExists(atPath: $0) }
+    static func findWinetricks(wineManager: WineManager? = nil) -> String? {
+        if let managedPath = wineManager?.winetricksURL.path,
+           FileManager.default.isExecutableFile(atPath: managedPath) {
+            return managedPath
+        }
+
+        return ["/opt/homebrew/bin/winetricks", "/usr/local/bin/winetricks"]
+            .first { FileManager.default.isExecutableFile(atPath: $0) }
     }
 
     private func installWinetricks(components: [String], prefix: String) async throws {
-        guard let winetricksPath = Self.findWinetricks() else { return }
-
-        // Ensure cabextract is available for winetricks
         if let wm = wineManager {
-            try? await wm.downloadCabextract()
+            try await wm.downloadCabextract()
+            try await wm.downloadWinetricks()
+        }
+
+        guard let winetricksPath = Self.findWinetricks(wineManager: wineManager) else {
+            throw WineError.helperToolNotInstalled("winetricks")
         }
 
         let process = Process()
@@ -278,6 +285,10 @@ public final class BottleManager: @unchecked Sendable {
         process.environment = env
         try process.run()
         process.waitUntilExit()
+
+        guard process.terminationStatus == 0 else {
+            throw WineError.helperToolFailed("winetricks", process.terminationStatus)
+        }
     }
 
     private func runWineCommand(wineBinary: URL, arguments: [String], prefix: String, locale: String) async throws {

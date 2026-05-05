@@ -69,8 +69,10 @@ Gala 会自动下载并管理这些运行时依赖：
 |------|------|------|--------|
 | [Wine Staging](https://github.com/Gcenx/macOS_Wine_builds) | 11.6 (Gcenx) | 运行 Windows exe | LGPL |
 | [思源黑体](https://github.com/adobe-fonts/source-han-sans) | Regular | Wine CJK 字体渲染 | OFL 1.1 |
+| [winetricks](https://github.com/Winetricks/winetricks) | 20260125 | 安装引擎需要的 Windows 组件 | LGPL |
+| cabextract | deps-v1 | 提取 winetricks 需要的 Windows 组件 | GPL |
 
-部分旧式引擎的 OP/视频播放需要 DirectShow / LAV 组件。Gala 会在创建 bottle 时通过 [winetricks](https://github.com/Winetricks/winetricks) 自动安装这些组件，并自动准备 `cabextract`；用户通常不需要手动操作。如果系统未安装 `winetricks`，相关视频组件会被跳过，游戏本体仍可能启动，但 OP/视频可能无法播放。
+部分旧式引擎的 OP/视频播放需要 DirectShow / LAV 组件。Gala 会在创建 bottle 时自动准备 `winetricks` 和 `cabextract`，并通过 winetricks 安装这些组件；用户通常不需要手动操作。如果这些辅助工具下载失败，「运行环境」页面会显示缺失，并可一键重新下载。
 
 ## 工作原理
 

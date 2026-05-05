@@ -57,13 +57,15 @@ import Foundation
     let bottleMarker = manager.bottlesDirectory
         .appendingPathComponent("Profiles/legacy-video/system.reg")
 
-    for file in [wineBinary, manager.fontFileURL, manager.cabextractURL, bottleMarker] {
+    for file in [wineBinary, manager.fontFileURL, manager.cabextractURL, manager.winetricksURL, bottleMarker] {
         try FileManager.default.createDirectory(
             at: file.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
         FileManager.default.createFile(atPath: file.path, contents: Data("x".utf8))
     }
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: manager.cabextractURL.path)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: manager.winetricksURL.path)
 
     let status = manager.runtimeEnvironmentStatus()
 
@@ -72,6 +74,54 @@ import Foundation
     #expect(status.isHelperToolInstalled)
     #expect(status.hasWineConfiguration)
     #expect(status.isReady)
+}
+
+@Test func runtimeEnvironmentStatusRequiresAllHelperTools() throws {
+    let tempDir = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: tempDir) }
+
+    let manager = WineManager(baseURL: tempDir)
+    try FileManager.default.createDirectory(
+        at: manager.cabextractURL.deletingLastPathComponent(),
+        withIntermediateDirectories: true
+    )
+    FileManager.default.createFile(atPath: manager.cabextractURL.path, contents: Data("x".utf8))
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: manager.cabextractURL.path)
+
+    #expect(!manager.runtimeEnvironmentStatus().isHelperToolInstalled)
+
+    FileManager.default.createFile(atPath: manager.winetricksURL.path, contents: Data("x".utf8))
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: manager.winetricksURL.path)
+
+    #expect(manager.runtimeEnvironmentStatus().isHelperToolInstalled)
+}
+
+@Test func runtimeEnvironmentStatusRequiresExecutableHelperTools() throws {
+    let tempDir = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: tempDir) }
+
+    let manager = WineManager(baseURL: tempDir)
+    FileManager.default.createFile(atPath: manager.cabextractURL.path, contents: Data("x".utf8))
+    FileManager.default.createFile(atPath: manager.winetricksURL.path, contents: Data("#!/bin/sh\n".utf8))
+
+    #expect(!manager.runtimeEnvironmentStatus().isHelperToolInstalled)
+}
+
+@Test func bottleManagerPrefersManagedWinetricks() throws {
+    let tempDir = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: tempDir) }
+
+    let manager = WineManager(baseURL: tempDir)
+    FileManager.default.createFile(atPath: manager.winetricksURL.path, contents: Data("#!/bin/sh\n".utf8))
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: manager.winetricksURL.path)
+
+    #expect(BottleManager.findWinetricks(wineManager: manager) == manager.winetricksURL.path)
 }
 
 @Test func bottleManagerWineCommandEnvironmentSuppressesVerboseLogs() {
@@ -147,9 +197,10 @@ import Foundation
     let wineFile = manager.wineDirectory.appendingPathComponent("active/bin/wine")
     let bottleFile = manager.bottlesDirectory.appendingPathComponent("Profiles/kirikiri/system.reg")
     let fontFile = manager.fontsDirectory.appendingPathComponent("SourceHanSansSC-Regular.otf")
-    let toolFile = manager.toolsDirectory.appendingPathComponent("cabextract")
+    let cabextractFile = manager.toolsDirectory.appendingPathComponent("cabextract")
+    let winetricksFile = manager.toolsDirectory.appendingPathComponent("winetricks")
 
-    for file in [libraryFile, coverFile, wineFile, bottleFile, fontFile, toolFile] {
+    for file in [libraryFile, coverFile, wineFile, bottleFile, fontFile, cabextractFile, winetricksFile] {
         try FileManager.default.createDirectory(
             at: file.deletingLastPathComponent(),
             withIntermediateDirectories: true
@@ -163,7 +214,8 @@ import Foundation
     #expect(FileManager.default.fileExists(atPath: coverFile.path))
     #expect(FileManager.default.fileExists(atPath: wineFile.path))
     #expect(FileManager.default.fileExists(atPath: fontFile.path))
-    #expect(FileManager.default.fileExists(atPath: toolFile.path))
+    #expect(FileManager.default.fileExists(atPath: cabextractFile.path))
+    #expect(FileManager.default.fileExists(atPath: winetricksFile.path))
     #expect(FileManager.default.fileExists(atPath: manager.bottlesDirectory.path))
     #expect(!FileManager.default.fileExists(atPath: bottleFile.path))
 }
@@ -180,9 +232,10 @@ import Foundation
     let wineFile = manager.wineDirectory.appendingPathComponent("active/bin/wine")
     let bottleFile = manager.bottlesDirectory.appendingPathComponent("Profiles/kirikiri/system.reg")
     let fontFile = manager.fontsDirectory.appendingPathComponent("SourceHanSansSC-Regular.otf")
-    let toolFile = manager.toolsDirectory.appendingPathComponent("cabextract")
+    let cabextractFile = manager.toolsDirectory.appendingPathComponent("cabextract")
+    let winetricksFile = manager.toolsDirectory.appendingPathComponent("winetricks")
 
-    for file in [libraryFile, coverFile, wineFile, bottleFile, fontFile, toolFile] {
+    for file in [libraryFile, coverFile, wineFile, bottleFile, fontFile, cabextractFile, winetricksFile] {
         try FileManager.default.createDirectory(
             at: file.deletingLastPathComponent(),
             withIntermediateDirectories: true
@@ -197,7 +250,8 @@ import Foundation
     #expect(!FileManager.default.fileExists(atPath: wineFile.path))
     #expect(!FileManager.default.fileExists(atPath: bottleFile.path))
     #expect(!FileManager.default.fileExists(atPath: fontFile.path))
-    #expect(!FileManager.default.fileExists(atPath: toolFile.path))
+    #expect(!FileManager.default.fileExists(atPath: cabextractFile.path))
+    #expect(!FileManager.default.fileExists(atPath: winetricksFile.path))
     #expect(FileManager.default.fileExists(atPath: manager.wineDirectory.path))
     #expect(FileManager.default.fileExists(atPath: manager.bottlesDirectory.path))
     #expect(FileManager.default.fileExists(atPath: manager.fontsDirectory.path))
