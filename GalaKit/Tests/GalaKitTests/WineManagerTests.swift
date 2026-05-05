@@ -76,11 +76,25 @@ import Foundation
     #expect(status.isReady)
 }
 
-@Test func winetricksDownloadUsesGalaOwnedReleaseAsset() {
-    #expect(WineManager.winetricksDownloadURL.host == "github.com")
-    #expect(WineManager.winetricksDownloadURL.path == "/NozomiX1/Gala/releases/download/deps-v1/winetricks")
-    #expect(!WineManager.winetricksDownloadURL.absoluteString.contains("raw.githubusercontent.com"))
-    #expect(!WineManager.winetricksDownloadURL.absoluteString.contains("Winetricks/winetricks"))
+@Test func managedDependencyDownloadsUseGalaOwnedReleaseAssets() {
+    let dependencies: [(name: String, url: URL)] = [
+        ("wine", WineManager.wineDownloadURL),
+        ("font", WineManager.fontDownloadURL),
+        ("cabextract", WineManager.cabextractDownloadURL),
+        ("winetricks", WineManager.winetricksDownloadURL),
+    ]
+
+    for dependency in dependencies {
+        #expect(dependency.url.host == "github.com", "\(dependency.name) should download from GitHub releases")
+        #expect(
+            dependency.url.path.hasPrefix("/NozomiX1/Gala/releases/download/deps-v1/"),
+            "\(dependency.name) should use the Gala deps-v1 release"
+        )
+        #expect(!dependency.url.absoluteString.contains("raw.githubusercontent.com"))
+        #expect(!dependency.url.absoluteString.contains("Winetricks/winetricks"))
+        #expect(!dependency.url.absoluteString.contains("Gcenx/macOS_Wine_builds"))
+        #expect(!dependency.url.absoluteString.contains("adobe-fonts/source-han-sans"))
+    }
 }
 
 @Test func runtimeEnvironmentStatusRequiresAllHelperTools() throws {

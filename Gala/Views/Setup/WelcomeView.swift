@@ -52,11 +52,8 @@ struct WelcomeView: View {
         }
         .frame(width: 500, height: 400)
         .onAppear {
-            if wineManager.isWineInstalled {
-                Task {
-                    try? await wineManager.repairMissingDependencies()
-                    await MainActor.run { onComplete() }
-                }
+            if wineManager.runtimeEnvironmentStatus().isReady {
+                onComplete()
             } else {
                 startDownload()
             }

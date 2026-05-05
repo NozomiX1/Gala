@@ -6,7 +6,7 @@ final class LibraryViewModel {
     var games: [Game] = []
     var selectedGameId: UUID?
     var searchText = ""
-    var isWineInstalled = false
+    var isRuntimeEnvironmentReady = false
 
     private let libraryStore: LibraryStore
     private let wineManager: WineManager
@@ -37,7 +37,11 @@ final class LibraryViewModel {
         )
 
         loadLibrary()
-        isWineInstalled = wineManager.isWineInstalled
+        refreshRuntimeEnvironmentStatus()
+    }
+
+    func refreshRuntimeEnvironmentStatus() {
+        isRuntimeEnvironmentReady = wineManager.runtimeEnvironmentStatus().isReady
     }
 
     func loadLibrary() {

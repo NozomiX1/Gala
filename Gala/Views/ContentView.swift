@@ -28,11 +28,11 @@ struct ContentView: View {
 
     var body: some View {
         Group {
-            if !viewModel.isWineInstalled {
+            if !viewModel.isRuntimeEnvironmentReady {
                 WelcomeView(
                     wineManager: viewModel.wineManagerInstance,
                     onComplete: {
-                        viewModel.isWineInstalled = true
+                        viewModel.refreshRuntimeEnvironmentStatus()
                     },
                     onOpenEnvironment: {
                         showingRuntimeEnvironment = true
@@ -53,7 +53,7 @@ struct ContentView: View {
                     viewModel.loadLibrary()
                     viewModel.selectedGameId = nil
                 }
-                viewModel.isWineInstalled = viewModel.wineManagerInstance.isWineInstalled
+                viewModel.refreshRuntimeEnvironmentStatus()
             }
         }
     }
