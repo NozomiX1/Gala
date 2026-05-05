@@ -22,6 +22,7 @@ public struct Game: Identifiable, Codable, Sendable {
     public var tags: [String]
     public var status: GameStatus
     public var isFavorite: Bool
+    public var isRuntimeConfigured: Bool
     public var bottleConfig: BottleConfig
 
     public init(
@@ -42,6 +43,7 @@ public struct Game: Identifiable, Codable, Sendable {
         tags: [String] = [],
         status: GameStatus = .backlog,
         isFavorite: Bool = false,
+        isRuntimeConfigured: Bool = false,
         bottleConfig: BottleConfig? = nil
     ) {
         self.id = id
@@ -61,6 +63,7 @@ public struct Game: Identifiable, Codable, Sendable {
         self.tags = tags
         self.status = status
         self.isFavorite = isFavorite
+        self.isRuntimeConfigured = isRuntimeConfigured
         self.bottleConfig = bottleConfig ?? BottleConfig(prefixPath: "")
     }
 
@@ -84,5 +87,7 @@ public struct Game: Identifiable, Codable, Sendable {
         status = try container.decodeIfPresent(GameStatus.self, forKey: .status) ?? .backlog
         isFavorite = try container.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
         bottleConfig = try container.decode(BottleConfig.self, forKey: .bottleConfig)
+        isRuntimeConfigured = try container.decodeIfPresent(Bool.self, forKey: .isRuntimeConfigured)
+            ?? !bottleConfig.prefixPath.isEmpty
     }
 }

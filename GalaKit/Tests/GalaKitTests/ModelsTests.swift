@@ -17,6 +17,68 @@ import Foundation
     #expect(decoded.status == .backlog)
     #expect(decoded.engine == nil)
     #expect(decoded.bottleConfig.locale == "zh_CN.UTF-8")
+    #expect(decoded.isRuntimeConfigured == false)
+}
+
+@Test func gameRuntimeConfiguredRoundTripsJSON() throws {
+    let game = Game(
+        title: "Configured Game",
+        executablePath: "/path/to/game.exe",
+        isRuntimeConfigured: true,
+        bottleConfig: BottleConfig(prefixPath: "/tmp/Gala/Bottles/Profiles/kirikiri")
+    )
+
+    let data = try JSONEncoder().encode(game)
+    let decoded = try JSONDecoder().decode(Game.self, from: data)
+
+    #expect(decoded.isRuntimeConfigured == true)
+    #expect(decoded.bottleConfig.prefixPath == "/tmp/Gala/Bottles/Profiles/kirikiri")
+}
+
+@Test func gameDecodesLegacyRuntimeAsConfiguredWhenPrefixExists() throws {
+    let json = """
+    {
+      "id": "00000000-0000-0000-0000-000000000001",
+      "title": "Legacy Game",
+      "executablePath": "/path/to/game.exe",
+      "bottleConfig": {
+        "prefixPath": "/tmp/Gala/Bottles/Profiles/kirikiri",
+        "windowsVersion": "win10",
+        "dllOverrides": {},
+        "environment": {},
+        "launchArguments": [],
+        "locale": "zh_CN.UTF-8",
+        "winetricksComponents": []
+      }
+    }
+    """
+
+    let decoded = try JSONDecoder().decode(Game.self, from: Data(json.utf8))
+
+    #expect(decoded.isRuntimeConfigured == true)
+}
+
+@Test func gameDecodesLegacyRuntimeAsUnconfiguredWhenPrefixIsEmpty() throws {
+    let json = """
+    {
+      "id": "00000000-0000-0000-0000-000000000002",
+      "title": "Unconfigured Legacy Game",
+      "executablePath": "/path/to/game.exe",
+      "bottleConfig": {
+        "prefixPath": "",
+        "windowsVersion": "win10",
+        "dllOverrides": {},
+        "environment": {},
+        "launchArguments": [],
+        "locale": "zh_CN.UTF-8",
+        "winetricksComponents": []
+      }
+    }
+    """
+
+    let decoded = try JSONDecoder().decode(Game.self, from: Data(json.utf8))
+
+    #expect(decoded.isRuntimeConfigured == false)
 }
 
 @Test func engineHasPreset() {
