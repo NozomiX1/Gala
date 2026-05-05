@@ -6,6 +6,17 @@ public enum Engine: String, Codable, CaseIterable, Sendable {
     case majiro, advHD, realLive, qlie, leaf, unknown
 }
 
+public enum RuntimeProfile: String, Sendable {
+    case base = "base"
+    case legacyVideo = "legacy-video"
+    case kirikiri = "kirikiri"
+    case catSystem2 = "cat-system2"
+    case siglusEngine = "siglus-engine"
+    case leaf = "leaf"
+    case rpgMaker = "rpg-maker"
+    case unity = "unity"
+}
+
 public struct RegistryValue: Sendable {
     public let key: String
     public let valueName: String
@@ -88,6 +99,27 @@ extension Engine {
             return EnginePreset(components: ["dotnet48", "d3dcompiler_47"], dllOverrides: [:])
         case .renpy, .majiro, .advHD, .qlie, .unknown:
             return .empty
+        }
+    }
+
+    public var runtimeProfile: RuntimeProfile {
+        switch self {
+        case .bgi, .artemis, .nscripter, .yuris, .realLive:
+            return .legacyVideo
+        case .kirikiri:
+            return .kirikiri
+        case .catSystem2:
+            return .catSystem2
+        case .siglusEngine:
+            return .siglusEngine
+        case .leaf:
+            return .leaf
+        case .rpgMaker:
+            return .rpgMaker
+        case .unity:
+            return .unity
+        case .renpy, .majiro, .advHD, .qlie, .unknown:
+            return .base
         }
     }
 

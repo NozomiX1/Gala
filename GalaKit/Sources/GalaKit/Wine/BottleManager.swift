@@ -24,6 +24,14 @@ public final class BottleManager: @unchecked Sendable {
         bottlesDirectory.appendingPathComponent(gameId.uuidString).path
     }
 
+    public func prefixPath(for engine: Engine?) -> String {
+        let profileName = (engine?.runtimeProfile ?? .base).rawValue
+        return bottlesDirectory
+            .appendingPathComponent("Profiles")
+            .appendingPathComponent(profileName)
+            .path
+    }
+
     /// Check if a bottle has been fully initialized (has system.reg from wineboot)
     public func isBottleReady(for game: Game) -> Bool {
         let systemReg = URL(fileURLWithPath: game.bottleConfig.prefixPath)

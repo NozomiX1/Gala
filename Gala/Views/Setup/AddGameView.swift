@@ -134,7 +134,6 @@ struct AddGameView: View {
         guard let exePath = selectedExePath else { return }
 
         let gameId = UUID()
-        let prefixPath = viewModel.bottleManager.prefixPath(for: gameId)
 
         var coverImagePath: String?
         if let coverURL, let url = URL(string: coverURL) {
@@ -158,6 +157,8 @@ struct AddGameView: View {
             }
         }
 
+        let prefixPath = viewModel.bottleManager.prefixPath(for: engine)
+
         let game = Game(
             id: gameId,
             title: title,
@@ -173,7 +174,7 @@ struct AddGameView: View {
             bottleConfig: BottleConfig(prefixPath: prefixPath)
         )
 
-        if engine != .renpy {
+        if engine?.supportsNativeLaunch != true {
             setupStatus = "创建 Wine 前缀..."
             try? FileManager.default.createDirectory(
                 atPath: prefixPath,

@@ -54,7 +54,6 @@ struct ContentView: View {
                     if viewModel.selectedGameId == game.id {
                         viewModel.selectedGameId = nil
                     }
-                    try? viewModel.bottleManager.deleteBottle(for: game)
                     let cacheKey = game.vndbId ?? game.id.uuidString
                     viewModel.imageCache.delete(forKey: cacheKey)
                     viewModel.removeGame(game)

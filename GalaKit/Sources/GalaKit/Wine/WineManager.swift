@@ -57,6 +57,15 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
         return nil
     }
 
+    public func resetRuntimeEnvironment() throws {
+        for directory in [wineDirectory, bottlesDirectory, fontsDirectory, toolsDirectory] {
+            if FileManager.default.fileExists(atPath: directory.path) {
+                try FileManager.default.removeItem(at: directory)
+            }
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        }
+    }
+
     /// Download URL for Wine Staging (hosted in Gala releases for stability)
     public static let wineDownloadURL = URL(string: "https://github.com/NozomiX1/Gala/releases/download/deps-v1/wine-staging-11.6-osx64.tar.xz")!
     public static let wineVersionName = "wine-staging-11.6"

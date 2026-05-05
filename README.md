@@ -74,12 +74,22 @@ Gala 会自动下载并管理这些运行时依赖：
 
 ## 工作原理
 
-Gala 封装 Wine Staging 运行 Windows 视觉小说。每个游戏拥有独立的 Wine 前缀（bottle），根据游戏语言自动配置 codepage 和字体映射：
+Gala 封装 Wine Staging 运行 Windows 视觉小说。Wine 游戏会按运行环境 profile 共享 Wine 前缀（bottle），避免每个游戏都复制一套完整环境。配置完全相同的引擎会落到同一个 profile，例如 BGI、Artemis、NScripter、YU-RIS、RealLive 会共享 `legacy-video`。如果某个引擎后续出现兼容性问题，可以将它拆到独立 profile。每个 bottle 会根据默认中文环境配置 codepage 和字体映射：
 
 - **中文游戏** — GBK (936)
 - **日文游戏** — Shift-JIS (932)
 
 每个 Wine bottle 都会安装 Source Han Sans SC Regular，并将常见 Windows CJK / 旧式 UI 字体映射到它，避免中文、日文菜单和系统对话框显示为方框。
+
+## 卸载与空间清理
+
+macOS 不会在拖拽删除 `Gala.app` 时自动清理应用支持目录。Gala 下载的 Wine 运行时、bottle、字体和工具位于：
+
+```bash
+~/Library/Application Support/Gala
+```
+
+如果需要彻底释放空间，可以在卸载 Gala 后手动删除该目录。
 
 ## 架构
 
