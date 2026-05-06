@@ -53,4 +53,19 @@ public struct VNDBRelease: Decodable, Sendable {
     public let title: String?
     public let engine: String?
     public let platforms: [String]?
+    public let patch: Bool?
+
+    public init(
+        id: String,
+        title: String?,
+        engine: String?,
+        platforms: [String]?,
+        patch: Bool? = nil
+    ) {
+        self.id = id
+        self.title = title
+        self.engine = engine
+        self.platforms = platforms
+        self.patch = patch
+    }
 }

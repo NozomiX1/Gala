@@ -2,7 +2,7 @@
 
 ## Overview
 
-Gala is a macOS-native galgame (visual novel) launcher that wraps GPTK Wine to provide a Steam-like game library management experience. It targets both casual players (one-click launch) and power users (full Wine configuration access).
+Gala is a macOS-native galgame (visual novel) launcher that wraps Wine Staging to provide a Steam-like game library management experience. It targets both casual players (one-click launch) and power users (runtime repair and profile-aware Wine configuration).
 
 ## Tech Stack
 
@@ -12,7 +12,7 @@ Gala is a macOS-native galgame (visual novel) launcher that wraps GPTK Wine to p
 | UI | SwiftUI (macOS 14+) |
 | Architecture | MVVM, core logic in separate Swift Package (GalaKit) |
 | Persistence | JSON files + Codable |
-| Wine Integration | Foundation.Process |
+| Wine Integration | Wine Staging 11.6 via Foundation.Process |
 | Metadata | VNDB API v2 (Kana) |
 | Image Cache | Local file cache in Application Support |
 | Distribution | DMG + Notarization |
@@ -45,13 +45,14 @@ BottleConfig (embedded in Game)
 ├── dllOverrides: [String: String]
 ├── environment: [String: String]
 ├── launchArguments: [String]
-├── locale: String                  (default "ja_JP.UTF-8")
+├── locale: String                  (default "zh_CN.UTF-8")
 └── winetricksComponents: [String]
 
 Engine (enum)
 ├── kirikiri, nscripter, renpy, rpgMaker, unity
 ├── bgi, catSystem2, siglusEngine, artemis, yuris
-├── majiro, advHD, realLive, qlie, unknown
+├── majiro, advHD, realLive, qlie, leaf
+├── ikuraGDLFamilyProject, unknown
 ```
 
 Storage: `~/Library/Application Support/Gala/library.json`
@@ -105,22 +106,21 @@ Gala/
 ```
 ~/Library/Application Support/Gala/
 ├── Wine/
-│   ├── active -> wine-gptk-2.0/    # Symlink to active version
-│   ├── wine-gptk-2.0/
-│   │   ├── bin/wine64
-│   │   ├── lib/
-│   │   └── share/
-│   └── wine-gptk-3.0/              # Multiple versions supported
+│   └── wine-staging-11.6/
+│       └── Contents/
 ├── Bottles/
-│   ├── <game-uuid-1>/              # Per-game Wine Prefix
-│   │   ├── drive_c/
-│   │   ├── system.reg
-│   │   └── user.reg
-│   └── <game-uuid-2>/
+│   └── Profiles/
+│       ├── common/
+│       ├── kirikiri/
+│       ├── leaf/
+│       └── do-kizunar/
 ├── Cache/
-│   └── covers/
-│       ├── v11.jpg
-│       └── v17.jpg
+│   ├── covers/
+│   └── winetricks/
+├── Fonts/
+├── Tools/
+│   ├── cabextract
+│   └── winetricks
 └── library.json
 ```
 
@@ -128,22 +128,22 @@ Gala/
 
 ### WineManager
 
-Manages GPTK Wine binary download and versioning.
+Manages the app-owned Wine Staging runtime and helper dependencies.
 
 - `checkInstallation()` - detect existing Wine
-- `downloadWine(version:)` - download pre-compiled GPTK Wine from remote (with progress)
+- `downloadWine(version:)` - download pre-compiled Wine Staging from Gala release assets (with progress)
 - `listVersions()` - list installed Wine versions
 - `setActiveVersion()` - switch active version (update symlink)
-- `getWineBinary()` - return path to wine64
+- `getWineBinary()` - return path to Wine
 
-Download source: pre-compiled GPTK Wine builds hosted on GitHub Releases (reference Whisky's build pipeline).
+Download source: app-managed dependency bundle hosted on GitHub Releases.
 
 ### BottleManager
 
-Manages per-game Wine Prefixes.
+Manages shared runtime-profile Wine prefixes.
 
 - `createBottle(for:)` - create new Prefix + `wineboot --init`
-- `configureLocale()` - set Japanese locale + codepage 932
+- `configureLocale()` - set locale + codepage, defaulting to zh_CN / codepage 936
 - `installFonts()` - install CJK fonts into Prefix
 - `installComponents([])` - `winetricks -q` install components
 - `setDllOverrides([:])` - write DLL overrides to registry
@@ -158,13 +158,12 @@ Engine-specific additions:
 
 | Engine | Components | DLL Overrides |
 |--------|-----------|---------------|
-| KiriKiri | quartz, amstream, lavfilters | quartz=native |
-| NScripter | quartz, amstream, lavfilters | - |
-| BGI | quartz, amstream, lavfilters | - |
+| Common profile: BGI / Artemis / NScripter / YU-RIS / RealLive / Majiro / AdvHD / QLIE / Unknown | quartz, amstream, lavfilters + LAV WMA registry | quartz/amstream=native,builtin |
+| KiriKiri | quartz, amstream, lavfilters + LAV WMA registry | quartz=native |
 | CatSystem2 | dotnet40, quartz, vcrun2015 | - |
 | SiglusEngine | quartz, amstream, lavfilters, xact, xinput, vcrun2019 | xaudio2_7=native, xactengine3_7=native |
-| Artemis / YU-RIS / RealLive | quartz, amstream, lavfilters | - |
-| Leaf/AQUAPLUS | quartz, amstream, lavfilters + LAV RGB-only registry | quartz/amstream/devenum=builtin, wmvdecod/wmadmod/winegstreamer=disabled |
+| Leaf/AQUAPLUS | quartz, amstream, lavfilters + LAV WMA + LAV RGB-only registry | quartz/amstream/devenum=builtin, wmvdecod/wmadmod/winegstreamer=disabled |
+| Ikura GDL / Family Project | quartz, amstream, lavfilters + D.O. KIZUNAR registry | quartz=builtin, game directory mapped as G: |
 | RPG Maker | RTP runtime | - |
 | Unity | dotnet48, d3dcompiler_47 | - |
 
@@ -177,7 +176,7 @@ Waterfall detection strategy:
 3. **EXE/DLL filename matching**: `SiglusEngine.exe`, `UnityPlayer.dll`, `RGSS3*.dll`
 4. **EXE binary string search**: search for engine name strings in first 2-4 MB
 
-Cross-validated with VNDB Release `engine` field when available.
+Local detection is authoritative. If local signatures are missing, Gala falls back to VNDB Release `engine` metadata, but only for Windows non-patch releases. Broad aliases with high false-positive risk are guarded by local signatures: `Ikura GDL` only selects the Family Project profile when local Family Project files are present, and `AQUAPLUS Engine` only selects Leaf when local Leaf/WHITE ALBUM2 files are present.
 
 Coverage: ~85% with layers 1-2, ~95% with all four layers.
 
@@ -202,8 +201,8 @@ launch(game) ->
   process.arguments = [game.executablePath]
   process.environment = {
     WINEPREFIX: game.bottleConfig.prefixPath,
-    LANG: "ja_JP.UTF-8",
-    LC_ALL: "ja_JP.UTF-8",
+    LANG: game.bottleConfig.locale,
+    LC_ALL: game.bottleConfig.locale,
     ...game.bottleConfig.environment
   }
   record startTime
@@ -245,11 +244,12 @@ Click "+" -> NSOpenPanel to select .exe
   -> VNDB search dialog (pre-filled with folder name)
     -> User selects matching VN (or skips)
     -> Pull cover, title, description, tags, rating
-  -> Background:
-    1. Create Wine Prefix (wineboot --init)
-    2. Apply base config (locale, fonts, codepage)
-    3. Apply engine preset (winetricks components)
   -> Game appears in library
+  -> User opens detail page and clicks "配置环境"
+    1. Create or reuse the runtime-profile Wine Prefix
+    2. Apply base config (locale, fonts, codepage)
+    3. Apply engine preset (winetricks components, DLL overrides, registry)
+  -> Launch button becomes available
 ```
 
 ### Launch Game
@@ -297,8 +297,8 @@ NavigationSplitView:
 
 Included:
 - Wine auto-download (first launch detection + one-click download)
-- Add game (select .exe, create independent Bottle)
-- Auto Japanese environment setup (locale + fonts + codepage)
+- Add game (select .exe, store record, configure shared runtime-profile Bottle on demand)
+- Auto CJK environment setup (locale + fonts + codepage)
 - Engine detection (file signature scan, layers 1-2)
 - Engine preset configuration (auto winetricks install)
 - Launch game (one-click, Wine process management)

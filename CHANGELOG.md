@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.1.1] - 2026-05-06
+
+### Added
+- Runtime-profile selection policy that prefers local engine signatures, then falls back to VNDB release engine metadata.
+- VNDB release filtering for engine fallback so non-Windows releases and patch releases do not affect Wine profile selection.
+- Ikura GDL / Family Project detection and a separate `do-kizunar` runtime profile for 家族計画 追憶.
+- Migration for existing 家族計画 entries that had previously been configured in `common`.
+
+### Changed
+- Treat `common` as the shared default Wine profile for unknown and DirectShow-based engines instead of maintaining a separate base/legacy split.
+- Keep special VNDB engine aliases guarded by local signatures: `Ikura GDL` only selects the Family Project profile when local Family Project files are present, and `AQUAPLUS Engine` only selects Leaf when local Leaf/WHITE ALBUM2 files are present.
+- Add the validated LAV Audio WMA switches (`wma`, `wmapro`, `wmalossless`) to the common DirectShow preset.
+- Keep 家族計画's builtin `quartz` and `G:\` registry path requirements isolated from BGI/AUGUST games.
+
+### Fixed
+- 家族計画 追憶 now starts and plays its OP through its own Wine profile without contaminating `common`.
+- BGI games such as 穢翼のユースティア and 大図書館の羊飼い stay on the native/builtin DirectShow chain in `common`.
+- WHITE ALBUM2 keeps its Leaf-specific LAV RGB/WMA configuration in the `leaf` profile instead of sharing those stricter overrides with other games.
+
 ## [1.1.0] - 2026-05-05
 
 ### Added

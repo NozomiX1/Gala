@@ -81,6 +81,12 @@ import Foundation
     #expect(decoded.isRuntimeConfigured == false)
 }
 
+@Test func engineDecodesLegacyDOKizunarRawValueAsIkuraGDLFamilyProject() throws {
+    let decoded = try JSONDecoder().decode(Engine.self, from: Data(#""doKizunar""#.utf8))
+
+    #expect(decoded == .ikuraGDLFamilyProject)
+}
+
 @Test func engineHasPreset() {
     let preset = Engine.kirikiri.preset
     #expect(preset.components.contains("quartz"))
@@ -88,26 +94,87 @@ import Foundation
     #expect(preset.dllOverrides["quartz"] == "native")
 }
 
-@Test func enginePresetForUnknownIsBaseOnly() {
-    let preset = Engine.unknown.preset
-    #expect(preset.components.isEmpty)
-    #expect(preset.dllOverrides.isEmpty)
-}
-
-@Test func legacyVideoPresetCoversDirectShowBasedEngines() {
-    let engines: [Engine] = [.artemis, .nscripter, .yuris, .realLive]
+@Test func commonPresetCoversUnknownAndUnderdetectedLegacyEngines() {
+    let engines: [Engine] = [.unknown, .majiro, .advHD, .qlie]
 
     for engine in engines {
         let preset = engine.preset
+        #expect(engine.runtimeProfile.rawValue == "common")
         #expect(preset.components.contains("quartz"))
         #expect(preset.components.contains("amstream"))
         #expect(preset.components.contains("lavfilters"))
-        #expect(preset.dllOverrides.isEmpty)
-        #expect(preset.registryValues.isEmpty)
+        #expect(preset.dllOverrides["quartz"] == "native,builtin")
+        #expect(preset.dllOverrides["*quartz"] == "native,builtin")
+        #expect(preset.dllOverrides["amstream"] == "native,builtin")
+        #expect(preset.dllOverrides["*amstream"] == "native,builtin")
     }
 }
 
-@Test func leafPresetInstallsLegacyVideoComponents() {
+@Test func commonPresetEnablesLAVWMAAudioFormats() {
+    let lavAudioFormatsKey = "HKCU\\Software\\LAV\\Audio\\Formats"
+    let preset = Engine.unknown.preset
+    let values = Dictionary(uniqueKeysWithValues: preset.registryValues
+        .filter { $0.key == lavAudioFormatsKey }
+        .map { ($0.valueName, $0.data) })
+
+    #expect(values["wma"] == "1")
+    #expect(values["wmapro"] == "1")
+    #expect(values["wmalossless"] == "1")
+}
+
+@Test func commonPresetCoversDirectShowBasedEngines() {
+    let engines: [Engine] = [.bgi, .artemis, .nscripter, .yuris, .realLive]
+
+    for engine in engines {
+        let preset = engine.preset
+        #expect(engine.runtimeProfile.rawValue == "common")
+        #expect(preset.components.contains("quartz"))
+        #expect(preset.components.contains("amstream"))
+        #expect(preset.components.contains("lavfilters"))
+        #expect(preset.dllOverrides["quartz"] == "native,builtin")
+        #expect(preset.dllOverrides["*quartz"] == "native,builtin")
+        #expect(preset.dllOverrides["amstream"] == "native,builtin")
+        #expect(preset.dllOverrides["*amstream"] == "native,builtin")
+    }
+}
+
+@Test func ikuraGDLFamilyProjectPresetUsesSeparateBuiltinQuartzProfile() {
+    let preset = Engine.ikuraGDLFamilyProject.preset
+
+    #expect(Engine.ikuraGDLFamilyProject.displayName == "Ikura GDL / Family Project")
+    #expect(Engine.ikuraGDLFamilyProject.runtimeProfile.rawValue == "do-kizunar")
+    #expect(preset.components.contains("quartz"))
+    #expect(preset.components.contains("amstream"))
+    #expect(preset.components.contains("lavfilters"))
+    #expect(preset.dllOverrides["quartz"] == "builtin")
+    #expect(preset.dllOverrides["*quartz"] == "builtin")
+    #expect(preset.dllOverrides["amstream"] == nil)
+    #expect(preset.dllOverrides["wmvdecod"] == nil)
+    #expect(preset.dllOverrides["wmadmod"] == nil)
+    #expect(preset.dllOverrides["winegstreamer"] == nil)
+}
+
+@Test func ikuraGDLFamilyProjectRegistryValuesUseMappedGameDrive() {
+    let game = Game(
+        title: "Family Project",
+        executablePath: "/Games/Kizunar/kzn_sc.exe",
+        engine: .ikuraGDLFamilyProject,
+        bottleConfig: BottleConfig(prefixPath: "/tmp/Gala/Bottles/Profiles/do-kizunar")
+    )
+
+    let values = Dictionary(uniqueKeysWithValues: Engine.ikuraGDLFamilyProject.gameSpecificRegistryValues(for: game)
+        .map { ($0.valueName, $0.data) })
+
+    #expect(values["InstallDir"] == "G:\\")
+    #expect(values["SaveDir"] == "G:\\")
+    #expect(values["DataDir"] == "G:\\")
+    #expect(values["MusicDir"] == "G:\\")
+    #expect(values["VoiceDir"] == "G:\\")
+    #expect(values["VideoDir"] == "G:\\")
+    #expect(values["InstallType"] == "2")
+}
+
+@Test func leafPresetInstallsCommonVideoComponents() {
     let preset = Engine.leaf.preset
     #expect(preset.components.contains("quartz"))
     #expect(preset.components.contains("amstream"))
@@ -121,6 +188,17 @@ import Foundation
     #expect(preset.dllOverrides["wmvdecod"] == "disabled")
     #expect(preset.dllOverrides["wmadmod"] == "disabled")
     #expect(preset.dllOverrides["winegstreamer"] == "disabled")
+}
+
+@Test func specializedPresetsIncludeCommonVideoComponents() {
+    let engines: [Engine] = [.kirikiri, .catSystem2, .siglusEngine, .leaf]
+
+    for engine in engines {
+        let preset = engine.preset
+        #expect(preset.components.contains("quartz"))
+        #expect(preset.components.contains("amstream"))
+        #expect(preset.components.contains("lavfilters"))
+    }
 }
 
 @Test func leafPresetForcesLAVVideoToRGBOutput() {
@@ -137,6 +215,18 @@ import Foundation
     #expect(values["rgb24"] == "1")
     #expect(values["rgb32"] == "1")
     #expect(preset.registryValues.allSatisfy { $0.type == "REG_DWORD" })
+}
+
+@Test func leafPresetEnablesLAVWMAAudioFormats() {
+    let lavAudioFormatsKey = "HKCU\\Software\\LAV\\Audio\\Formats"
+    let preset = Engine.leaf.preset
+    let values = Dictionary(uniqueKeysWithValues: preset.registryValues
+        .filter { $0.key == lavAudioFormatsKey }
+        .map { ($0.valueName, $0.data) })
+
+    #expect(values["wma"] == "1")
+    #expect(values["wmapro"] == "1")
+    #expect(values["wmalossless"] == "1")
 }
 
 @Test func bottleConfigDefaults() {

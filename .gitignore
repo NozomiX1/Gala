@@ -24,6 +24,8 @@ Package.resolved
 # App data (for development)
 *.app
 *.dmg
+dist/
+SteamEmu/
 
 # Promotional content (not for repo)
 docs/promotional.md

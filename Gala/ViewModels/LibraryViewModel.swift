@@ -45,7 +45,14 @@ final class LibraryViewModel {
     }
 
     func loadLibrary() {
-        games = (try? libraryStore.load()) ?? []
+        let loadedGames = (try? libraryStore.load()) ?? []
+        games = RuntimeProfileMigration.migrate(
+            games: loadedGames,
+            bottlesDirectory: wineManager.bottlesDirectory
+        )
+        if RuntimeProfileMigration.didChangeRuntimeProfile(from: loadedGames, to: games) {
+            saveLibrary()
+        }
     }
 
     func saveLibrary() {

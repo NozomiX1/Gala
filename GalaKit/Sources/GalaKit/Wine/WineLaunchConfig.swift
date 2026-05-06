@@ -51,8 +51,10 @@ public struct WineLaunchConfig: Sendable {
         let exeURL = URL(fileURLWithPath: game.executablePath)
         let gameDir = exeURL.deletingLastPathComponent()
         let exeName = exeURL.lastPathComponent
+        let shouldMapGameDirectory = game.engine == .ikuraGDLFamilyProject ||
+            !gameDir.path.canBeConverted(to: .ascii)
 
-        if gameDir.path.canBeConverted(to: .ascii) {
+        if !shouldMapGameDirectory {
             return WineLaunchConfig(
                 arguments: game.bottleConfig.launchArguments + [exeName],
                 workingDirectory: gameDir,
@@ -60,9 +62,8 @@ public struct WineLaunchConfig: Sendable {
             )
         }
 
-        // Non-ASCII path: map game directory as G: drive for the exe argument.
-        // Also set workingDirectory so child processes (e.g. patch launchers)
-        // can find sibling executables via relative paths.
+        // Map the game directory as G: for non-ASCII paths and for games whose
+        // install registry points at G:\.
         let dosdevices = URL(fileURLWithPath: game.bottleConfig.prefixPath)
             .appendingPathComponent("dosdevices")
         try FileManager.default.createDirectory(at: dosdevices, withIntermediateDirectories: true)

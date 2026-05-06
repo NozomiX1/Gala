@@ -23,6 +23,7 @@ public enum EngineDetector {
         if lowercased.contains("rio.arc") { return .advHD }
         if lowercased.contains(where: { $0.hasSuffix(".ypf") }) { return .yuris }
         if detectsLeafAQUAPLUS(contents: lowercased) { return .leaf }
+        if detectsIkuraGDLFamilyProject(contents: lowercased) { return .ikuraGDLFamilyProject }
         if lowercased.contains("unityplayer.dll") { return .unity }
         if lowercased.contains(where: { $0.hasPrefix("rgss") && $0.hasSuffix(".dll") }) { return .rpgMaker }
         if lowercased.contains(where: { $0.hasPrefix("cs2") && $0.hasSuffix(".exe") }) { return .catSystem2 }
@@ -31,12 +32,36 @@ public enum EngineDetector {
         return nil
     }
 
-    private static func detectsLeafAQUAPLUS(contents lowercased: [String]) -> Bool {
+    static func detectsLeafAQUAPLUS(in directory: URL) -> Bool {
+        guard let contents = try? FileManager.default.contentsOfDirectory(atPath: directory.path) else {
+            return false
+        }
+        return detectsLeafAQUAPLUS(contents: contents.map { $0.lowercased() })
+    }
+
+    static func detectsLeafAQUAPLUS(contents lowercased: [String]) -> Bool {
         let hasWA2Executable = lowercased.contains("wa2.exe") || lowercased.contains("wa2_chs.exe")
         let hasMoviePacks = lowercased.contains { name in
             name.hasPrefix("mv") && name.hasSuffix(".pak")
         }
         return hasWA2Executable && hasMoviePacks
+    }
+
+    static func detectsIkuraGDLFamilyProject(in directory: URL) -> Bool {
+        guard let contents = try? FileManager.default.contentsOfDirectory(atPath: directory.path) else {
+            return false
+        }
+        return detectsIkuraGDLFamilyProject(contents: contents.map { $0.lowercased() })
+    }
+
+    static func detectsIkuraGDLFamilyProject(contents lowercased: [String]) -> Bool {
+        let hasKizunarMarker = lowercased.contains("kizunar.suf") ||
+            lowercased.contains("kzn_sc.dll")
+        let hasLauncher = lowercased.contains("kzn_sc.exe") ||
+            lowercased.contains("kizunar.exe")
+        let hasOpeningMovie = lowercased.contains("fam_op.mpg") ||
+            lowercased.contains("fam_ophq.mpg")
+        return hasKizunarMarker && hasLauncher && hasOpeningMovie
     }
 
     private struct MagicSignature {
@@ -105,6 +130,13 @@ public enum EngineDetector {
         let exeFiles = contents.filter { $0.lowercased().hasSuffix(".exe") }
 
         switch engine {
+        case .ikuraGDLFamilyProject:
+            if let match = exeFiles.first(where: { $0.lowercased() == "kzn_sc.exe" }) {
+                return directory.appendingPathComponent(match)
+            }
+            if let match = exeFiles.first(where: { $0.lowercased() == "kizunar.exe" }) {
+                return directory.appendingPathComponent(match)
+            }
         case .bgi:
             // BGI/Ethornell: BGI.exe is the game engine
             if let match = exeFiles.first(where: { $0.lowercased() == "bgi.exe" }) {

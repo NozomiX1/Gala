@@ -10,7 +10,7 @@ import Foundation
 }
 
 @Test func runtimePolicyKeepsSharedConfiguredWinePrefix() {
-    let prefix = "/tmp/Gala/Bottles/Profiles/legacy-video"
+    let prefix = "/tmp/Gala/Bottles/Profiles/common"
     let game = configuredGame(id: UUID(), title: "BGI", engine: .bgi, prefix: prefix)
     let other = configuredGame(id: UUID(), title: "Artemis", engine: .artemis, prefix: prefix)
 
@@ -34,7 +34,7 @@ import Foundation
         id: UUID(),
         title: "RenPy",
         engine: .renpy,
-        prefix: "/tmp/Gala/Bottles/Profiles/base"
+        prefix: "/tmp/Gala/Bottles/Profiles/common"
     )
 
     #expect(!RuntimeConfigurationPolicy.shouldDeleteRuntimeConfiguration(for: game, in: [game]))
@@ -52,7 +52,7 @@ import Foundation
         executablePath: "/game.exe",
         engine: .bgi,
         isRuntimeConfigured: false,
-        bottleConfig: BottleConfig(prefixPath: "/tmp/Gala/Bottles/Profiles/legacy-video")
+        bottleConfig: BottleConfig(prefixPath: "/tmp/Gala/Bottles/Profiles/common")
     )
 
     #expect(!RuntimeConfigurationPolicy.needsRuntimeConfiguration(for: game, bottleReady: true))
@@ -64,7 +64,7 @@ import Foundation
         executablePath: "/game.exe",
         engine: .bgi,
         isRuntimeConfigured: false,
-        bottleConfig: BottleConfig(prefixPath: "/tmp/Gala/Bottles/Profiles/legacy-video")
+        bottleConfig: BottleConfig(prefixPath: "/tmp/Gala/Bottles/Profiles/common")
     )
 
     #expect(RuntimeConfigurationPolicy.needsRuntimeConfiguration(for: game, bottleReady: false))

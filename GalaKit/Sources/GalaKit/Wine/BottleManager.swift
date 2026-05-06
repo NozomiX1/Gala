@@ -55,7 +55,7 @@ public final class BottleManager: @unchecked Sendable {
     }
 
     public func prefixPath(for engine: Engine?) -> String {
-        let profileName = (engine?.runtimeProfile ?? .base).rawValue
+        let profileName = (engine?.runtimeProfile ?? .common).rawValue
         return bottlesDirectory
             .appendingPathComponent("Profiles")
             .appendingPathComponent(profileName)
@@ -129,9 +129,10 @@ public final class BottleManager: @unchecked Sendable {
     ) async throws {
         guard let engine = game.engine else { return }
         let preset = engine.preset
-        guard !preset.components.isEmpty || !preset.dllOverrides.isEmpty || !preset.registryValues.isEmpty else { return }
+        let registryValues = preset.registryValues + engine.gameSpecificRegistryValues(for: game)
+        guard !preset.components.isEmpty || !preset.dllOverrides.isEmpty || !registryValues.isEmpty else { return }
 
-        let totalUnitCount = preset.components.count + preset.dllOverrides.count + preset.registryValues.count
+        let totalUnitCount = preset.components.count + preset.dllOverrides.count + registryValues.count
         var completedUnitCount = 0
 
         for component in preset.components {
@@ -159,7 +160,7 @@ public final class BottleManager: @unchecked Sendable {
             )
         }
 
-        if !preset.dllOverrides.isEmpty || !preset.registryValues.isEmpty {
+        if !preset.dllOverrides.isEmpty || !registryValues.isEmpty {
             guard let wineBinary = wineManager?.wineBinaryURL else { return }
             for (dll, mode) in preset.dllOverrides {
                 progressHandler?(
@@ -179,7 +180,7 @@ public final class BottleManager: @unchecked Sendable {
                 completedUnitCount += 1
             }
 
-            for value in preset.registryValues {
+            for value in registryValues {
                 progressHandler?(
                     EnginePresetProgress(
                         message: "正在写入注册表 \(value.valueName)...",

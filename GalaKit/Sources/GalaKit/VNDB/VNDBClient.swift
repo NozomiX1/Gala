@@ -51,7 +51,7 @@ public final class VNDBClient: Sendable {
     static func releasesRequestBody(vnId: String) -> Data {
         let body: [String: Any] = [
             "filters": ["vn", "=", ["id", "=", vnId]],
-            "fields": "id, title, engine, platforms",
+            "fields": "id, title, engine, platforms, patch",
             "results": 50
         ]
         return try! JSONSerialization.data(withJSONObject: body)

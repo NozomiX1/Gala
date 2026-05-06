@@ -1,5 +1,7 @@
 # Gala Implementation Plan
 
+> **Status note (2026-05-06):** This is the original implementation plan and is kept for historical context. Current runtime behavior uses Wine Staging 11.6, explicit environment configuration, shared runtime-profile prefixes, `common` as the default DirectShow profile, and separate `leaf` / `do-kizunar` profiles for games that need stricter media routing. See `README.md`, `CHANGELOG.md`, and `docs/plans/2026-03-11-gala-design.md` for the current behavior.
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Build a macOS-native galgame launcher that wraps GPTK Wine with automatic Japanese environment setup, engine detection, VNDB integration, and play time tracking.

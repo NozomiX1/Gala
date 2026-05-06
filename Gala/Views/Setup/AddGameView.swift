@@ -149,13 +149,14 @@ struct AddGameView: View {
         if let vndbId, engine == nil {
             setupStatus = "检测引擎信息..."
             if let releases = try? await viewModel.vndbClient.getReleases(vnId: vndbId) {
-                if let vndbEngine = releases.compactMap({ $0.engine }).first {
-                    engine = Engine.allCases.first {
-                        $0.displayName.lowercased() == vndbEngine.lowercased()
-                    }
-                }
+                engine = EngineSelectionPolicy.select(
+                    localDetection: nil,
+                    vndbReleases: releases,
+                    gameDirectory: gameDirectory
+                )
             }
         }
+        engine = engine ?? .unknown
 
         let prefixPath = viewModel.bottleManager.prefixPath(for: engine)
 

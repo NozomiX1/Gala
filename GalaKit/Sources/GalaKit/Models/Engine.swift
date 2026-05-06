@@ -3,16 +3,18 @@ import Foundation
 public enum Engine: String, Codable, CaseIterable, Sendable {
     case kirikiri, nscripter, renpy, rpgMaker, unity
     case bgi, catSystem2, siglusEngine, artemis, yuris
-    case majiro, advHD, realLive, qlie, leaf, unknown
+    case majiro, advHD, realLive, qlie, leaf
+    case ikuraGDLFamilyProject = "doKizunar"
+    case unknown
 }
 
 public enum RuntimeProfile: String, Sendable {
-    case base = "base"
-    case legacyVideo = "legacy-video"
+    case common = "common"
     case kirikiri = "kirikiri"
     case catSystem2 = "cat-system2"
     case siglusEngine = "siglus-engine"
     case leaf = "leaf"
+    case ikuraGDLFamilyProject = "do-kizunar"
     case rpgMaker = "rpg-maker"
     case unity = "unity"
 }
@@ -50,29 +52,54 @@ public struct EnginePreset: Sendable {
 }
 
 extension Engine {
-    private static let legacyVideoComponents = ["quartz", "amstream", "lavfilters"]
-    private static let legacyVideoPreset = EnginePreset(
-        components: legacyVideoComponents,
-        dllOverrides: [:]
-    )
+    private static let commonVideoComponents = ["quartz", "amstream", "lavfilters"]
+    private static let nativeDirectShowDLLOverrides = [
+        "quartz": "native,builtin",
+        "*quartz": "native,builtin",
+        "amstream": "native,builtin",
+        "*amstream": "native,builtin",
+    ]
+    private static let lavAudioFormatsKey = "HKCU\\Software\\LAV\\Audio\\Formats"
+    private static let lavWMARegistryValues = [
+        RegistryValue(key: lavAudioFormatsKey, valueName: "wma", type: "REG_DWORD", data: "1"),
+        RegistryValue(key: lavAudioFormatsKey, valueName: "wmapro", type: "REG_DWORD", data: "1"),
+        RegistryValue(key: lavAudioFormatsKey, valueName: "wmalossless", type: "REG_DWORD", data: "1"),
+    ]
+
+    private static func commonVideoPreset(
+        additionalComponents: [String] = [],
+        dllOverrides: [String: String] = [:],
+        baseDllOverrides: [String: String] = nativeDirectShowDLLOverrides,
+        registryValues additionalRegistryValues: [RegistryValue] = []
+    ) -> EnginePreset {
+        var mergedDllOverrides = baseDllOverrides
+        for (dll, mode) in dllOverrides {
+            mergedDllOverrides[dll] = mode
+        }
+
+        return EnginePreset(
+            components: commonVideoComponents + additionalComponents,
+            dllOverrides: mergedDllOverrides,
+            registryValues: lavWMARegistryValues + additionalRegistryValues
+        )
+    }
 
     public var preset: EnginePreset {
         switch self {
         case .kirikiri:
-            return EnginePreset(components: Self.legacyVideoComponents, dllOverrides: ["quartz": "native"])
-        case .bgi:
-            return Self.legacyVideoPreset
+            return Self.commonVideoPreset(dllOverrides: ["quartz": "native"])
+        case .bgi, .artemis, .nscripter, .yuris, .realLive, .renpy, .majiro, .advHD, .qlie, .unknown:
+            return Self.commonVideoPreset()
         case .catSystem2:
-            return EnginePreset(components: ["dotnet40", "quartz", "vcrun2015"], dllOverrides: [:])
+            return Self.commonVideoPreset(additionalComponents: ["dotnet40", "vcrun2015"])
         case .siglusEngine:
-            return EnginePreset(components: Self.legacyVideoComponents + ["xact", "xinput", "vcrun2019"],
-                              dllOverrides: ["xaudio2_7": "native", "xactengine3_7": "native"])
-        case .artemis, .nscripter, .yuris, .realLive:
-            return Self.legacyVideoPreset
+            return Self.commonVideoPreset(
+                additionalComponents: ["xact", "xinput", "vcrun2019"],
+                dllOverrides: ["xaudio2_7": "native", "xactengine3_7": "native"]
+            )
         case .leaf:
             let lavOutputKey = "HKCU\\Software\\LAV\\Video\\Output"
-            return EnginePreset(
-                components: Self.legacyVideoComponents,
+            return Self.commonVideoPreset(
                 dllOverrides: [
                     "quartz": "builtin",
                     "amstream": "builtin",
@@ -93,19 +120,41 @@ extension Engine {
                     RegistryValue(key: lavOutputKey, valueName: "rgb32", type: "REG_DWORD", data: "1"),
                 ]
             )
+        case .ikuraGDLFamilyProject:
+            return Self.commonVideoPreset(
+                dllOverrides: [
+                    "quartz": "builtin",
+                    "*quartz": "builtin",
+                ],
+                baseDllOverrides: [:]
+            )
         case .rpgMaker:
             return EnginePreset(components: ["d3dx9"], dllOverrides: [:])
         case .unity:
             return EnginePreset(components: ["dotnet48", "d3dcompiler_47"], dllOverrides: [:])
-        case .renpy, .majiro, .advHD, .qlie, .unknown:
-            return .empty
         }
+    }
+
+    func gameSpecificRegistryValues(for game: Game) -> [RegistryValue] {
+        guard self == .ikuraGDLFamilyProject else { return [] }
+
+        let key = "HKCU\\Software\\DO\\KIZUNAR"
+        let gameDrive = "G:\\"
+        return [
+            RegistryValue(key: key, valueName: "InstallDir", type: "REG_SZ", data: gameDrive),
+            RegistryValue(key: key, valueName: "SaveDir", type: "REG_SZ", data: gameDrive),
+            RegistryValue(key: key, valueName: "DataDir", type: "REG_SZ", data: gameDrive),
+            RegistryValue(key: key, valueName: "MusicDir", type: "REG_SZ", data: gameDrive),
+            RegistryValue(key: key, valueName: "VoiceDir", type: "REG_SZ", data: gameDrive),
+            RegistryValue(key: key, valueName: "VideoDir", type: "REG_SZ", data: gameDrive),
+            RegistryValue(key: key, valueName: "InstallType", type: "REG_DWORD", data: "2"),
+        ]
     }
 
     public var runtimeProfile: RuntimeProfile {
         switch self {
-        case .bgi, .artemis, .nscripter, .yuris, .realLive:
-            return .legacyVideo
+        case .bgi, .artemis, .nscripter, .yuris, .realLive, .renpy, .majiro, .advHD, .qlie, .unknown:
+            return .common
         case .kirikiri:
             return .kirikiri
         case .catSystem2:
@@ -114,12 +163,12 @@ extension Engine {
             return .siglusEngine
         case .leaf:
             return .leaf
+        case .ikuraGDLFamilyProject:
+            return .ikuraGDLFamilyProject
         case .rpgMaker:
             return .rpgMaker
         case .unity:
             return .unity
-        case .renpy, .majiro, .advHD, .qlie, .unknown:
-            return .base
         }
     }
 
@@ -140,6 +189,7 @@ extension Engine {
         case .realLive: return "RealLive"
         case .qlie: return "QLIE"
         case .leaf: return "Leaf/AQUAPLUS"
+        case .ikuraGDLFamilyProject: return "Ikura GDL / Family Project"
         case .unknown: return "Unknown"
         }
     }

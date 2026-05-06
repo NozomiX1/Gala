@@ -55,7 +55,7 @@ import Foundation
     let wineBinary = manager.wineDirectory
         .appendingPathComponent("wine-staging-11.6/bin/wine")
     let bottleMarker = manager.bottlesDirectory
-        .appendingPathComponent("Profiles/legacy-video/system.reg")
+        .appendingPathComponent("Profiles/common/system.reg")
 
     for file in [wineBinary, manager.fontFileURL, manager.cabextractURL, manager.winetricksURL, bottleMarker] {
         try FileManager.default.createDirectory(
@@ -209,18 +209,25 @@ import Foundation
     let nscripter = bottleManager.prefixPath(for: Engine.nscripter)
     let yuris = bottleManager.prefixPath(for: Engine.yuris)
     let realLive = bottleManager.prefixPath(for: Engine.realLive)
+    let unknown = bottleManager.prefixPath(for: Engine.unknown)
+    let majiro = bottleManager.prefixPath(for: Engine.majiro)
+    let ikuraGDLFamilyProject = bottleManager.prefixPath(for: Engine.ikuraGDLFamilyProject)
     let kirikiri = bottleManager.prefixPath(for: Engine.kirikiri)
 
-    #expect(bgi == bottlesDir.appendingPathComponent("Profiles/legacy-video").path)
+    #expect(bgi == bottlesDir.appendingPathComponent("Profiles/common").path)
     #expect(artemis == bgi)
     #expect(nscripter == bgi)
     #expect(yuris == bgi)
     #expect(realLive == bgi)
+    #expect(unknown == bgi)
+    #expect(majiro == bgi)
+    #expect(ikuraGDLFamilyProject == bottlesDir.appendingPathComponent("Profiles/do-kizunar").path)
+    #expect(ikuraGDLFamilyProject != bgi)
     #expect(kirikiri == bottlesDir.appendingPathComponent("Profiles/kirikiri").path)
     #expect(kirikiri != bgi)
 }
 
-@Test func bottleManagerUsesBaseSharedPrefixWithoutEngine() throws {
+@Test func bottleManagerUsesCommonSharedPrefixWithoutEngine() throws {
     let tempDir = FileManager.default.temporaryDirectory
         .appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
@@ -229,7 +236,7 @@ import Foundation
     let bottlesDir = tempDir.appendingPathComponent("Bottles")
     let bottleManager = BottleManager(bottlesDirectory: bottlesDir)
 
-    #expect(bottleManager.prefixPath(for: nil) == bottlesDir.appendingPathComponent("Profiles/base").path)
+    #expect(bottleManager.prefixPath(for: nil) == bottlesDir.appendingPathComponent("Profiles/common").path)
 }
 
 @Test func wineManagerResetWineConfigurationKeepsDependenciesAndLibraryData() throws {

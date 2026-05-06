@@ -22,6 +22,33 @@ import Foundation
     #expect(config.driveMapping == nil)
 }
 
+@Test func ikuraGDLFamilyProjectUsesMappedGameDriveEvenForAsciiPath() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let gameDir = dir.appendingPathComponent("Kizunar")
+    try FileManager.default.createDirectory(at: gameDir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+
+    let prefixPath = dir.appendingPathComponent("prefix").path
+    try FileManager.default.createDirectory(
+        at: URL(fileURLWithPath: prefixPath), withIntermediateDirectories: true
+    )
+
+    let exePath = gameDir.appendingPathComponent("kzn_sc.exe").path
+    let game = Game(
+        title: "Family Project",
+        executablePath: exePath,
+        engine: .ikuraGDLFamilyProject,
+        bottleConfig: BottleConfig(prefixPath: prefixPath)
+    )
+
+    let config = try WineLaunchConfig.resolve(game: game)
+
+    #expect(config.arguments == ["g:\\kzn_sc.exe"])
+    #expect(config.workingDirectory?.path == gameDir.path)
+    #expect(config.driveMapping?.driveLetter == "g:")
+    #expect(config.driveMapping?.targetPath == gameDir.path)
+}
+
 @Test func nonAsciiPathUsesDriveMappingAndSetsWorkingDir() throws {
     let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     let gameDir = dir.appendingPathComponent("日本語ゲーム")
