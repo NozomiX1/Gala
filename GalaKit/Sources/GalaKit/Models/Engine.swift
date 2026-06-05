@@ -2,7 +2,7 @@ import Foundation
 
 public enum Engine: String, Codable, CaseIterable, Sendable {
     case kirikiri, nscripter, renpy, rpgMaker, unity
-    case bgi, catSystem2, siglusEngine, artemis, yuris
+    case bgi, catSystem2, siglusEngine, artemis, artemisD3D11, yuris
     case majiro, advHD, realLive, qlie, leaf
     case ikuraGDLFamilyProject = "doKizunar"
     case unknown
@@ -13,10 +13,15 @@ public enum RuntimeProfile: String, Sendable {
     case kirikiri = "kirikiri"
     case catSystem2 = "cat-system2"
     case siglusEngine = "siglus-engine"
+    case artemisD3D11 = "artemis-d3d11"
     case leaf = "leaf"
     case ikuraGDLFamilyProject = "do-kizunar"
     case rpgMaker = "rpg-maker"
     case unity = "unity"
+}
+
+public enum ManagedRuntimeComponent: String, Sendable {
+    case dxmt
 }
 
 public struct RegistryValue: Sendable {
@@ -35,15 +40,18 @@ public struct RegistryValue: Sendable {
 
 public struct EnginePreset: Sendable {
     public let components: [String]
+    public let managedComponents: [ManagedRuntimeComponent]
     public let dllOverrides: [String: String]
     public let registryValues: [RegistryValue]
 
     public init(
         components: [String],
+        managedComponents: [ManagedRuntimeComponent] = [],
         dllOverrides: [String: String],
         registryValues: [RegistryValue] = []
     ) {
         self.components = components
+        self.managedComponents = managedComponents
         self.dllOverrides = dllOverrides
         self.registryValues = registryValues
     }
@@ -90,6 +98,12 @@ extension Engine {
             return Self.commonVideoPreset(dllOverrides: ["quartz": "native"])
         case .bgi, .artemis, .nscripter, .yuris, .realLive, .renpy, .majiro, .advHD, .qlie, .unknown:
             return Self.commonVideoPreset()
+        case .artemisD3D11:
+            return EnginePreset(
+                components: ["d3dcompiler_47"],
+                managedComponents: [.dxmt],
+                dllOverrides: ["d3dcompiler_47": "native,builtin"]
+            )
         case .catSystem2:
             return Self.commonVideoPreset(additionalComponents: ["dotnet40", "vcrun2015"])
         case .siglusEngine:
@@ -155,6 +169,8 @@ extension Engine {
         switch self {
         case .bgi, .artemis, .nscripter, .yuris, .realLive, .renpy, .majiro, .advHD, .qlie, .unknown:
             return .common
+        case .artemisD3D11:
+            return .artemisD3D11
         case .kirikiri:
             return .kirikiri
         case .catSystem2:
@@ -183,6 +199,7 @@ extension Engine {
         case .catSystem2: return "CatSystem2"
         case .siglusEngine: return "SiglusEngine"
         case .artemis: return "Artemis Engine"
+        case .artemisD3D11: return "Artemis Engine (D3D11)"
         case .yuris: return "YU-RIS"
         case .majiro: return "Majiro"
         case .advHD: return "AdvHD"

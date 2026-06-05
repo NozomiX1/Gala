@@ -138,6 +138,18 @@ import Foundation
     }
 }
 
+@Test func artemisD3D11PresetUsesDedicatedDXMTProfile() {
+    let preset = Engine.artemisD3D11.preset
+
+    #expect(Engine.artemisD3D11.displayName == "Artemis Engine (D3D11)")
+    #expect(Engine.artemisD3D11.runtimeProfile.rawValue == "artemis-d3d11")
+    #expect(preset.components == ["d3dcompiler_47"])
+    #expect(preset.managedComponents == [.dxmt])
+    #expect(preset.dllOverrides["d3dcompiler_47"] == "native,builtin")
+    #expect(preset.dllOverrides["d3d11"] == nil)
+    #expect(preset.dllOverrides["dxgi"] == nil)
+}
+
 @Test func ikuraGDLFamilyProjectPresetUsesSeparateBuiltinQuartzProfile() {
     let preset = Engine.ikuraGDLFamilyProject.preset
 

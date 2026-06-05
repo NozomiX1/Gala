@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.1.2] - 2026-06-05
+
+### Added
+- `artemis-d3d11` runtime profile for modern Artemis/iarsys D3D11 games such as 甜蜜女友3 / アマカノ3.
+- Gala-managed DXMT v0.80 builtin dependency, downloaded from Gala release assets only when the `artemis-d3d11` profile is configured.
+- Local engine detection scoring for mixed file sets, so iarsys/PFS/D3D11 signatures can override XP3 patch archives.
+
+### Changed
+- Artemis/iarsys D3D11 games now launch with a DXMT Wine variant instead of the default Wine runtime.
+- Existing misdetected Artemis D3D11 library entries in KiriKiri/Artemis/unknown profiles migrate to `artemis-d3d11` and require runtime reconfiguration.
+
+### Fixed
+- Black screen with audio in 甜蜜女友3 / アマカノ3 under the common/KiriKiri Wine profiles.
+
 ## [1.1.1] - 2026-05-06
 
 ### Added

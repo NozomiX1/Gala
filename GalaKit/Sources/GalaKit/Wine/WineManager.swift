@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 public struct RuntimeEnvironmentStatus: Sendable {
@@ -20,6 +21,7 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
     public var toolsDirectory: URL { baseURL.appendingPathComponent("Tools") }
     public var cacheDirectory: URL { baseURL.appendingPathComponent("Cache") }
     public var winetricksCacheDirectory: URL { cacheDirectory.appendingPathComponent("winetricks") }
+    public var dxmtCacheDirectory: URL { cacheDirectory.appendingPathComponent("dxmt") }
     private var activeLink: URL { wineDirectory.appendingPathComponent("active") }
 
     @Published public var isDownloading = false
@@ -68,16 +70,25 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
     }
 
     private func findManagedWineBinary() -> URL? {
+        let preferred = wineDirectory.appendingPathComponent(Self.wineVersionName)
+        if let found = wineBinary(in: preferred) { return found }
+
         guard let contents = try? FileManager.default.contentsOfDirectory(
             at: wineDirectory, includingPropertiesForKeys: nil
         ) else { return nil }
-        for dir in contents where dir.lastPathComponent != "active" {
-            for name in ["wine", "wine64"] {
-                let appBundle = dir.appendingPathComponent("Contents/Resources/wine/bin/\(name)")
-                if FileManager.default.fileExists(atPath: appBundle.path) { return appBundle }
-                let flat = dir.appendingPathComponent("bin/\(name)")
-                if FileManager.default.fileExists(atPath: flat.path) { return flat }
-            }
+        for dir in contents where dir.lastPathComponent != "active" &&
+            dir.lastPathComponent != Self.dxmtWineVersionName {
+            if let found = wineBinary(in: dir) { return found }
+        }
+        return nil
+    }
+
+    private func wineBinary(in directory: URL) -> URL? {
+        for name in ["wine", "wine64"] {
+            let appBundle = directory.appendingPathComponent("Contents/Resources/wine/bin/\(name)")
+            if FileManager.default.fileExists(atPath: appBundle.path) { return appBundle }
+            let flat = directory.appendingPathComponent("bin/\(name)")
+            if FileManager.default.fileExists(atPath: flat.path) { return flat }
         }
         return nil
     }
@@ -125,6 +136,7 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
     /// Download URL for Wine Staging (hosted in Gala releases for stability)
     public static let wineDownloadURL = URL(string: "https://github.com/NozomiX1/Gala/releases/download/deps-v1/wine-staging-11.6-osx64.tar.xz")!
     public static let wineVersionName = "wine-staging-11.6"
+    public static let dxmtWineVersionName = "wine-staging-11.6-dxmt-v0.80"
 
     /// Download URL for Source Han Sans SC (OFL-licensed CJK font, hosted in Gala releases)
     public static let fontDownloadURL = URL(string: "https://github.com/NozomiX1/Gala/releases/download/deps-v1/SourceHanSansSC-Regular.otf")!
@@ -135,6 +147,11 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
 
     /// Download URL for winetricks (needed to install engine-specific Windows components)
     public static let winetricksDownloadURL = URL(string: "https://github.com/NozomiX1/Gala/releases/download/deps-v1/winetricks")!
+
+    /// Download URL for DXMT v0.80 builtin (hosted in Gala releases for stability)
+    public static let dxmtDownloadURL = URL(string: "https://github.com/NozomiX1/Gala/releases/download/deps-v2/dxmt-v0.80-builtin.tar.gz")!
+    public static let dxmtArchiveName = "dxmt-v0.80-builtin.tar.gz"
+    public static let dxmtSHA256 = "8f260e36b5739e68f3bad613381441385c4dc7b85b78ba8de653d5a6a264529d"
 
     public var fontFileURL: URL {
         fontsDirectory.appendingPathComponent(Self.bundledFontName)
@@ -169,6 +186,38 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
         isCabextractInstalled && isWinetricksInstalled
     }
 
+    public var dxmtArchiveURL: URL {
+        dxmtCacheDirectory
+            .appendingPathComponent("v0.80")
+            .appendingPathComponent(Self.dxmtArchiveName)
+    }
+
+    public var dxmtWineDirectory: URL {
+        wineDirectory.appendingPathComponent(Self.dxmtWineVersionName)
+    }
+
+    public var dxmtWineBinaryURL: URL? {
+        for name in ["wine", "wine64"] {
+            let appBundle = dxmtWineDirectory
+                .appendingPathComponent("Contents/Resources/wine/bin/\(name)")
+            if FileManager.default.fileExists(atPath: appBundle.path) {
+                return appBundle
+            }
+            let flat = dxmtWineDirectory.appendingPathComponent("bin/\(name)")
+            if FileManager.default.fileExists(atPath: flat.path) {
+                return flat
+            }
+        }
+        return nil
+    }
+
+    public func wineBinaryURL(for game: Game) -> URL? {
+        guard game.engine?.runtimeProfile == .artemisD3D11 else {
+            return wineBinaryURL
+        }
+        return dxmtWineBinaryURL
+    }
+
     public func downloadCabextract() async throws {
         guard !isCabextractInstalled else { return }
         try await downloadFile(from: Self.cabextractDownloadURL, to: cabextractURL, description: "cabextract")
@@ -181,6 +230,38 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: winetricksURL.path)
     }
 
+    public func ensureDXMTWineVariant(
+        progressHandler: (@Sendable (Double?) -> Void)? = nil
+    ) async throws {
+        if dxmtWineBinaryURL != nil { return }
+
+        guard FileManager.default.fileExists(
+            atPath: wineDirectory.appendingPathComponent(Self.wineVersionName).path
+        ) else {
+            throw WineError.wineNotInstalled
+        }
+
+        try await downloadDXMT(progressHandler: progressHandler)
+
+        let destinationDir = dxmtWineDirectory
+        let sourceDir = wineDirectory.appendingPathComponent(Self.wineVersionName)
+        let extractDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("gala-dxmt-\(UUID().uuidString)")
+
+        do {
+            try? FileManager.default.removeItem(at: destinationDir)
+            try cloneDirectory(from: sourceDir, to: destinationDir)
+            try FileManager.default.createDirectory(at: extractDir, withIntermediateDirectories: true)
+            try extractArchive(dxmtArchiveURL, to: extractDir)
+            try installDXMTOverlay(from: extractDir.appendingPathComponent("v0.80"), to: destinationDir)
+            try? FileManager.default.removeItem(at: extractDir)
+        } catch {
+            try? FileManager.default.removeItem(at: extractDir)
+            try? FileManager.default.removeItem(at: destinationDir)
+            throw error
+        }
+    }
+
     public func installedVersions() -> [String] {
         guard let contents = try? FileManager.default.contentsOfDirectory(
             at: wineDirectory, includingPropertiesForKeys: nil
@@ -190,6 +271,104 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
             .filter { $0.hasDirectoryPath }
             .map { $0.lastPathComponent }
             .sorted()
+    }
+
+    private func downloadDXMT(progressHandler: (@Sendable (Double?) -> Void)? = nil) async throws {
+        var shouldDownload = !FileManager.default.fileExists(atPath: dxmtArchiveURL.path)
+        if !shouldDownload {
+            do {
+                try verifySHA256(fileURL: dxmtArchiveURL, expected: Self.dxmtSHA256)
+            } catch {
+                try? FileManager.default.removeItem(at: dxmtArchiveURL)
+                shouldDownload = true
+            }
+        }
+
+        if shouldDownload {
+            await MainActor.run {
+                isDownloading = true
+                currentDownloadDescription = "正在下载 DXMT..."
+                downloadProgress = 0
+                isDownloadProgressIndeterminate = false
+            }
+            do {
+                try FileManager.default.createDirectory(
+                    at: dxmtArchiveURL.deletingLastPathComponent(),
+                    withIntermediateDirectories: true
+                )
+                try await Self.downloadFile(from: Self.dxmtDownloadURL, to: dxmtArchiveURL) { progress in
+                    progressHandler?(progress)
+                    Task { @MainActor in
+                        self.downloadProgress = progress
+                    }
+                }
+                try verifySHA256(fileURL: dxmtArchiveURL, expected: Self.dxmtSHA256)
+                await MainActor.run {
+                    downloadProgress = 1.0
+                    finishDownloadState()
+                }
+            } catch {
+                await MainActor.run {
+                    finishDownloadState()
+                }
+                throw error
+            }
+        }
+    }
+
+    private func cloneDirectory(from source: URL, to destination: URL) throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/cp")
+        process.arguments = ["-R", "-c", source.path, destination.path]
+        try process.run()
+        process.waitUntilExit()
+
+        if process.terminationStatus != 0 {
+            try? FileManager.default.removeItem(at: destination)
+            try FileManager.default.copyItem(at: source, to: destination)
+        }
+    }
+
+    private func extractArchive(_ archive: URL, to destination: URL) throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/tar")
+        process.arguments = ["-xzf", archive.path, "-C", destination.path]
+        try process.run()
+        process.waitUntilExit()
+
+        guard process.terminationStatus == 0 else {
+            throw WineError.extractionFailed
+        }
+    }
+
+    private func installDXMTOverlay(from dxmtRoot: URL, to wineRoot: URL) throws {
+        let wineLib = wineRoot.appendingPathComponent("Contents/Resources/wine/lib/wine")
+        let overlayDirectories = ["x86_64-windows", "i386-windows", "x86_64-unix"]
+
+        for directoryName in overlayDirectories {
+            let sourceDir = dxmtRoot.appendingPathComponent(directoryName)
+            let targetDir = wineLib.appendingPathComponent(directoryName)
+            guard let files = try? FileManager.default.contentsOfDirectory(
+                at: sourceDir,
+                includingPropertiesForKeys: nil
+            ) else { continue }
+
+            try FileManager.default.createDirectory(at: targetDir, withIntermediateDirectories: true)
+            for sourceFile in files {
+                let targetFile = targetDir.appendingPathComponent(sourceFile.lastPathComponent)
+                try? FileManager.default.removeItem(at: targetFile)
+                try FileManager.default.copyItem(at: sourceFile, to: targetFile)
+            }
+        }
+    }
+
+    private func verifySHA256(fileURL: URL, expected: String) throws {
+        let data = try Data(contentsOf: fileURL)
+        let digest = SHA256.hash(data: data)
+        let actual = digest.map { String(format: "%02x", $0) }.joined()
+        guard actual == expected else {
+            throw WineError.checksumMismatch(fileURL.lastPathComponent)
+        }
     }
 
     public func setActiveVersion(_ versionDir: String) throws {
@@ -382,6 +561,7 @@ public enum WineError: Error, LocalizedError {
     case wineNotInstalled
     case helperToolNotInstalled(String)
     case helperToolFailed(String, Int32)
+    case checksumMismatch(String)
 
     public var errorDescription: String? {
         switch self {
@@ -390,6 +570,7 @@ public enum WineError: Error, LocalizedError {
         case .wineNotInstalled: return "Wine is not installed"
         case .helperToolNotInstalled(let name): return "\(name) is not installed"
         case .helperToolFailed(let name, let status): return "\(name) failed with exit code \(status)"
+        case .checksumMismatch(let name): return "\(name) checksum mismatch"
         }
     }
 }

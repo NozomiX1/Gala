@@ -130,9 +130,15 @@ public final class BottleManager: @unchecked Sendable {
         guard let engine = game.engine else { return }
         let preset = engine.preset
         let registryValues = preset.registryValues + engine.gameSpecificRegistryValues(for: game)
-        guard !preset.components.isEmpty || !preset.dllOverrides.isEmpty || !registryValues.isEmpty else { return }
+        guard !preset.components.isEmpty ||
+            !preset.managedComponents.isEmpty ||
+            !preset.dllOverrides.isEmpty ||
+            !registryValues.isEmpty else { return }
 
-        let totalUnitCount = preset.components.count + preset.dllOverrides.count + registryValues.count
+        let totalUnitCount = preset.components.count +
+            preset.managedComponents.count +
+            preset.dllOverrides.count +
+            registryValues.count
         var completedUnitCount = 0
 
         for component in preset.components {
@@ -154,6 +160,31 @@ public final class BottleManager: @unchecked Sendable {
             progressHandler?(
                 EnginePresetProgress(
                     message: "\(Self.displayName(forWinetricksComponent: component)) 已安装",
+                    completedUnitCount: completedUnitCount,
+                    totalUnitCount: totalUnitCount
+                )
+            )
+        }
+
+        for component in preset.managedComponents {
+            progressHandler?(
+                EnginePresetProgress(
+                    message: "正在准备 \(Self.displayName(forManagedComponent: component))...",
+                    completedUnitCount: completedUnitCount,
+                    totalUnitCount: totalUnitCount
+                )
+            )
+            try await installManagedRuntimeComponent(
+                component,
+                for: game,
+                completedUnitCount: completedUnitCount,
+                totalUnitCount: totalUnitCount,
+                progressHandler: progressHandler
+            )
+            completedUnitCount += 1
+            progressHandler?(
+                EnginePresetProgress(
+                    message: "\(Self.displayName(forManagedComponent: component)) 已安装",
                     completedUnitCount: completedUnitCount,
                     totalUnitCount: totalUnitCount
                 )
@@ -210,6 +241,68 @@ public final class BottleManager: @unchecked Sendable {
         if FileManager.default.fileExists(atPath: prefixURL.path) {
             try FileManager.default.removeItem(at: prefixURL)
         }
+    }
+
+    private func installManagedRuntimeComponent(
+        _ component: ManagedRuntimeComponent,
+        for game: Game,
+        completedUnitCount: Int,
+        totalUnitCount: Int,
+        progressHandler: (@Sendable (EnginePresetProgress) -> Void)?
+    ) async throws {
+        switch component {
+        case .dxmt:
+            guard let wineManager else { throw WineError.wineNotInstalled }
+            try await wineManager.ensureDXMTWineVariant { progress in
+                progressHandler?(
+                    EnginePresetProgress(
+                        message: "正在下载 DXMT 图形运行时...",
+                        completedUnitCount: completedUnitCount,
+                        totalUnitCount: totalUnitCount,
+                        currentItemProgress: progress
+                    )
+                )
+            }
+            try Self.installDXMTPEOverrides(
+                from: wineManager.dxmtWineDirectory,
+                toPrefix: game.bottleConfig.prefixPath
+            )
+        }
+    }
+
+    private static func installDXMTPEOverrides(from wineRoot: URL, toPrefix prefix: String) throws {
+        let prefixURL = URL(fileURLWithPath: prefix)
+        let wineLib = dxmtWineLibDirectory(in: wineRoot)
+        let mappings = [
+            ("x86_64-windows", "drive_c/windows/system32"),
+            ("i386-windows", "drive_c/windows/syswow64"),
+        ]
+
+        for (sourceDirectoryName, targetDirectoryName) in mappings {
+            let sourceDirectory = wineLib.appendingPathComponent(sourceDirectoryName)
+            let targetDirectory = prefixURL.appendingPathComponent(targetDirectoryName)
+            guard let sourceFiles = try? FileManager.default.contentsOfDirectory(
+                at: sourceDirectory,
+                includingPropertiesForKeys: nil
+            ) else {
+                throw WineError.extractionFailed
+            }
+
+            try FileManager.default.createDirectory(at: targetDirectory, withIntermediateDirectories: true)
+            for sourceFile in sourceFiles where sourceFile.pathExtension.lowercased() == "dll" {
+                let targetFile = targetDirectory.appendingPathComponent(sourceFile.lastPathComponent)
+                try? FileManager.default.removeItem(at: targetFile)
+                try FileManager.default.copyItem(at: sourceFile, to: targetFile)
+            }
+        }
+    }
+
+    private static func dxmtWineLibDirectory(in wineRoot: URL) -> URL {
+        let appBundle = wineRoot.appendingPathComponent("Contents/Resources/wine/lib/wine")
+        if FileManager.default.fileExists(atPath: appBundle.path) {
+            return appBundle
+        }
+        return wineRoot.appendingPathComponent("lib/wine")
     }
 
     private func configureLocale(wineBinary: URL, prefix: String, locale: String) async throws {
@@ -412,6 +505,13 @@ public final class BottleManager: @unchecked Sendable {
             return "LAV Filters 解码器"
         default:
             return component
+        }
+    }
+
+    private static func displayName(forManagedComponent component: ManagedRuntimeComponent) -> String {
+        switch component {
+        case .dxmt:
+            return "DXMT 图形运行时"
         }
     }
 

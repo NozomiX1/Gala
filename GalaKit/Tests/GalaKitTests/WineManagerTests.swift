@@ -77,24 +77,103 @@ import Foundation
 }
 
 @Test func managedDependencyDownloadsUseGalaOwnedReleaseAssets() {
-    let dependencies: [(name: String, url: URL)] = [
-        ("wine", WineManager.wineDownloadURL),
-        ("font", WineManager.fontDownloadURL),
-        ("cabextract", WineManager.cabextractDownloadURL),
-        ("winetricks", WineManager.winetricksDownloadURL),
+    let dependencies: [(name: String, url: URL, release: String)] = [
+        ("wine", WineManager.wineDownloadURL, "deps-v1"),
+        ("font", WineManager.fontDownloadURL, "deps-v1"),
+        ("cabextract", WineManager.cabextractDownloadURL, "deps-v1"),
+        ("winetricks", WineManager.winetricksDownloadURL, "deps-v1"),
+        ("dxmt", WineManager.dxmtDownloadURL, "deps-v2"),
     ]
 
     for dependency in dependencies {
         #expect(dependency.url.host == "github.com", "\(dependency.name) should download from GitHub releases")
         #expect(
-            dependency.url.path.hasPrefix("/NozomiX1/Gala/releases/download/deps-v1/"),
-            "\(dependency.name) should use the Gala deps-v1 release"
+            dependency.url.path.hasPrefix("/NozomiX1/Gala/releases/download/\(dependency.release)/"),
+            "\(dependency.name) should use the Gala \(dependency.release) release"
         )
         #expect(!dependency.url.absoluteString.contains("raw.githubusercontent.com"))
         #expect(!dependency.url.absoluteString.contains("Winetricks/winetricks"))
         #expect(!dependency.url.absoluteString.contains("Gcenx/macOS_Wine_builds"))
         #expect(!dependency.url.absoluteString.contains("adobe-fonts/source-han-sans"))
     }
+}
+
+@Test func wineManagerDXMTPathsAreAppManaged() throws {
+    let tempDir = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: tempDir) }
+
+    let manager = WineManager(baseURL: tempDir)
+
+    #expect(manager.dxmtArchiveURL.path == tempDir.appendingPathComponent("Cache/dxmt/v0.80/dxmt-v0.80-builtin.tar.gz").path)
+    #expect(manager.dxmtWineDirectory.path == tempDir.appendingPathComponent("Wine/wine-staging-11.6-dxmt-v0.80").path)
+}
+
+@Test func wineManagerSelectsDXMTWineForArtemisD3D11Only() throws {
+    let tempDir = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: tempDir) }
+
+    let manager = WineManager(baseURL: tempDir)
+    let baseWine = manager.wineDirectory
+        .appendingPathComponent("active/Contents/Resources/wine/bin/wine")
+    let dxmtWine = manager.dxmtWineDirectory
+        .appendingPathComponent("Contents/Resources/wine/bin/wine")
+
+    for file in [baseWine, dxmtWine] {
+        try FileManager.default.createDirectory(
+            at: file.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        FileManager.default.createFile(atPath: file.path, contents: Data("x".utf8))
+    }
+
+    let commonGame = Game(
+        title: "KiriKiri",
+        executablePath: tempDir.appendingPathComponent("game.exe").path,
+        engine: .kirikiri
+    )
+    let artemisGame = Game(
+        title: "Amakano 3",
+        executablePath: tempDir.appendingPathComponent("Amakano3_chs.exe").path,
+        engine: .artemisD3D11
+    )
+
+    #expect(manager.wineBinaryURL(for: commonGame)?.path == baseWine.path)
+    #expect(manager.wineBinaryURL(for: artemisGame)?.path == dxmtWine.path)
+}
+
+@Test func wineManagerDoesNotUseDXMTVariantAsDefaultWine() throws {
+    let tempDir = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: tempDir) }
+
+    let manager = WineManager(baseURL: tempDir)
+    let dxmtWine = manager.dxmtWineDirectory
+        .appendingPathComponent("Contents/Resources/wine/bin/wine")
+    try FileManager.default.createDirectory(
+        at: dxmtWine.deletingLastPathComponent(),
+        withIntermediateDirectories: true
+    )
+    FileManager.default.createFile(atPath: dxmtWine.path, contents: Data("x".utf8))
+
+    let commonGame = Game(
+        title: "KiriKiri",
+        executablePath: tempDir.appendingPathComponent("game.exe").path,
+        engine: .kirikiri
+    )
+    let artemisGame = Game(
+        title: "Amakano 3",
+        executablePath: tempDir.appendingPathComponent("Amakano3_chs.exe").path,
+        engine: .artemisD3D11
+    )
+
+    #expect(manager.wineBinaryURL == nil)
+    #expect(manager.wineBinaryURL(for: commonGame) == nil)
+    #expect(manager.wineBinaryURL(for: artemisGame)?.path == dxmtWine.path)
 }
 
 @Test func runtimeEnvironmentStatusRequiresAllHelperTools() throws {
@@ -212,6 +291,7 @@ import Foundation
     let unknown = bottleManager.prefixPath(for: Engine.unknown)
     let majiro = bottleManager.prefixPath(for: Engine.majiro)
     let ikuraGDLFamilyProject = bottleManager.prefixPath(for: Engine.ikuraGDLFamilyProject)
+    let artemisD3D11 = bottleManager.prefixPath(for: Engine.artemisD3D11)
     let kirikiri = bottleManager.prefixPath(for: Engine.kirikiri)
 
     #expect(bgi == bottlesDir.appendingPathComponent("Profiles/common").path)
@@ -223,6 +303,8 @@ import Foundation
     #expect(majiro == bgi)
     #expect(ikuraGDLFamilyProject == bottlesDir.appendingPathComponent("Profiles/do-kizunar").path)
     #expect(ikuraGDLFamilyProject != bgi)
+    #expect(artemisD3D11 == bottlesDir.appendingPathComponent("Profiles/artemis-d3d11").path)
+    #expect(artemisD3D11 != bgi)
     #expect(kirikiri == bottlesDir.appendingPathComponent("Profiles/kirikiri").path)
     #expect(kirikiri != bgi)
 }

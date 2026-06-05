@@ -12,6 +12,47 @@ import Foundation
     #expect(result == .kirikiri)
 }
 
+@Test func detectArtemisD3D11ByIarsysPFSDespiteXP3PatchArchive() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+
+    FileManager.default.createFile(atPath: dir.appendingPathComponent("Amakano3_chs.xp3").path, contents: nil)
+    FileManager.default.createFile(atPath: dir.appendingPathComponent("Amakano3.pfs").path, contents: nil)
+    FileManager.default.createFile(atPath: dir.appendingPathComponent("iarsys64.dll").path, contents: nil)
+    FileManager.default.createFile(atPath: dir.appendingPathComponent("emotedriver.dll").path, contents: nil)
+    let exeData = Data("D3D11CreateDevice\0D3DCompile\0Artemis.vs2022.pdb".utf8)
+    try exeData.write(to: dir.appendingPathComponent("Amakano3_chs.exe"))
+
+    let result = EngineDetector.detect(in: dir)
+    #expect(result == .artemisD3D11)
+}
+
+@Test func detectPFSAloneDoesNotOvertakeXP3() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+
+    FileManager.default.createFile(atPath: dir.appendingPathComponent("data.xp3").path, contents: nil)
+    FileManager.default.createFile(atPath: dir.appendingPathComponent("extra.pfs").path, contents: nil)
+    FileManager.default.createFile(atPath: dir.appendingPathComponent("game.exe").path, contents: nil)
+
+    let result = EngineDetector.detect(in: dir)
+    #expect(result == .kirikiri)
+}
+
+@Test func detectD3D11ExecutableWithoutArtemisMarkersIsUnknown() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+
+    try Data("D3D11CreateDevice\0D3DCompile".utf8)
+        .write(to: dir.appendingPathComponent("game.exe"))
+
+    let result = EngineDetector.detect(in: dir)
+    #expect(result == nil)
+}
+
 @Test func detectRenPyByDirectory() throws {
     let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

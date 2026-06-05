@@ -3,17 +3,14 @@ import Foundation
 public enum RuntimeProfileMigration {
     public static func migrate(games: [Game], bottlesDirectory: URL) -> [Game] {
         games.map { game in
-            guard shouldMoveToIkuraGDLFamilyProject(game) else { return game }
+            guard let targetEngine = specialRuntimeTarget(for: game) else { return game }
 
             var migrated = game
-            let targetPrefix = bottlesDirectory
-                .appendingPathComponent("Profiles")
-                .appendingPathComponent(Engine.ikuraGDLFamilyProject.runtimeProfile.rawValue)
-                .path
+            let targetPrefix = sharedPrefixPath(for: targetEngine, bottlesDirectory: bottlesDirectory)
 
-            let changedRuntime = migrated.engine != .ikuraGDLFamilyProject ||
+            let changedRuntime = migrated.engine != targetEngine ||
                 migrated.bottleConfig.prefixPath != targetPrefix
-            migrated.engine = .ikuraGDLFamilyProject
+            migrated.engine = targetEngine
             migrated.bottleConfig.prefixPath = targetPrefix
             if changedRuntime {
                 migrated.isRuntimeConfigured = false
@@ -32,11 +29,39 @@ public enum RuntimeProfileMigration {
         }
     }
 
+    private static func specialRuntimeTarget(for game: Game) -> Engine? {
+        if shouldMoveToIkuraGDLFamilyProject(game) {
+            return .ikuraGDLFamilyProject
+        }
+        if shouldMoveToArtemisD3D11(game) {
+            return .artemisD3D11
+        }
+        return nil
+    }
+
+    private static func sharedPrefixPath(for engine: Engine, bottlesDirectory: URL) -> String {
+        bottlesDirectory
+            .appendingPathComponent("Profiles")
+            .appendingPathComponent(engine.runtimeProfile.rawValue)
+            .path
+    }
+
     private static func shouldMoveToIkuraGDLFamilyProject(_ game: Game) -> Bool {
         if game.engine == .ikuraGDLFamilyProject { return true }
         guard game.engine == nil || game.engine == .unknown else { return false }
 
         let directory = URL(fileURLWithPath: game.executablePath).deletingLastPathComponent()
         return EngineDetector.detect(in: directory) == .ikuraGDLFamilyProject
+    }
+
+    private static func shouldMoveToArtemisD3D11(_ game: Game) -> Bool {
+        if game.engine == .artemisD3D11 { return true }
+        guard game.engine == nil ||
+            game.engine == .unknown ||
+            game.engine == .kirikiri ||
+            game.engine == .artemis else { return false }
+
+        let directory = URL(fileURLWithPath: game.executablePath).deletingLastPathComponent()
+        return EngineDetector.detect(in: directory) == .artemisD3D11
     }
 }

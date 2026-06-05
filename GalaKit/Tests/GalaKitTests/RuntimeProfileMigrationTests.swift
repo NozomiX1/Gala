@@ -31,6 +31,36 @@ import Foundation
     #expect(!migrated[0].isRuntimeConfigured)
 }
 
+@Test func runtimeProfileMigrationMovesMisdetectedArtemisD3D11GameOutOfKiriKiri() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let gameDir = dir.appendingPathComponent("Amakano3")
+    try FileManager.default.createDirectory(at: gameDir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+
+    FileManager.default.createFile(atPath: gameDir.appendingPathComponent("Amakano3_chs.xp3").path, contents: nil)
+    FileManager.default.createFile(atPath: gameDir.appendingPathComponent("Amakano3.pfs").path, contents: nil)
+    FileManager.default.createFile(atPath: gameDir.appendingPathComponent("iarsys64.dll").path, contents: nil)
+    try Data("D3D11CreateDevice\0D3DCompile\0Artemis.vs2022.pdb".utf8)
+        .write(to: gameDir.appendingPathComponent("Amakano3_chs.exe"))
+
+    let game = Game(
+        title: "Amakano 3",
+        executablePath: gameDir.appendingPathComponent("Amakano3_chs.exe").path,
+        engine: .kirikiri,
+        isRuntimeConfigured: true,
+        bottleConfig: BottleConfig(prefixPath: dir.appendingPathComponent("Bottles/Profiles/kirikiri").path)
+    )
+
+    let migrated = RuntimeProfileMigration.migrate(
+        games: [game],
+        bottlesDirectory: dir.appendingPathComponent("Bottles")
+    )
+
+    #expect(migrated[0].engine == .artemisD3D11)
+    #expect(migrated[0].bottleConfig.prefixPath == dir.appendingPathComponent("Bottles/Profiles/artemis-d3d11").path)
+    #expect(!migrated[0].isRuntimeConfigured)
+}
+
 @Test func runtimeProfileMigrationLeavesOtherUnknownGamesAlone() throws {
     let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     let gameDir = dir.appendingPathComponent("Unknown")

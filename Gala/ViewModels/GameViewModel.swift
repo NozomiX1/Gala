@@ -34,22 +34,27 @@ final class GameViewModel {
             setupProgress = nil
 
             do {
-                if RuntimeConfigurationPolicy.needsRuntimeConfiguration(
+                let bottleReady = bottleManager.isBottleReady(for: game)
+                let needsBottle = RuntimeConfigurationPolicy.needsRuntimeConfiguration(
                     for: game,
-                    bottleReady: bottleManager.isBottleReady(for: game)
-                ) {
+                    bottleReady: bottleReady
+                )
+                let needsPreset = game.engine != nil &&
+                    (!game.isRuntimeConfigured || needsManagedRuntimePreparation(for: game, viewModel: viewModel))
+
+                if needsBottle {
                     setupStatus = "初始化 Wine 前缀..."
                     setupProgress = nil
                     try await bottleManager.createBottle(for: game)
+                }
 
-                    if game.engine != nil {
-                        setupStatus = "应用引擎预设..."
-                        setupProgress = 0
-                        try await bottleManager.applyEnginePreset(for: game) { [weak self] progress in
-                            Task { @MainActor in
-                                self?.setupStatus = progress.message
-                                self?.setupProgress = progress.currentItemProgress ?? progress.fraction
-                            }
+                if needsBottle || needsPreset {
+                    setupStatus = "应用引擎预设..."
+                    setupProgress = 0
+                    try await bottleManager.applyEnginePreset(for: game) { [weak self] progress in
+                        Task { @MainActor in
+                            self?.setupStatus = progress.message
+                            self?.setupProgress = progress.currentItemProgress ?? progress.fraction
                         }
                     }
                 } else {
@@ -83,8 +88,15 @@ final class GameViewModel {
             return
         }
 
-        guard let wineBinary = wineManager.wineBinaryURL else {
-            errorMessage = "Wine 未安装，请先安装。"
+        guard let wineBinary = wineManager.wineBinaryURL(for: game) else {
+            if game.engine?.runtimeProfile == .artemisD3D11 {
+                errorMessage = "DXMT 图形运行时未配置，请重新配置运行环境。"
+                var updated = game
+                updated.isRuntimeConfigured = false
+                viewModel.updateGame(updated)
+            } else {
+                errorMessage = "Wine 未安装，请先安装。"
+            }
             return
         }
 
@@ -145,5 +157,10 @@ final class GameViewModel {
             }
         }
         errorMessage = "未找到原生 macOS 程序，将使用 Wine 启动。"
+    }
+
+    private func needsManagedRuntimePreparation(for game: Game, viewModel: LibraryViewModel) -> Bool {
+        guard game.engine?.preset.managedComponents.isEmpty == false else { return false }
+        return viewModel.wineManagerInstance.wineBinaryURL(for: game) == nil
     }
 }
