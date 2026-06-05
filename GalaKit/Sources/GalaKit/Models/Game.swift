@@ -2,6 +2,17 @@ import Foundation
 
 public enum GameStatus: String, Codable, CaseIterable, Sendable {
     case backlog, playing, completed, dropped
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let rawValue = try container.decode(String.self)
+        self = GameStatus(rawValue: rawValue) ?? .backlog
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 public struct Game: Identifiable, Codable, Sendable {

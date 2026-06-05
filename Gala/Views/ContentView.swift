@@ -55,7 +55,11 @@ struct ContentView: View {
                     }
                 )
             case .library:
-                mainContent
+                if let errorMessage = viewModel.libraryLoadErrorMessage {
+                    libraryErrorView(errorMessage)
+                } else {
+                    mainContent
+                }
             }
         }
         .sheet(isPresented: $showingRuntimeEnvironment) {
@@ -159,6 +163,35 @@ struct ContentView: View {
             }
             changeExeGame = nil
         }
+    }
+
+    private func libraryErrorView(_ message: String) -> some View {
+        VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 42))
+                .foregroundStyle(.orange)
+            Text("游戏库读取失败")
+                .font(.title2.bold())
+            Text(message)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+            Text("Gala 没有覆盖现有游戏库文件。请检查 Application Support/Gala 下的 library.json 或从 Backups 目录恢复。")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 520)
+            HStack {
+                Button("重新读取") {
+                    viewModel.loadLibrary()
+                }
+                Button("运行环境") {
+                    showingRuntimeEnvironment = true
+                }
+            }
+        }
+        .padding(32)
+        .frame(minWidth: 640, minHeight: 420)
     }
 
     private var filteredByCategory: [Game] {

@@ -7,6 +7,7 @@ final class LibraryViewModel {
     var selectedGameId: UUID?
     var searchText = ""
     var isRuntimeEnvironmentReady = false
+    var libraryLoadErrorMessage: String?
 
     private let libraryStore: LibraryStore
     private let wineManager: WineManager
@@ -45,17 +46,28 @@ final class LibraryViewModel {
     }
 
     func loadLibrary() {
-        let loadedGames = (try? libraryStore.load()) ?? []
+        let loadedGames: [Game]
+        do {
+            loadedGames = try libraryStore.load()
+            libraryLoadErrorMessage = nil
+        } catch {
+            games = []
+            selectedGameId = nil
+            libraryLoadErrorMessage = "游戏库读取失败：\(error.localizedDescription)"
+            return
+        }
+
         games = RuntimeProfileMigration.migrate(
             games: loadedGames,
             bottlesDirectory: wineManager.bottlesDirectory
         )
         if RuntimeProfileMigration.didChangeRuntimeProfile(from: loadedGames, to: games) {
-            saveLibrary()
+            _ = try? libraryStore.saveMigrated(games, reason: "runtime-profile-migration")
         }
     }
 
     func saveLibrary() {
+        guard libraryLoadErrorMessage == nil else { return }
         try? libraryStore.save(games)
     }
 

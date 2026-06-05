@@ -6,9 +6,20 @@ public enum Engine: String, Codable, CaseIterable, Sendable {
     case majiro, advHD, realLive, qlie, leaf
     case ikuraGDLFamilyProject = "doKizunar"
     case unknown
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let rawValue = try container.decode(String.self)
+        self = Engine(rawValue: rawValue) ?? .unknown
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
-public enum RuntimeProfile: String, Sendable {
+public enum RuntimeProfile: String, Codable, Sendable {
     case common = "common"
     case kirikiri = "kirikiri"
     case catSystem2 = "cat-system2"
@@ -186,6 +197,10 @@ extension Engine {
         case .unity:
             return .unity
         }
+    }
+
+    public var runtimeConfigVersion: Int {
+        1
     }
 
     public var displayName: String {

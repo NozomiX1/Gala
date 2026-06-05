@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.2.0] - 2026-06-05
+
+### Added
+- Manual update checks backed by GitHub Releases, with release notes and links to the latest DMG or release page.
+- Versioned `library.json` document format while keeping compatibility with the legacy top-level array format.
+- Migration-safe library saves that create a backup before runtime profile migrations overwrite `library.json`.
+- Runtime profile markers for configured Wine prefixes so future versions can detect outdated profile configurations without deleting bottles.
+- Library load failure UI that prevents Gala from silently treating a broken library as an empty library.
+
+### Changed
+- App version metadata is synchronized to `1.2.0` / build `5` so update comparisons can use the bundle version reliably.
+- Runtime profile migrations now write through the migration-safe save path.
+
 ## [1.1.2] - 2026-06-05
 
 ### Added

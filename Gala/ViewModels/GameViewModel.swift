@@ -57,6 +57,7 @@ final class GameViewModel {
                             self?.setupProgress = progress.currentItemProgress ?? progress.fraction
                         }
                     }
+                    try bottleManager.writeRuntimeMarker(for: game)
                 } else {
                     setupStatus = "复用已有运行环境..."
                     setupProgress = nil

@@ -1,5 +1,6 @@
 import SwiftUI
 import GalaKit
+import AppKit
 
 enum RuntimeEnvironmentChange {
     case dependenciesRepaired
@@ -16,8 +17,13 @@ struct RuntimeEnvironmentView: View {
     @State private var isWorking = false
     @State private var errorMessage: String?
     @State private var resultMessage: String?
+    @State private var isCheckingForUpdates = false
+    @State private var updateResult: AppUpdateCheckResult?
+    @State private var updateErrorMessage: String?
     @State private var showingWineConfigurationResetConfirmation = false
     @State private var showingAllDataResetConfirmation = false
+
+    private let updateClient = GitHubReleaseClient()
 
     init(wineManager: WineManager, onEnvironmentChanged: @escaping (RuntimeEnvironmentChange) -> Void) {
         _wineManager = ObservedObject(wrappedValue: wineManager)
@@ -79,6 +85,8 @@ struct RuntimeEnvironmentView: View {
                     .textSelection(.enabled)
             }
 
+            updateStatusView
+
             Spacer()
 
             HStack {
@@ -92,6 +100,13 @@ struct RuntimeEnvironmentView: View {
                     Label("修复缺失项", systemImage: "arrow.clockwise")
                 }
                 .disabled(isWorking || status.isReady)
+
+                Button {
+                    checkForUpdates()
+                } label: {
+                    Label("检查更新", systemImage: "arrow.down.circle")
+                }
+                .disabled(isWorking || isCheckingForUpdates)
 
                 Button(role: .destructive) {
                     showingWineConfigurationResetConfirmation = true
@@ -109,7 +124,7 @@ struct RuntimeEnvironmentView: View {
             }
         }
         .padding(24)
-        .frame(width: 520, height: 360)
+        .frame(width: 560, height: 460)
         .onAppear(perform: refreshStatus)
         .alert("清理 Wine 配置？", isPresented: $showingWineConfigurationResetConfirmation) {
             Button("取消", role: .cancel) {}
@@ -126,6 +141,78 @@ struct RuntimeEnvironmentView: View {
             }
         } message: {
             Text("这会删除 Gala 的所有本地数据，包括游戏库、封面、游玩时间、Wine 运行时和 Wine 配置。不会删除你的原始游戏文件。此操作无法撤销。")
+        }
+    }
+
+    @ViewBuilder
+    private var updateStatusView: some View {
+        if isCheckingForUpdates {
+            HStack(spacing: 8) {
+                ProgressView()
+                    .controlSize(.small)
+                Text("正在检查更新...")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+        }
+
+        if let updateErrorMessage {
+            Text(updateErrorMessage)
+                .font(.callout)
+                .foregroundStyle(.red)
+                .textSelection(.enabled)
+        }
+
+        if let updateResult {
+            switch updateResult {
+            case .upToDate(let currentVersion):
+                Text("当前已是最新版本：\(currentVersion)")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            case .updateAvailable(let update):
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("发现新版本：\(update.latestVersion)")
+                        .font(.callout.bold())
+                    if !update.releaseNotes.isEmpty {
+                        Text(update.releaseNotes)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(4)
+                            .textSelection(.enabled)
+                    }
+                    Text("下载后请退出 Gala，并将新版 Gala.app 拖入 Applications 覆盖旧版。游戏库、游玩时间和运行环境会保留。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    HStack {
+                        if let downloadURL = update.downloadURL {
+                            Button("下载 DMG") {
+                                NSWorkspace.shared.open(downloadURL)
+                            }
+                        }
+                        Button("打开发布页") {
+                            NSWorkspace.shared.open(update.releasePageURL)
+                        }
+                    }
+                }
+            case .missingInstaller(let latestVersion, let releasePageURL, let releaseNotes):
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("发现新版本：\(latestVersion)")
+                        .font(.callout.bold())
+                    if !releaseNotes.isEmpty {
+                        Text(releaseNotes)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(4)
+                            .textSelection(.enabled)
+                    }
+                    Text("这个 release 没有找到 Gala.dmg，请打开发布页手动确认。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button("打开发布页") {
+                        NSWorkspace.shared.open(releasePageURL)
+                    }
+                }
+            }
         }
     }
 
@@ -168,6 +255,29 @@ struct RuntimeEnvironmentView: View {
                     isWorking = false
                     errorMessage = "修复失败：\(error.localizedDescription)"
                     refreshStatus()
+                }
+            }
+        }
+    }
+
+    private func checkForUpdates() {
+        isCheckingForUpdates = true
+        updateResult = nil
+        updateErrorMessage = nil
+
+        Task {
+            do {
+                let release = try await updateClient.latestRelease(owner: "NozomiX1", repo: "Gala")
+                let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
+                let result = AppUpdateEvaluator.evaluate(currentVersion: currentVersion, release: release)
+                await MainActor.run {
+                    isCheckingForUpdates = false
+                    updateResult = result
+                }
+            } catch {
+                await MainActor.run {
+                    isCheckingForUpdates = false
+                    updateErrorMessage = "检查更新失败：\(error.localizedDescription)"
                 }
             }
         }

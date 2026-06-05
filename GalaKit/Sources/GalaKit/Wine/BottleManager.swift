@@ -40,6 +40,45 @@ public struct EnginePresetProgress: Equatable, Sendable {
     }
 }
 
+public struct RuntimeProfileMarker: Codable, Equatable, Sendable {
+    public let profile: RuntimeProfile
+    public let configVersion: Int
+    public let configuredAt: Date
+    public let wineVersionName: String
+    public let managedComponents: [String]
+
+    public init(
+        profile: RuntimeProfile,
+        configVersion: Int,
+        configuredAt: Date,
+        wineVersionName: String,
+        managedComponents: [String]
+    ) {
+        self.profile = profile
+        self.configVersion = configVersion
+        self.configuredAt = configuredAt
+        self.wineVersionName = wineVersionName
+        self.managedComponents = managedComponents
+    }
+
+    static func current(for game: Game, configuredAt: Date) -> RuntimeProfileMarker? {
+        guard let engine = game.engine, engine.supportsNativeLaunch != true else { return nil }
+        return RuntimeProfileMarker(
+            profile: engine.runtimeProfile,
+            configVersion: engine.runtimeConfigVersion,
+            configuredAt: configuredAt,
+            wineVersionName: engine == .artemisD3D11 ? WineManager.dxmtWineVersionName : WineManager.wineVersionName,
+            managedComponents: engine.preset.managedComponents.map(\.runtimeMarkerName)
+        )
+    }
+}
+
+public enum RuntimeMarkerStatus: Equatable, Sendable {
+    case missing
+    case current
+    case outdated
+}
+
 public final class BottleManager: @unchecked Sendable {
     private let bottlesDirectory: URL
     private let wineManager: WineManager?
@@ -241,6 +280,45 @@ public final class BottleManager: @unchecked Sendable {
         if FileManager.default.fileExists(atPath: prefixURL.path) {
             try FileManager.default.removeItem(at: prefixURL)
         }
+    }
+
+    public func writeRuntimeMarker(for game: Game, configuredAt: Date = Date()) throws {
+        guard let marker = RuntimeProfileMarker.current(for: game, configuredAt: configuredAt) else { return }
+        let markerURL = Self.runtimeMarkerURL(prefix: game.bottleConfig.prefixPath)
+        try FileManager.default.createDirectory(
+            at: markerURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try encoder.encode(marker).write(to: markerURL, options: .atomic)
+    }
+
+    public func runtimeMarkerStatus(for game: Game) throws -> RuntimeMarkerStatus {
+        guard let current = RuntimeProfileMarker.current(for: game, configuredAt: Date()) else {
+            return .missing
+        }
+
+        let markerURL = Self.runtimeMarkerURL(prefix: game.bottleConfig.prefixPath)
+        guard FileManager.default.fileExists(atPath: markerURL.path) else {
+            return .missing
+        }
+
+        let data = try Data(contentsOf: markerURL)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let marker = try decoder.decode(RuntimeProfileMarker.self, from: data)
+
+        return marker.profile == current.profile &&
+            marker.configVersion == current.configVersion &&
+            marker.wineVersionName == current.wineVersionName &&
+            marker.managedComponents == current.managedComponents ? .current : .outdated
+    }
+
+    private static func runtimeMarkerURL(prefix: String) -> URL {
+        URL(fileURLWithPath: prefix).appendingPathComponent(".gala-runtime.json")
     }
 
     private func installManagedRuntimeComponent(
@@ -702,5 +780,14 @@ extension BottleManager {
 private extension Array where Element == UInt8 {
     var hexString: String {
         map { String(format: "%02x", $0) }.joined()
+    }
+}
+
+private extension ManagedRuntimeComponent {
+    var runtimeMarkerName: String {
+        switch self {
+        case .dxmt:
+            return "dxmt@v0.80"
+        }
     }
 }

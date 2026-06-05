@@ -87,6 +87,18 @@ import Foundation
     #expect(decoded == .ikuraGDLFamilyProject)
 }
 
+@Test func engineDecodesUnknownRawValueAsUnknown() throws {
+    let decoded = try JSONDecoder().decode(Engine.self, from: Data(#""futureEngine""#.utf8))
+
+    #expect(decoded == .unknown)
+}
+
+@Test func gameStatusDecodesUnknownRawValueAsBacklog() throws {
+    let decoded = try JSONDecoder().decode(GameStatus.self, from: Data(#""pausedForever""#.utf8))
+
+    #expect(decoded == .backlog)
+}
+
 @Test func engineHasPreset() {
     let preset = Engine.kirikiri.preset
     #expect(preset.components.contains("quartz"))
