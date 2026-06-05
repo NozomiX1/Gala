@@ -53,3 +53,17 @@
 - Do not let VNDB override high-confidence local detection.
 - Do not require users to install Whisky, GPTK, CrossOver, Homebrew Wine, or Homebrew winetricks.
 - Do not leave temporary prefixes or copied game assets outside clearly marked temp paths.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs are tracked in GitHub Issues for `NozomiX1/Gala`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use the default Matt Pocock triage label vocabulary. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context repo. Read root `CONTEXT.md` and `docs/adr/` if present; proceed silently if absent. See `docs/agents/domain.md`.
