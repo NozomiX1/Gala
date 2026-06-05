@@ -25,6 +25,8 @@ import Foundation
         title: "Configured Game",
         executablePath: "/path/to/game.exe",
         isRuntimeConfigured: true,
+        runtimeProfileMigrationVersion: 1,
+        runtimeProfileMigrationExecutablePath: "/path/to/game.exe",
         bottleConfig: BottleConfig(prefixPath: "/tmp/Gala/Bottles/Profiles/kirikiri")
     )
 
@@ -32,6 +34,8 @@ import Foundation
     let decoded = try JSONDecoder().decode(Game.self, from: data)
 
     #expect(decoded.isRuntimeConfigured == true)
+    #expect(decoded.runtimeProfileMigrationVersion == 1)
+    #expect(decoded.runtimeProfileMigrationExecutablePath == "/path/to/game.exe")
     #expect(decoded.bottleConfig.prefixPath == "/tmp/Gala/Bottles/Profiles/kirikiri")
 }
 

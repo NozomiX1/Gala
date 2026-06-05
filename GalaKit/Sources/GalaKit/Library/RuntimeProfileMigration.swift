@@ -1,20 +1,29 @@
 import Foundation
 
 public enum RuntimeProfileMigration {
-    public static func migrate(games: [Game], bottlesDirectory: URL) -> [Game] {
+    public static let currentRulesVersion = 1
+
+    public static func migrate(
+        games: [Game],
+        bottlesDirectory: URL,
+        engineDetector: (URL) -> Engine? = EngineDetector.detect
+    ) -> [Game] {
         games.map { game in
-            guard let targetEngine = specialRuntimeTarget(for: game) else { return game }
+            guard !isCurrent(game) else { return game }
 
             var migrated = game
-            let targetPrefix = sharedPrefixPath(for: targetEngine, bottlesDirectory: bottlesDirectory)
+            if let targetEngine = specialRuntimeTarget(for: game, engineDetector: engineDetector) {
+                let targetPrefix = sharedPrefixPath(for: targetEngine, bottlesDirectory: bottlesDirectory)
 
-            let changedRuntime = migrated.engine != targetEngine ||
-                migrated.bottleConfig.prefixPath != targetPrefix
-            migrated.engine = targetEngine
-            migrated.bottleConfig.prefixPath = targetPrefix
-            if changedRuntime {
-                migrated.isRuntimeConfigured = false
+                let changedRuntime = migrated.engine != targetEngine ||
+                    migrated.bottleConfig.prefixPath != targetPrefix
+                migrated.engine = targetEngine
+                migrated.bottleConfig.prefixPath = targetPrefix
+                if changedRuntime {
+                    migrated.isRuntimeConfigured = false
+                }
             }
+            markCurrent(&migrated)
             return migrated
         }
     }
@@ -25,18 +34,45 @@ public enum RuntimeProfileMigration {
             oldGame.id != newGame.id ||
                 oldGame.engine != newGame.engine ||
                 oldGame.bottleConfig.prefixPath != newGame.bottleConfig.prefixPath ||
-                oldGame.isRuntimeConfigured != newGame.isRuntimeConfigured
+                oldGame.isRuntimeConfigured != newGame.isRuntimeConfigured ||
+                oldGame.runtimeProfileMigrationVersion != newGame.runtimeProfileMigrationVersion ||
+                oldGame.runtimeProfileMigrationExecutablePath != newGame.runtimeProfileMigrationExecutablePath
         }
     }
 
-    private static func specialRuntimeTarget(for game: Game) -> Engine? {
-        if shouldMoveToIkuraGDLFamilyProject(game) {
+    private static func isCurrent(_ game: Game) -> Bool {
+        game.runtimeProfileMigrationVersion == currentRulesVersion &&
+            game.runtimeProfileMigrationExecutablePath == game.executablePath
+    }
+
+    private static func markCurrent(_ game: inout Game) {
+        game.runtimeProfileMigrationVersion = currentRulesVersion
+        game.runtimeProfileMigrationExecutablePath = game.executablePath
+    }
+
+    private static func specialRuntimeTarget(
+        for game: Game,
+        engineDetector: (URL) -> Engine?
+    ) -> Engine? {
+        var didDetect = false
+        var detectedEngine: Engine?
+
+        func detectEngine() -> Engine? {
+            if !didDetect {
+                let directory = URL(fileURLWithPath: game.executablePath).deletingLastPathComponent()
+                detectedEngine = engineDetector(directory)
+                didDetect = true
+            }
+            return detectedEngine
+        }
+
+        if shouldMoveToIkuraGDLFamilyProject(game, detectedEngine: detectEngine) {
             return .ikuraGDLFamilyProject
         }
-        if shouldMoveToArtemisMFD3D11(game) {
+        if shouldMoveToArtemisMFD3D11(game, detectedEngine: detectEngine) {
             return .artemisMFD3D11
         }
-        if shouldMoveToArtemisD3D11(game) {
+        if shouldMoveToArtemisD3D11(game, detectedEngine: detectEngine) {
             return .artemisD3D11
         }
         return nil
@@ -49,29 +85,35 @@ public enum RuntimeProfileMigration {
             .path
     }
 
-    private static func shouldMoveToIkuraGDLFamilyProject(_ game: Game) -> Bool {
+    private static func shouldMoveToIkuraGDLFamilyProject(
+        _ game: Game,
+        detectedEngine: () -> Engine?
+    ) -> Bool {
         if game.engine == .ikuraGDLFamilyProject { return true }
         guard game.engine == nil || game.engine == .unknown else { return false }
 
-        let directory = URL(fileURLWithPath: game.executablePath).deletingLastPathComponent()
-        return EngineDetector.detect(in: directory) == .ikuraGDLFamilyProject
+        return detectedEngine() == .ikuraGDLFamilyProject
     }
 
-    private static func shouldMoveToArtemisD3D11(_ game: Game) -> Bool {
+    private static func shouldMoveToArtemisD3D11(
+        _ game: Game,
+        detectedEngine: () -> Engine?
+    ) -> Bool {
         if game.engine == .artemisD3D11 {
-            let directory = URL(fileURLWithPath: game.executablePath).deletingLastPathComponent()
-            return EngineDetector.detect(in: directory) != .artemisMFD3D11
+            return detectedEngine() != .artemisMFD3D11
         }
         guard game.engine == nil ||
             game.engine == .unknown ||
             game.engine == .kirikiri ||
             game.engine == .artemis else { return false }
 
-        let directory = URL(fileURLWithPath: game.executablePath).deletingLastPathComponent()
-        return EngineDetector.detect(in: directory) == .artemisD3D11
+        return detectedEngine() == .artemisD3D11
     }
 
-    private static func shouldMoveToArtemisMFD3D11(_ game: Game) -> Bool {
+    private static func shouldMoveToArtemisMFD3D11(
+        _ game: Game,
+        detectedEngine: () -> Engine?
+    ) -> Bool {
         if game.engine == .artemisMFD3D11 { return true }
         guard game.engine == nil ||
             game.engine == .unknown ||
@@ -79,7 +121,6 @@ public enum RuntimeProfileMigration {
             game.engine == .artemis ||
             game.engine == .artemisD3D11 else { return false }
 
-        let directory = URL(fileURLWithPath: game.executablePath).deletingLastPathComponent()
-        return EngineDetector.detect(in: directory) == .artemisMFD3D11
+        return detectedEngine() == .artemisMFD3D11
     }
 }

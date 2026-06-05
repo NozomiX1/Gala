@@ -6,12 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-06-05
+
 ### Added
 - `artemis-mf-d3d11` runtime profile for Artemis/iarsys D3D11 games that use Media Foundation WMV playback, such as 甜蜜女友3 / アマカノ3.
 - Gala-owned `deps-v3` Media Foundation runtime dependency for `artemis-mf-d3d11`.
 - Per-game Media Foundation movie overlays that keep original game files untouched while preparing compatible WMV audio tracks.
 
 ### Changed
+- App version metadata is synchronized to `1.2.1` / build `6`.
+- Gala now shows a lightweight startup loading view and loads the library, runtime migrations, and runtime status asynchronously after the window appears.
+- Runtime-profile migrations now mark each game with the migration rules version and selected executable path so already-current entries skip future engine scans until the rules or executable change.
+- Adding a game now runs local engine detection in the background instead of blocking the file-selection flow.
 - `artemis-d3d11` runtime profile version is now `4` so existing configured prefixes can be flagged for one-time reconfiguration.
 - `artemis-mf-d3d11` runtime profile version is now `2` so existing configured prefixes can install the Media Foundation runtime and registry changes.
 - Artemis/iarsys D3D11 detection now splits DirectShow-style games from Media Foundation-style games by scanning local executable imports instead of putting all iarsys/D3D11 games in one bottle.

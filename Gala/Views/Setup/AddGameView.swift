@@ -14,6 +14,7 @@ struct AddGameView: View {
     @State private var selectedExePath: String?
     @State private var gameDirectory: URL?
     @State private var detectedEngine: Engine?
+    @State private var engineDetectionTask: Task<Engine?, Never>?
     @State private var gameName = ""
     @State private var setupStatus = ""
 
@@ -89,12 +90,25 @@ struct AddGameView: View {
 
         selectedExePath = url.path
         gameDirectory = url.deletingLastPathComponent()
+        detectedEngine = nil
+        gameName = gameDirectory?.lastPathComponent ?? url.deletingPathExtension().lastPathComponent
 
         if let dir = gameDirectory {
-            detectedEngine = EngineDetector.detect(in: dir)
+            engineDetectionTask?.cancel()
+            let selectedPath = url.path
+            let detectionTask = Task.detached(priority: .userInitiated) {
+                EngineDetector.detect(in: dir)
+            }
+            engineDetectionTask = detectionTask
+            Task { @MainActor in
+                let engine = await detectionTask.value
+                guard selectedExePath == selectedPath else { return }
+                detectedEngine = engine
+            }
+        } else {
+            engineDetectionTask = nil
         }
 
-        gameName = gameDirectory?.lastPathComponent ?? url.deletingPathExtension().lastPathComponent
         step = .vndbMatch
     }
 
@@ -146,6 +160,11 @@ struct AddGameView: View {
         }
 
         var engine = detectedEngine
+        if engine == nil, let engineDetectionTask {
+            setupStatus = "检测引擎信息..."
+            engine = await engineDetectionTask.value
+            detectedEngine = engine
+        }
         if let vndbId, engine == nil {
             setupStatus = "检测引擎信息..."
             if let releases = try? await viewModel.vndbClient.getReleases(vnId: vndbId) {

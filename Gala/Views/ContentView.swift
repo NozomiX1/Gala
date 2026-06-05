@@ -29,38 +29,45 @@ struct ContentView: View {
 
     var body: some View {
         Group {
-            switch RuntimeEnvironmentEntryPolicy.presentation(
-                isRuntimeEnvironmentReady: viewModel.isRuntimeEnvironmentReady,
-                didResetAllApplicationData: didResetAllApplicationData
-            ) {
-            case .prepareEnvironment:
-                WelcomeView(
-                    wineManager: viewModel.wineManagerInstance,
-                    onComplete: {
-                        didResetAllApplicationData = false
-                        viewModel.refreshRuntimeEnvironmentStatus()
-                    },
-                    onOpenEnvironment: {
-                        showingRuntimeEnvironment = true
+            if viewModel.isLoadingInitialState {
+                startupLoadingView
+            } else {
+                switch RuntimeEnvironmentEntryPolicy.presentation(
+                    isRuntimeEnvironmentReady: viewModel.isRuntimeEnvironmentReady,
+                    didResetAllApplicationData: didResetAllApplicationData
+                ) {
+                case .prepareEnvironment:
+                    WelcomeView(
+                        wineManager: viewModel.wineManagerInstance,
+                        onComplete: {
+                            didResetAllApplicationData = false
+                            viewModel.refreshRuntimeEnvironmentStatus()
+                        },
+                        onOpenEnvironment: {
+                            showingRuntimeEnvironment = true
+                        }
+                    )
+                case .resetComplete:
+                    ResetCompleteView(
+                        onInstallRuntime: {
+                            didResetAllApplicationData = false
+                            viewModel.refreshRuntimeEnvironmentStatus()
+                        },
+                        onQuit: {
+                            NSApplication.shared.terminate(nil)
+                        }
+                    )
+                case .library:
+                    if let errorMessage = viewModel.libraryLoadErrorMessage {
+                        libraryErrorView(errorMessage)
+                    } else {
+                        mainContent
                     }
-                )
-            case .resetComplete:
-                ResetCompleteView(
-                    onInstallRuntime: {
-                        didResetAllApplicationData = false
-                        viewModel.refreshRuntimeEnvironmentStatus()
-                    },
-                    onQuit: {
-                        NSApplication.shared.terminate(nil)
-                    }
-                )
-            case .library:
-                if let errorMessage = viewModel.libraryLoadErrorMessage {
-                    libraryErrorView(errorMessage)
-                } else {
-                    mainContent
                 }
             }
+        }
+        .task {
+            await viewModel.loadInitialState()
         }
         .sheet(isPresented: $showingRuntimeEnvironment) {
             RuntimeEnvironmentView(wineManager: viewModel.wineManagerInstance) { change in
@@ -78,6 +85,17 @@ struct ContentView: View {
                 viewModel.refreshRuntimeEnvironmentStatus()
             }
         }
+    }
+
+    private var startupLoadingView: some View {
+        VStack(spacing: 14) {
+            ProgressView()
+                .controlSize(.large)
+            Text("正在加载游戏库...")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
+        .frame(minWidth: 500, minHeight: 400)
     }
 
     private var mainContent: some View {

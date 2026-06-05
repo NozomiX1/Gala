@@ -194,6 +194,8 @@ Gala 自身的启动路径开销很小，主要成本来自 Wine 和游戏引擎
 
 `artemis-mf-d3d11` 额外使用 Gala MF Runtime。启动前，Gala 会在 `~/Library/Application Support/Gala/MediaOverlays/<game-id>` 生成 per-game overlay：非视频资源用符号链接指回原游戏目录，`movie/*.wmv` 保留 WMV3 视频流并只把 WMA/WMA Lossless 音频轨转换为 PCM。原始游戏文件不会被修改；缓存会在源视频文件或 runtime 版本变化后重建。
 
+第一次启动 `artemis-mf-d3d11` 游戏时，Wine / GStreamer 可能会生成媒体插件缓存；甜蜜女友3 的 OP 曾出现声音先播放、画面短暂黑屏后才同步的情况。第二次启动后缓存已存在，音画会恢复同步。
+
 ### 排除的方案
 
 **魔改 Wine（fork/recompile）**：编译一次 60-75 分钟，Wine Staging 补丁每两周需要 rebase，维护成本相当于全职工作。参考 Proton-GE（个人维护者）和 CrossOver（整个公司 + Valve 资助）。

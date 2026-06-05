@@ -34,6 +34,8 @@ public struct Game: Identifiable, Codable, Sendable {
     public var status: GameStatus
     public var isFavorite: Bool
     public var isRuntimeConfigured: Bool
+    public var runtimeProfileMigrationVersion: Int?
+    public var runtimeProfileMigrationExecutablePath: String?
     public var bottleConfig: BottleConfig
 
     public init(
@@ -55,6 +57,8 @@ public struct Game: Identifiable, Codable, Sendable {
         status: GameStatus = .backlog,
         isFavorite: Bool = false,
         isRuntimeConfigured: Bool = false,
+        runtimeProfileMigrationVersion: Int? = nil,
+        runtimeProfileMigrationExecutablePath: String? = nil,
         bottleConfig: BottleConfig? = nil
     ) {
         self.id = id
@@ -75,6 +79,8 @@ public struct Game: Identifiable, Codable, Sendable {
         self.status = status
         self.isFavorite = isFavorite
         self.isRuntimeConfigured = isRuntimeConfigured
+        self.runtimeProfileMigrationVersion = runtimeProfileMigrationVersion
+        self.runtimeProfileMigrationExecutablePath = runtimeProfileMigrationExecutablePath
         self.bottleConfig = bottleConfig ?? BottleConfig(prefixPath: "")
     }
 
@@ -97,6 +103,14 @@ public struct Game: Identifiable, Codable, Sendable {
         tags = try container.decodeIfPresent([String].self, forKey: .tags) ?? []
         status = try container.decodeIfPresent(GameStatus.self, forKey: .status) ?? .backlog
         isFavorite = try container.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
+        runtimeProfileMigrationVersion = try container.decodeIfPresent(
+            Int.self,
+            forKey: .runtimeProfileMigrationVersion
+        )
+        runtimeProfileMigrationExecutablePath = try container.decodeIfPresent(
+            String.self,
+            forKey: .runtimeProfileMigrationExecutablePath
+        )
         bottleConfig = try container.decode(BottleConfig.self, forKey: .bottleConfig)
         isRuntimeConfigured = try container.decodeIfPresent(Bool.self, forKey: .isRuntimeConfigured)
             ?? !bottleConfig.prefixPath.isEmpty

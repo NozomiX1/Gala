@@ -32,6 +32,7 @@
 | 甜蜜女友3 / アマカノ3 black screen with audio | Main D3D11 rendering issue, not OP/DirectShow | DXMT v0.80 builtin and `d3dcompiler_47=native,builtin` |
 | Hamidashi Creative Totsu OP/WMV clips white-flash or skip | DXMT profile lacked DirectShow/LAV media components; Wine 11.6 ignores `Media Type\\Extensions` Source Filter values and `.dat` ASF files can hit `File Source (Async.)` | `artemis-d3d11` config v4 adds `quartz`, `amstream`, `lavfilters`, LAV WMA switches, deletes legacy `.dat` extension keys, and maps the ASF header signature to LAV Splitter Source without overriding `d3d11`/`dxgi` |
 | 甜蜜女友3 / アマカノ3 WMV clips skip or OP white screen | Game uses Media Foundation WMV; Wine MF can decode the video path with the FFmpeg backend, but WMA/WMA Lossless audio can stall playback | `artemis-mf-d3d11` config v2 installs Gala MF Runtime, sets `DisableGstByteStreamHandler=1`, injects GStreamer env only for this profile, and launches from a per-game overlay where `movie/*.wmv` keeps video unchanged but converts audio to PCM |
+| 甜蜜女友3 first OP has audio before video | First launch can generate the GStreamer registry after the movie overlay already exists, delaying video pipeline startup | Treat as a one-time warmup artifact when the second launch is synchronized; consider a future MF prewarm step before changing runtime routing |
 | 汉化 Artemis D3D11 game detected as KiriKiri | Patch XP3 overrode real engine files | Engine detection scores multiple local signatures; `iarsys + .pfs + D3D11/D3DCompile` beats XP3 |
 
 ## Diagnosis Playbook

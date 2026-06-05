@@ -1,5 +1,8 @@
 import SwiftUI
 import GalaKit
+import OSLog
+
+private let startupLogger = Logger(subsystem: "com.nozomi.gala", category: "Startup")
 
 @Observable
 final class LibraryViewModel {
@@ -7,12 +10,15 @@ final class LibraryViewModel {
     var selectedGameId: UUID?
     var searchText = ""
     var isRuntimeEnvironmentReady = false
+    var isLoadingInitialState = true
     var libraryLoadErrorMessage: String?
 
     private let libraryStore: LibraryStore
     private let wineManager: WineManager
     let imageCache: ImageCache
     let vndbClient = VNDBClient()
+    private var didLoadInitialState = false
+    private var isLoadingInitialStateTask = false
 
     var selectedGame: Game? {
         games.first { $0.id == selectedGameId }
@@ -36,9 +42,46 @@ final class LibraryViewModel {
         self.imageCache = ImageCache(
             cacheDirectory: baseURL.appendingPathComponent("Cache").appendingPathComponent("covers")
         )
+    }
 
-        loadLibrary()
+    @MainActor
+    func loadInitialState() async {
+        guard !didLoadInitialState, !isLoadingInitialStateTask else { return }
+
+        isLoadingInitialState = true
+        isLoadingInitialStateTask = true
+        let totalStart = Self.now()
+
+        let outcome: LibraryLoadOutcome
+        do {
+            outcome = try await loadLibraryInBackground()
+            games = outcome.games
+            selectedGameId = selectedGameId.flatMap { id in games.contains { $0.id == id } ? id : nil }
+            libraryLoadErrorMessage = nil
+        } catch {
+            games = []
+            selectedGameId = nil
+            libraryLoadErrorMessage = "游戏库读取失败：\(error.localizedDescription)"
+            outcome = LibraryLoadOutcome.empty
+        }
+
+        let runtimeStart = Self.now()
         refreshRuntimeEnvironmentStatus()
+        let runtimeMilliseconds = Self.milliseconds(since: runtimeStart)
+
+        let totalMilliseconds = Self.milliseconds(since: totalStart)
+        let message = "initial state loaded in \(totalMilliseconds)ms; " +
+            "library=\(outcome.loadMilliseconds)ms; " +
+            "migration=\(outcome.migrationMilliseconds)ms; " +
+            "save=\(outcome.saveMilliseconds)ms; " +
+            "runtimeStatus=\(runtimeMilliseconds)ms; " +
+            "games=\(outcome.games.count); " +
+            "migrated=\(outcome.didMigrate)"
+        startupLogger.info("\(message, privacy: .public)")
+
+        didLoadInitialState = true
+        isLoadingInitialState = false
+        isLoadingInitialStateTask = false
     }
 
     func refreshRuntimeEnvironmentStatus() {
@@ -135,8 +178,68 @@ final class LibraryViewModel {
         BottleManager(bottlesDirectory: wineManager.bottlesDirectory, wineManager: wineManager)
     }
 
+    private func loadLibraryInBackground() async throws -> LibraryLoadOutcome {
+        let libraryStore = libraryStore
+        let bottlesDirectory = wineManager.bottlesDirectory
+
+        return try await Task.detached(priority: .userInitiated) {
+            let loadStart = Self.now()
+            let loadedGames = try libraryStore.load()
+            let loadMilliseconds = Self.milliseconds(since: loadStart)
+
+            let migrationStart = Self.now()
+            let migratedGames = RuntimeProfileMigration.migrate(
+                games: loadedGames,
+                bottlesDirectory: bottlesDirectory
+            )
+            let migrationMilliseconds = Self.milliseconds(since: migrationStart)
+
+            let didMigrate = RuntimeProfileMigration.didChangeRuntimeProfile(
+                from: loadedGames,
+                to: migratedGames
+            )
+            let saveStart = Self.now()
+            if didMigrate {
+                _ = try? libraryStore.saveMigrated(migratedGames, reason: "runtime-profile-migration")
+            }
+            let saveMilliseconds = Self.milliseconds(since: saveStart)
+
+            return LibraryLoadOutcome(
+                games: migratedGames,
+                loadMilliseconds: loadMilliseconds,
+                migrationMilliseconds: migrationMilliseconds,
+                saveMilliseconds: saveMilliseconds,
+                didMigrate: didMigrate
+            )
+        }.value
+    }
+
     private func deleteRuntimeConfigurationIfLastUser(for game: Game) {
         guard RuntimeConfigurationPolicy.shouldDeleteRuntimeConfiguration(for: game, in: games) else { return }
         try? bottleManager.deleteBottle(for: game)
     }
+
+    private static func now() -> CFAbsoluteTime {
+        CFAbsoluteTimeGetCurrent()
+    }
+
+    private static func milliseconds(since start: CFAbsoluteTime) -> Int {
+        Int((CFAbsoluteTimeGetCurrent() - start) * 1000)
+    }
+}
+
+private struct LibraryLoadOutcome {
+    let games: [Game]
+    let loadMilliseconds: Int
+    let migrationMilliseconds: Int
+    let saveMilliseconds: Int
+    let didMigrate: Bool
+
+    static let empty = LibraryLoadOutcome(
+        games: [],
+        loadMilliseconds: 0,
+        migrationMilliseconds: 0,
+        saveMilliseconds: 0,
+        didMigrate: false
+    )
 }

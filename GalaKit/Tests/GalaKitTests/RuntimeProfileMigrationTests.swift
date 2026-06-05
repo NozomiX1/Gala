@@ -93,6 +93,123 @@ import Foundation
     #expect(!migrated[0].isRuntimeConfigured)
 }
 
+@Test func runtimeProfileMigrationDetectsEligibleGameOnlyOnce() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let gameDir = dir.appendingPathComponent("Artemis")
+    try FileManager.default.createDirectory(at: gameDir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+
+    var detectionCount = 0
+    let game = Game(
+        title: "Artemis",
+        executablePath: gameDir.appendingPathComponent("game.exe").path,
+        engine: .kirikiri,
+        isRuntimeConfigured: true,
+        bottleConfig: BottleConfig(prefixPath: dir.appendingPathComponent("Bottles/Profiles/kirikiri").path)
+    )
+
+    let migrated = RuntimeProfileMigration.migrate(
+        games: [game],
+        bottlesDirectory: dir.appendingPathComponent("Bottles")
+    ) { _ in
+        detectionCount += 1
+        return .artemisD3D11
+    }
+
+    #expect(detectionCount == 1)
+    #expect(migrated[0].engine == .artemisD3D11)
+    #expect(!migrated[0].isRuntimeConfigured)
+}
+
+@Test func runtimeProfileMigrationSkipsDetectionWhenMigrationMarkerIsCurrent() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let gameDir = dir.appendingPathComponent("KiriKiri")
+    let executablePath = gameDir.appendingPathComponent("game.exe").path
+    try FileManager.default.createDirectory(at: gameDir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+
+    var detectionCount = 0
+    let game = Game(
+        title: "KiriKiri",
+        executablePath: executablePath,
+        engine: .kirikiri,
+        isRuntimeConfigured: true,
+        runtimeProfileMigrationVersion: RuntimeProfileMigration.currentRulesVersion,
+        runtimeProfileMigrationExecutablePath: executablePath,
+        bottleConfig: BottleConfig(prefixPath: dir.appendingPathComponent("Bottles/Profiles/kirikiri").path)
+    )
+
+    let migrated = RuntimeProfileMigration.migrate(
+        games: [game],
+        bottlesDirectory: dir.appendingPathComponent("Bottles")
+    ) { _ in
+        detectionCount += 1
+        return .artemisD3D11
+    }
+
+    #expect(detectionCount == 0)
+    #expect(migrated[0].engine == .kirikiri)
+    #expect(migrated[0].isRuntimeConfigured)
+}
+
+@Test func runtimeProfileMigrationRerunsDetectionWhenExecutablePathChanges() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let gameDir = dir.appendingPathComponent("Artemis")
+    let executablePath = gameDir.appendingPathComponent("game.exe").path
+    try FileManager.default.createDirectory(at: gameDir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+
+    var detectionCount = 0
+    let game = Game(
+        title: "Artemis",
+        executablePath: executablePath,
+        engine: .kirikiri,
+        isRuntimeConfigured: true,
+        runtimeProfileMigrationVersion: RuntimeProfileMigration.currentRulesVersion,
+        runtimeProfileMigrationExecutablePath: gameDir.appendingPathComponent("old.exe").path,
+        bottleConfig: BottleConfig(prefixPath: dir.appendingPathComponent("Bottles/Profiles/kirikiri").path)
+    )
+
+    let migrated = RuntimeProfileMigration.migrate(
+        games: [game],
+        bottlesDirectory: dir.appendingPathComponent("Bottles")
+    ) { _ in
+        detectionCount += 1
+        return .artemisD3D11
+    }
+
+    #expect(detectionCount == 1)
+    #expect(migrated[0].engine == .artemisD3D11)
+    #expect(migrated[0].runtimeProfileMigrationExecutablePath == executablePath)
+    #expect(!migrated[0].isRuntimeConfigured)
+}
+
+@Test func runtimeProfileMigrationPersistsCurrentMarkerWhenRuntimeDoesNotChange() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let gameDir = dir.appendingPathComponent("Unknown")
+    try FileManager.default.createDirectory(at: gameDir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+
+    let game = Game(
+        title: "Unknown",
+        executablePath: gameDir.appendingPathComponent("game.exe").path,
+        engine: .unknown,
+        isRuntimeConfigured: true,
+        bottleConfig: BottleConfig(prefixPath: dir.appendingPathComponent("Bottles/Profiles/common").path)
+    )
+
+    let migrated = RuntimeProfileMigration.migrate(
+        games: [game],
+        bottlesDirectory: dir.appendingPathComponent("Bottles")
+    ) { _ in nil }
+
+    #expect(RuntimeProfileMigration.didChangeRuntimeProfile(from: [game], to: migrated))
+    #expect(migrated[0].engine == .unknown)
+    #expect(migrated[0].bottleConfig.prefixPath == game.bottleConfig.prefixPath)
+    #expect(migrated[0].runtimeProfileMigrationVersion == RuntimeProfileMigration.currentRulesVersion)
+    #expect(migrated[0].runtimeProfileMigrationExecutablePath == game.executablePath)
+}
+
 @Test func runtimeProfileMigrationLeavesOtherUnknownGamesAlone() throws {
     let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     let gameDir = dir.appendingPathComponent("Unknown")
