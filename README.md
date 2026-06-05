@@ -26,7 +26,7 @@
 | WHITE ALBUM2 | Leaf/AQUAPLUS | 启动、字体、OP/视频播放正常 |
 | 家族計画 追憶 | Ikura GDL / Family Project | 启动和 OP 播放正常；使用独立 `do-kizunar` profile |
 | 千恋万花 | KiriKiri | 体验良好，字体可修改，未发现明显问题 |
-| 甜蜜女友3 / アマカノ3 | Artemis D3D11 / iarsys | 启动和游玩正常；使用独立 `artemis-d3d11` profile 与 DXMT |
+| 甜蜜女友3 / アマカノ3 | Artemis D3D11 / iarsys | 启动、开屏动画和 OP 播放正常；使用独立 `artemis-mf-d3d11` profile、DXMT 与 Media Foundation 媒体兼容缓存 |
 
 - Wine 运行时有一定 CPU 占用，在被动散热机型（MacBook Air 等）上的表现未知，欢迎反馈
 
@@ -123,8 +123,9 @@ Gala 会自动下载并管理这些运行时依赖：
 | [winetricks](https://github.com/Winetricks/winetricks) | 20260125 | 安装引擎需要的 Windows 组件 | LGPL |
 | cabextract | deps-v1 | 提取 winetricks 需要的 Windows 组件 | GPL |
 | [DXMT](https://github.com/3Shain/dxmt) | v0.80 builtin | Artemis/iarsys D3D11 到 Metal 图形层 | MIT |
+| Gala MF Runtime | deps-v3 | `artemis-mf-d3d11` 的 GStreamer/FFmpeg 媒体运行时和 WMV 音频缓存工具 | LGPL/GPL 组件组合 |
 
-Wine、字体、`winetricks`、`cabextract` 和 DXMT 由 Gala 从自己的 release 资产下载，避免用户本机缺少辅助工具或第三方仓库变动时配置失败。DXMT 只会在配置 `artemis-d3d11` profile 时下载，并缓存到 Gala 本地目录；普通 `common` / `kirikiri` / `leaf` profile 不会安装它。部分旧式引擎的 OP/视频播放需要 DirectShow / LAV 组件，Gala 会在创建 bottle 时通过 winetricks 安装这些组件；这些第三方组件由 winetricks 按其上游规则下载，并缓存到 Gala 自己的目录：
+Wine、字体、`winetricks`、`cabextract`、DXMT 和 Gala MF Runtime 由 Gala 从自己的 release 资产下载，避免用户本机缺少辅助工具或第三方仓库变动时配置失败。DXMT 只会在配置 `artemis-d3d11` / `artemis-mf-d3d11` profile 时下载，并缓存到 Gala 本地目录；Gala MF Runtime 只会在配置 `artemis-mf-d3d11` profile 时下载。普通 `common` / `kirikiri` / `leaf` profile 不会安装它们。部分旧式引擎的 OP/视频播放需要 DirectShow / LAV 组件，Gala 会在创建 bottle 时通过 winetricks 安装这些组件；这些第三方组件由 winetricks 按其上游规则下载，并缓存到 Gala 自己的目录：
 
 ```bash
 ~/Library/Application Support/Gala/Cache/winetricks
@@ -134,7 +135,7 @@ Wine、字体、`winetricks`、`cabextract` 和 DXMT 由 Gala 从自己的 relea
 
 ## 工作原理
 
-Gala 封装 Wine Staging 运行 Windows 视觉小说。Wine 游戏会按运行环境 profile 共享 Wine 前缀（bottle），避免每个游戏都复制一套完整环境。未识别或老式 DirectShow 视频链常见的引擎会落到 `common`，例如 BGI、旧式 Artemis、NScripter、YU-RIS、RealLive、Majiro、AdvHD、QLIE 和 Unknown。需要额外兼容策略的引擎会拆到独立 profile；例如 Leaf/AQUAPLUS 使用 `leaf`，家族计划使用 `do-kizunar`，现代 iarsys/D3D11 Artemis 使用 `artemis-d3d11` 与 DXMT，避免它们的 DLL/图形配置影响 `common`。每个 bottle 会根据默认中文环境配置 codepage 和字体映射：
+Gala 封装 Wine Staging 运行 Windows 视觉小说。Wine 游戏会按运行环境 profile 共享 Wine 前缀（bottle），避免每个游戏都复制一套完整环境。未识别或老式 DirectShow 视频链常见的引擎会落到 `common`，例如 BGI、旧式 Artemis、NScripter、YU-RIS、RealLive、Majiro、AdvHD、QLIE 和 Unknown。需要额外兼容策略的引擎会拆到独立 profile；例如 Leaf/AQUAPLUS 使用 `leaf`，家族计划使用 `do-kizunar`，现代 iarsys/D3D11 Artemis 按媒体链路分到 `artemis-d3d11` 或 `artemis-mf-d3d11` 并使用 DXMT，避免它们的 DLL/图形/视频配置影响 `common` 或彼此污染。每个 bottle 会根据默认中文环境配置 codepage 和字体映射：
 
 - **中文游戏** — GBK (936)
 - **日文游戏** — Shift-JIS (932)
@@ -147,11 +148,11 @@ Gala 更新时不会自动删除游戏库或 Wine bottle。资料库迁移写回
 
 ### 引擎分流规则
 
-Gala 会先检查本地文件特征，例如 XP3、BGI 可执行文件、Leaf/WHITE ALBUM2 文件组、家族计划的 `KIZUNAR`/`kzn_sc` 文件组等。本地识别结果优先级最高，并会合并多个特征打分：单独 XP3 会进入 KiriKiri，但 `iarsys64.dll`、`.pfs`、E-mote DLL 和可执行文件里的 `D3D11CreateDevice` / `D3DCompile` 字符串会把现代 Artemis D3D11 游戏分到 `artemis-d3d11`，避免汉化补丁的 XP3 抢占判断。
+Gala 会先检查本地文件特征，例如 XP3、BGI 可执行文件、Leaf/WHITE ALBUM2 文件组、家族计划的 `KIZUNAR`/`kzn_sc` 文件组等。本地识别结果优先级最高，并会合并多个特征打分：单独 XP3 会进入 KiriKiri，但 `iarsys64.dll`、`.pfs`、E-mote DLL 和可执行文件里的 `D3D11CreateDevice` / `D3DCompile` 字符串会把现代 Artemis D3D11 游戏分到专用 profile，避免汉化补丁的 XP3 抢占判断。如果同目录可执行文件还包含 `MFCreateMediaSession`、`MFStartup`、`MF.dll` 或 `MFPlat.DLL` 等 Media Foundation 信号，则进入 `artemis-mf-d3d11`；否则进入 DirectShow 型的 `artemis-d3d11`。
 
 如果本地特征不足，Gala 才会读取 VNDB release 的 `engine` 字段作为 fallback。这个 fallback 只采纳 Windows release，并忽略 patch release，避免主机平台移植版或补丁包把游戏分到错误 profile。
 
-少数 VNDB 引擎名会被额外保护：`Ikura GDL` 只有在本地也检测到家族计划文件时才进入 `do-kizunar`；`AQUAPLUS Engine` 只有在本地也检测到 Leaf/WHITE ALBUM2 文件时才进入 `leaf`。VNDB 的 `Artemis Engine` 只作为旧式 Artemis fallback；`artemis-d3d11` 必须由本地 iarsys/D3D11 特征触发。这样可以避免一个宽泛的 VNDB 引擎标签把其他游戏错误地放进特殊 Wine 环境。
+少数 VNDB 引擎名会被额外保护：`Ikura GDL` 只有在本地也检测到家族计划文件时才进入 `do-kizunar`；`AQUAPLUS Engine` 只有在本地也检测到 Leaf/WHITE ALBUM2 文件时才进入 `leaf`。VNDB 的 `Artemis Engine` 只作为旧式 Artemis fallback；`artemis-d3d11` / `artemis-mf-d3d11` 必须由本地 iarsys/D3D11 特征触发。这样可以避免一个宽泛的 VNDB 引擎标签把其他游戏错误地放进特殊 Wine 环境。
 
 当前主要 profile：
 
@@ -159,7 +160,8 @@ Gala 会先检查本地文件特征，例如 XP3、BGI 可执行文件、Leaf/WH
 |---------|----------|----------|
 | `common` | BGI、Artemis、NScripter、YU-RIS、RealLive、Majiro、AdvHD、QLIE、Unknown | `quartz` / `amstream` / `lavfilters`，DirectShow `native,builtin`，LAV Audio WMA 开关 |
 | `kirikiri` | KiriKiri | 通用视频组件，`quartz=native` |
-| `artemis-d3d11` | Artemis/iarsys D3D11 游戏，例如甜蜜女友3 / アマカノ3 | `d3dcompiler_47=native,builtin`，DXMT Wine 变体，DXMT PE DLL 覆盖 |
+| `artemis-d3d11` | DirectShow 型 Artemis/iarsys D3D11 游戏，例如 ハミダシクリエイティブ凸 | `d3dcompiler_47=native,builtin`，DXMT Wine 变体，DXMT PE DLL 覆盖，DirectShow/LAV 视频链 |
+| `artemis-mf-d3d11` | Media Foundation 型 Artemis/iarsys D3D11 游戏，例如 甜蜜女友3 / アマカノ3 | 独立 DXMT profile，不安装 DirectShow/LAV 预设；启用 Wine MF FFmpeg backend，并为 `movie/*.wmv` 生成只转换音频轨的兼容缓存 |
 | `leaf` | Leaf/AQUAPLUS、WHITE ALBUM2 | builtin DirectShow、禁用 Wine 自带 WMA/WMV 解码器、LAV RGB 输出和 WMA 音频 |
 | `do-kizunar` | 家族計画 追憶 | builtin `quartz`，`HKCU\Software\DO\KIZUNAR` 指向 `G:\` |
 
@@ -188,7 +190,9 @@ Gala 自身的启动路径开销很小，主要成本来自 Wine 和游戏引擎
 
 当前旧式视频预设会自动安装 `quartz`、`amstream`、`lavfilters`，覆盖 BGI、KiriKiri、SiglusEngine、旧式 Artemis、NScripter、YU-RIS、RealLive 等依赖旧式视频播放链路的引擎。`common` 会启用 LAV Audio 的 WMA / WMA Pro / WMA Lossless 开关，减少 OP 只有画面没有声音的情况。Leaf/AQUAPLUS 额外使用更严格的 DirectShow / LAV RGB 输出配置，以修复 WHITE ALBUM2 的 OP/视频播放问题。家族计划独立使用 `do-kizunar`，因为它需要 builtin `quartz` 和 D.O. 的安装路径注册表。
 
-现代 Artemis/iarsys D3D11 游戏的黑屏问题不属于 OP/DirectShow 链路；Gala 会为这类游戏使用 `artemis-d3d11`，在 Wine Staging 11.6 上叠加 DXMT v0.80，并使用原生 `d3dcompiler_47`。
+现代 Artemis/iarsys D3D11 游戏的黑屏问题不属于 OP/DirectShow 链路；Gala 会为这类游戏在 Wine Staging 11.6 上叠加 DXMT v0.80，并使用原生 `d3dcompiler_47`。其中 Hamidashi 这类 DirectShow/ASF `.dat` 视频会进入 `artemis-d3d11`，甜蜜女友3这类 Media Foundation/WMV 视频会进入 `artemis-mf-d3d11`，避免两类视频链路共用同一个 bottle。
+
+`artemis-mf-d3d11` 额外使用 Gala MF Runtime。启动前，Gala 会在 `~/Library/Application Support/Gala/MediaOverlays/<game-id>` 生成 per-game overlay：非视频资源用符号链接指回原游戏目录，`movie/*.wmv` 保留 WMV3 视频流并只把 WMA/WMA Lossless 音频轨转换为 PCM。原始游戏文件不会被修改；缓存会在源视频文件或 runtime 版本变化后重建。
 
 ### 排除的方案
 

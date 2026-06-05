@@ -83,6 +83,7 @@ import Foundation
         ("cabextract", WineManager.cabextractDownloadURL, "deps-v1"),
         ("winetricks", WineManager.winetricksDownloadURL, "deps-v1"),
         ("dxmt", WineManager.dxmtDownloadURL, "deps-v2"),
+        ("media foundation runtime", WineManager.mediaFoundationRuntimeDownloadURL, "deps-v3"),
     ]
 
     for dependency in dependencies {
@@ -110,7 +111,20 @@ import Foundation
     #expect(manager.dxmtWineDirectory.path == tempDir.appendingPathComponent("Wine/wine-staging-11.6-dxmt-v0.80").path)
 }
 
-@Test func wineManagerSelectsDXMTWineForArtemisD3D11Only() throws {
+@Test func wineManagerMediaFoundationRuntimePathsAreAppManaged() throws {
+    let tempDir = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: tempDir) }
+
+    let manager = WineManager(baseURL: tempDir)
+
+    #expect(manager.mediaFoundationRuntimeArchiveURL.path == tempDir.appendingPathComponent("Cache/media-foundation/gala-mf-runtime-1.0/gala-mf-runtime-1.0-macos.tar.gz").path)
+    #expect(manager.mediaFoundationRuntimeDirectory.path == tempDir.appendingPathComponent("Tools/MediaFoundation/gala-mf-runtime-1.0").path)
+    #expect(manager.mediaFoundationFFmpegURL.path == tempDir.appendingPathComponent("Tools/MediaFoundation/gala-mf-runtime-1.0/bin/ffmpeg").path)
+}
+
+@Test func wineManagerSelectsDXMTWineForArtemisD3D11ProfilesOnly() throws {
     let tempDir = FileManager.default.temporaryDirectory
         .appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
@@ -140,9 +154,15 @@ import Foundation
         executablePath: tempDir.appendingPathComponent("Amakano3_chs.exe").path,
         engine: .artemisD3D11
     )
+    let artemisMFGame = Game(
+        title: "Amakano 3",
+        executablePath: tempDir.appendingPathComponent("Amakano3_chs.exe").path,
+        engine: .artemisMFD3D11
+    )
 
     #expect(manager.wineBinaryURL(for: commonGame)?.path == baseWine.path)
     #expect(manager.wineBinaryURL(for: artemisGame)?.path == dxmtWine.path)
+    #expect(manager.wineBinaryURL(for: artemisMFGame)?.path == dxmtWine.path)
 }
 
 @Test func wineManagerDoesNotUseDXMTVariantAsDefaultWine() throws {
@@ -170,10 +190,16 @@ import Foundation
         executablePath: tempDir.appendingPathComponent("Amakano3_chs.exe").path,
         engine: .artemisD3D11
     )
+    let artemisMFGame = Game(
+        title: "Amakano 3",
+        executablePath: tempDir.appendingPathComponent("Amakano3_chs.exe").path,
+        engine: .artemisMFD3D11
+    )
 
     #expect(manager.wineBinaryURL == nil)
     #expect(manager.wineBinaryURL(for: commonGame) == nil)
     #expect(manager.wineBinaryURL(for: artemisGame)?.path == dxmtWine.path)
+    #expect(manager.wineBinaryURL(for: artemisMFGame)?.path == dxmtWine.path)
 }
 
 @Test func runtimeEnvironmentStatusRequiresAllHelperTools() throws {
@@ -292,6 +318,7 @@ import Foundation
     let majiro = bottleManager.prefixPath(for: Engine.majiro)
     let ikuraGDLFamilyProject = bottleManager.prefixPath(for: Engine.ikuraGDLFamilyProject)
     let artemisD3D11 = bottleManager.prefixPath(for: Engine.artemisD3D11)
+    let artemisMFD3D11 = bottleManager.prefixPath(for: Engine.artemisMFD3D11)
     let kirikiri = bottleManager.prefixPath(for: Engine.kirikiri)
 
     #expect(bgi == bottlesDir.appendingPathComponent("Profiles/common").path)
@@ -305,6 +332,8 @@ import Foundation
     #expect(ikuraGDLFamilyProject != bgi)
     #expect(artemisD3D11 == bottlesDir.appendingPathComponent("Profiles/artemis-d3d11").path)
     #expect(artemisD3D11 != bgi)
+    #expect(artemisMFD3D11 == bottlesDir.appendingPathComponent("Profiles/artemis-mf-d3d11").path)
+    #expect(artemisMFD3D11 != artemisD3D11)
     #expect(kirikiri == bottlesDir.appendingPathComponent("Profiles/kirikiri").path)
     #expect(kirikiri != bgi)
 }

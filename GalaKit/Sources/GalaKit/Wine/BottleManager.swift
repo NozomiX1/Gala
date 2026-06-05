@@ -67,7 +67,7 @@ public struct RuntimeProfileMarker: Codable, Equatable, Sendable {
             profile: engine.runtimeProfile,
             configVersion: engine.runtimeConfigVersion,
             configuredAt: configuredAt,
-            wineVersionName: engine == .artemisD3D11 ? WineManager.dxmtWineVersionName : WineManager.wineVersionName,
+            wineVersionName: engine.usesDXMTWineVariant ? WineManager.dxmtWineVersionName : WineManager.wineVersionName,
             managedComponents: engine.preset.managedComponents.map(\.runtimeMarkerName)
         )
     }
@@ -169,14 +169,17 @@ public final class BottleManager: @unchecked Sendable {
         guard let engine = game.engine else { return }
         let preset = engine.preset
         let registryValues = preset.registryValues + engine.gameSpecificRegistryValues(for: game)
+        let registryKeysToDelete = preset.registryKeysToDelete
         guard !preset.components.isEmpty ||
             !preset.managedComponents.isEmpty ||
             !preset.dllOverrides.isEmpty ||
-            !registryValues.isEmpty else { return }
+            !registryValues.isEmpty ||
+            !registryKeysToDelete.isEmpty else { return }
 
         let totalUnitCount = preset.components.count +
             preset.managedComponents.count +
             preset.dllOverrides.count +
+            registryKeysToDelete.count +
             registryValues.count
         var completedUnitCount = 0
 
@@ -230,8 +233,26 @@ public final class BottleManager: @unchecked Sendable {
             )
         }
 
-        if !preset.dllOverrides.isEmpty || !registryValues.isEmpty {
+        if !preset.dllOverrides.isEmpty || !registryValues.isEmpty || !registryKeysToDelete.isEmpty {
             guard let wineBinary = wineManager?.wineBinaryURL else { return }
+
+            for key in registryKeysToDelete {
+                progressHandler?(
+                    EnginePresetProgress(
+                        message: "正在清理注册表 \(key)...",
+                        completedUnitCount: completedUnitCount,
+                        totalUnitCount: totalUnitCount
+                    )
+                )
+                try await deleteRegistryKeyIfPresent(
+                    key,
+                    wineBinary: wineBinary,
+                    prefix: game.bottleConfig.prefixPath,
+                    locale: game.bottleConfig.locale
+                )
+                completedUnitCount += 1
+            }
+
             for (dll, mode) in preset.dllOverrides {
                 progressHandler?(
                     EnginePresetProgress(
@@ -273,6 +294,31 @@ public final class BottleManager: @unchecked Sendable {
                 completedUnitCount += 1
             }
         }
+    }
+
+    private func deleteRegistryKeyIfPresent(
+        _ key: String,
+        wineBinary: URL,
+        prefix: String,
+        locale: String
+    ) async throws {
+        do {
+            try await runWineCommand(
+                wineBinary: wineBinary,
+                arguments: ["reg", "query", key],
+                prefix: prefix,
+                locale: locale
+            )
+        } catch WineError.helperToolFailed(let name, _) where name == "reg" {
+            return
+        }
+
+        try await runWineCommand(
+            wineBinary: wineBinary,
+            arguments: ["reg", "delete", key, "/f"],
+            prefix: prefix,
+            locale: locale
+        )
     }
 
     public func deleteBottle(for game: Game) throws {
@@ -345,6 +391,18 @@ public final class BottleManager: @unchecked Sendable {
                 from: wineManager.dxmtWineDirectory,
                 toPrefix: game.bottleConfig.prefixPath
             )
+        case .mediaFoundation:
+            guard let wineManager else { throw WineError.wineNotInstalled }
+            try await wineManager.ensureMediaFoundationRuntime { progress in
+                progressHandler?(
+                    EnginePresetProgress(
+                        message: "正在下载 Media Foundation 媒体运行时...",
+                        completedUnitCount: completedUnitCount,
+                        totalUnitCount: totalUnitCount,
+                        currentItemProgress: progress
+                    )
+                )
+            }
         }
     }
 
@@ -590,6 +648,8 @@ public final class BottleManager: @unchecked Sendable {
         switch component {
         case .dxmt:
             return "DXMT 图形运行时"
+        case .mediaFoundation:
+            return "Media Foundation 媒体运行时"
         }
     }
 
@@ -674,6 +734,11 @@ public final class BottleManager: @unchecked Sendable {
         process.environment = Self.wineCommandEnvironment(prefix: prefix, locale: locale)
         try process.run()
         process.waitUntilExit()
+
+        guard process.terminationStatus == 0 else {
+            let commandName = arguments.first ?? "wine"
+            throw WineError.helperToolFailed(commandName, process.terminationStatus)
+        }
     }
 
     static func wineCommandEnvironment(prefix: String, locale: String) -> [String: String] {
@@ -788,6 +853,8 @@ private extension ManagedRuntimeComponent {
         switch self {
         case .dxmt:
             return "dxmt@v0.80"
+        case .mediaFoundation:
+            return "gala-mf-runtime@1.0"
         }
     }
 }

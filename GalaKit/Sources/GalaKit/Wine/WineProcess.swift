@@ -11,6 +11,7 @@ public final class WineProcess: ObservableObject, @unchecked Sendable {
     public func launch(
         game: Game,
         wineBinary: URL,
+        mediaFoundationRuntime: MediaFoundationRuntime? = nil,
         onTermination: @escaping @Sendable (TimeInterval, Int32, String) -> Void
     ) throws {
         guard !isRunning else { return }
@@ -25,7 +26,9 @@ public final class WineProcess: ObservableObject, @unchecked Sendable {
         }
 
         process.environment = WineLaunchConfig.buildEnvironment(
-            game: game, wineBinary: wineBinary
+            game: game,
+            wineBinary: wineBinary,
+            mediaFoundationRuntime: mediaFoundationRuntime
         )
 
         // Write process output to a temp file instead of inheriting stdout/stderr

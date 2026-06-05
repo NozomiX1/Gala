@@ -35,12 +35,18 @@ final class GameViewModel {
 
             do {
                 let bottleReady = bottleManager.isBottleReady(for: game)
+                let runtimeMarkerStatus = try bottleManager.runtimeMarkerStatus(for: game)
+                let managedRuntimeReady = isManagedRuntimeReady(for: game, viewModel: viewModel)
                 let needsBottle = RuntimeConfigurationPolicy.needsRuntimeConfiguration(
                     for: game,
                     bottleReady: bottleReady
                 )
-                let needsPreset = game.engine != nil &&
-                    (!game.isRuntimeConfigured || needsManagedRuntimePreparation(for: game, viewModel: viewModel))
+                let needsPreset = RuntimeConfigurationPolicy.needsEnginePreset(
+                    for: game,
+                    bottleReady: bottleReady,
+                    runtimeMarkerStatus: runtimeMarkerStatus,
+                    managedRuntimeReady: managedRuntimeReady
+                )
 
                 if needsBottle {
                     setupStatus = "初始化 Wine 前缀..."
@@ -90,7 +96,7 @@ final class GameViewModel {
         }
 
         guard let wineBinary = wineManager.wineBinaryURL(for: game) else {
-            if game.engine?.runtimeProfile == .artemisD3D11 {
+            if game.engine?.usesDXMTWineVariant == true {
                 errorMessage = "DXMT 图形运行时未配置，请重新配置运行环境。"
                 var updated = game
                 updated.isRuntimeConfigured = false
@@ -112,11 +118,40 @@ final class GameViewModel {
             return
         }
 
+        do {
+            let runtimeMarkerStatus = try bottleManager.runtimeMarkerStatus(for: game)
+            let managedRuntimeReady = isManagedRuntimeReady(for: game, viewModel: viewModel)
+            if RuntimeConfigurationPolicy.needsEnginePreset(
+                for: game,
+                bottleReady: true,
+                runtimeMarkerStatus: runtimeMarkerStatus,
+                managedRuntimeReady: managedRuntimeReady
+            ) {
+                errorMessage = "运行环境配置已过期，请重新配置环境。"
+                var updated = game
+                updated.isRuntimeConfigured = false
+                viewModel.updateGame(updated)
+                return
+            }
+        } catch {
+            errorMessage = "运行环境状态检查失败：\(error.localizedDescription)"
+            return
+        }
+
         Task { @MainActor in
-            // Now launch the game
-            isRunning = true
             do {
-                try wineProcess.launch(game: game, wineBinary: wineBinary) { [weak self] duration, terminationStatus, output in
+                let launchGame = try await prepareMediaCompatibilityIfNeeded(
+                    for: game,
+                    wineManager: wineManager
+                )
+
+                // Now launch the game
+                isRunning = true
+                try wineProcess.launch(
+                    game: launchGame,
+                    wineBinary: wineBinary,
+                    mediaFoundationRuntime: wineManager.mediaFoundationRuntime
+                ) { [weak self] duration, terminationStatus, output in
                     viewModel.recordPlayTime(gameId: game.id, duration: duration)
                     DispatchQueue.main.async {
                         self?.isRunning = false
@@ -160,8 +195,33 @@ final class GameViewModel {
         errorMessage = "未找到原生 macOS 程序，将使用 Wine 启动。"
     }
 
-    private func needsManagedRuntimePreparation(for game: Game, viewModel: LibraryViewModel) -> Bool {
-        guard game.engine?.preset.managedComponents.isEmpty == false else { return false }
-        return viewModel.wineManagerInstance.wineBinaryURL(for: game) == nil
+    private func prepareMediaCompatibilityIfNeeded(
+        for game: Game,
+        wineManager: WineManager
+    ) async throws -> Game {
+        guard game.engine == .artemisMFD3D11 else { return game }
+
+        isSettingUp = true
+        setupStatus = "准备媒体兼容缓存..."
+        setupProgress = 0
+        defer {
+            isSettingUp = false
+            setupProgress = nil
+        }
+
+        let manager = MediaCompatibilityManager(
+            overlaysDirectory: wineManager.mediaOverlaysDirectory,
+            ffmpegURL: wineManager.mediaFoundationFFmpegURL
+        )
+        return try await manager.prepareLaunchGame(for: game) { [weak self] progress in
+            Task { @MainActor in
+                self?.setupStatus = progress.message
+                self?.setupProgress = progress.fraction
+            }
+        }
+    }
+
+    private func isManagedRuntimeReady(for game: Game, viewModel: LibraryViewModel) -> Bool {
+        viewModel.wineManagerInstance.isManagedRuntimeReady(for: game)
     }
 }

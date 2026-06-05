@@ -1,5 +1,15 @@
 import Foundation
 
+public struct MediaFoundationRuntime: Sendable {
+    public let rootURL: URL
+    public let gStreamerRegistryURL: URL
+
+    public init(rootURL: URL, gStreamerRegistryURL: URL) {
+        self.rootURL = rootURL
+        self.gStreamerRegistryURL = gStreamerRegistryURL
+    }
+}
+
 public struct WineLaunchConfig: Sendable {
     public struct DriveMapping: Sendable {
         public let driveLetter: String
@@ -10,7 +20,11 @@ public struct WineLaunchConfig: Sendable {
     public let workingDirectory: URL?
     public let driveMapping: DriveMapping?
 
-    public static func buildEnvironment(game: Game, wineBinary: URL) -> [String: String] {
+    public static func buildEnvironment(
+        game: Game,
+        wineBinary: URL,
+        mediaFoundationRuntime: MediaFoundationRuntime? = nil
+    ) -> [String: String] {
         var env = ProcessInfo.processInfo.environment
 
         env["WINEPREFIX"] = game.bottleConfig.prefixPath
@@ -29,9 +43,11 @@ public struct WineLaunchConfig: Sendable {
             FileManager.default.fileExists(atPath: $0)
         }
         if !existingLibPaths.isEmpty {
-            let existing = env["DYLD_FALLBACK_LIBRARY_PATH"] ?? ""
-            let all = existingLibPaths + (existing.isEmpty ? [] : [existing])
-            env["DYLD_FALLBACK_LIBRARY_PATH"] = all.joined(separator: ":")
+            prependLibraryPaths(existingLibPaths, to: &env)
+        }
+
+        if game.engine == .artemisMFD3D11, let mediaFoundationRuntime {
+            applyMediaFoundationRuntime(mediaFoundationRuntime, to: &env)
         }
 
         if !game.bottleConfig.dllOverrides.isEmpty {
@@ -45,6 +61,35 @@ public struct WineLaunchConfig: Sendable {
         }
 
         return env
+    }
+
+    private static func applyMediaFoundationRuntime(
+        _ runtime: MediaFoundationRuntime,
+        to env: inout [String: String]
+    ) {
+        let lib = runtime.rootURL.appendingPathComponent("lib")
+        let pluginDir = runtime.rootURL.appendingPathComponent("lib/gstreamer-1.0")
+        let scanner = runtime.rootURL.appendingPathComponent("libexec/gstreamer-1.0/gst-plugin-scanner")
+
+        if FileManager.default.fileExists(atPath: lib.path) {
+            prependLibraryPaths([lib.path], to: &env)
+        }
+        if FileManager.default.fileExists(atPath: pluginDir.path) {
+            env["GST_PLUGIN_PATH_1_0"] = pluginDir.path
+            env["GST_PLUGIN_SYSTEM_PATH_1_0"] = ""
+        }
+        if FileManager.default.isExecutableFile(atPath: scanner.path) {
+            env["GST_PLUGIN_SCANNER_1_0"] = scanner.path
+        }
+
+        env["GST_REGISTRY"] = runtime.gStreamerRegistryURL.path
+        env["GST_REGISTRY_FORK"] = "no"
+    }
+
+    private static func prependLibraryPaths(_ paths: [String], to env: inout [String: String]) {
+        let existing = env["DYLD_FALLBACK_LIBRARY_PATH"] ?? ""
+        let all = paths + (existing.isEmpty ? [] : [existing])
+        env["DYLD_FALLBACK_LIBRARY_PATH"] = all.joined(separator: ":")
     }
 
     public static func resolve(game: Game) throws -> WineLaunchConfig {

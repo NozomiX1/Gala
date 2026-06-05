@@ -28,6 +28,38 @@ import Foundation
     #expect(result == .artemisD3D11)
 }
 
+@Test func detectArtemisMediaFoundationD3D11ByImports() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+
+    FileManager.default.createFile(atPath: dir.appendingPathComponent("Amakano3_chs.xp3").path, contents: nil)
+    FileManager.default.createFile(atPath: dir.appendingPathComponent("Amakano3.pfs").path, contents: nil)
+    FileManager.default.createFile(atPath: dir.appendingPathComponent("iarsys64.dll").path, contents: nil)
+    let exeData = Data("D3D11CreateDevice\0D3DCompile\0MFCreateMediaSession\0MFPlat.DLL\0Artemis.vs2022.pdb".utf8)
+    try exeData.write(to: dir.appendingPathComponent("Amakano3_chs.exe"))
+
+    let result = EngineDetector.detect(in: dir)
+    #expect(result == .artemisMFD3D11)
+}
+
+@Test func detectArtemisMediaFoundationD3D11WhenSelectedLauncherHasNoImports() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+
+    FileManager.default.createFile(atPath: dir.appendingPathComponent("Amakano3_chs.xp3").path, contents: nil)
+    FileManager.default.createFile(atPath: dir.appendingPathComponent("Amakano3.pfs").path, contents: nil)
+    FileManager.default.createFile(atPath: dir.appendingPathComponent("iarsys64.dll").path, contents: nil)
+    try Data("localized launcher".utf8)
+        .write(to: dir.appendingPathComponent("Amakano3_chs.exe"))
+    try Data("D3D11CreateDevice\0D3DCompile\0MFCreateMediaSession\0MFPlat.DLL\0Artemis.vs2022.pdb".utf8)
+        .write(to: dir.appendingPathComponent("Amakano3.exe"))
+
+    let result = EngineDetector.detect(in: dir)
+    #expect(result == .artemisMFD3D11)
+}
+
 @Test func detectPFSAloneDoesNotOvertakeXP3() throws {
     let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

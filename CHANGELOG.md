@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+- `artemis-mf-d3d11` runtime profile for Artemis/iarsys D3D11 games that use Media Foundation WMV playback, such as 甜蜜女友3 / アマカノ3.
+- Gala-owned `deps-v3` Media Foundation runtime dependency for `artemis-mf-d3d11`.
+- Per-game Media Foundation movie overlays that keep original game files untouched while preparing compatible WMV audio tracks.
+
+### Changed
+- `artemis-d3d11` runtime profile version is now `4` so existing configured prefixes can be flagged for one-time reconfiguration.
+- `artemis-mf-d3d11` runtime profile version is now `2` so existing configured prefixes can install the Media Foundation runtime and registry changes.
+- Artemis/iarsys D3D11 detection now splits DirectShow-style games from Media Foundation-style games by scanning local executable imports instead of putting all iarsys/D3D11 games in one bottle.
+- Existing Media Foundation Artemis D3D11 library entries migrate from `artemis-d3d11` to `artemis-mf-d3d11` and require runtime reconfiguration.
+- Runtime configuration now uses profile markers to skip repeated preset installation for new games sharing an already-current prefix.
+
+### Fixed
+- DirectShow-style Artemis/iarsys D3D11 WMV clips and OP movies now use the DirectShow/LAV video chain, including `.dat` files that contain ASF/WMV video, while keeping DXMT rendering isolated from `d3d11`/`dxgi` overrides.
+- Wine 11.6 DirectShow no longer gets stuck on `File Source (Async.)` for ASF/WMV clips disguised as `.dat`; Gala now removes the bad `.dat` extension mapping and routes ASF content signatures to LAV Splitter Source.
+- Media Foundation Artemis D3D11 games such as 甜蜜女友3 / アマカノ3 no longer share the DirectShow-focused `artemis-d3d11` bottle used by Hamidashi-style games.
+- 甜蜜女友3 / アマカノ3 Media Foundation WMV playback now uses a Gala media compatibility layer: Wine MF is routed through the FFmpeg backend, GStreamer/FFmpeg runtime paths are injected only for this profile, and WMA audio inside `movie/*.wmv` is converted to PCM in a cached overlay.
+
 ## [1.2.0] - 2026-06-05
 
 ### Added

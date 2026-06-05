@@ -134,6 +134,27 @@ import Foundation
     #expect(values["wmalossless"] == "1")
 }
 
+@Test func commonPresetMapsASFStreamsToLAVSplitterSourceByContentSignature() {
+    let preset = Engine.unknown.preset
+    let values = Dictionary(grouping: preset.registryValues, by: \.key)
+    let asfMappings = [
+        "HKCR\\Media Type\\{e436eb83-524f-11ce-9f53-0020af0ba770}\\{75B22630-668E-11CF-A6D9-00AA0062CE6C}",
+        "HKCR\\Wow6432Node\\Media Type\\{e436eb83-524f-11ce-9f53-0020af0ba770}\\{75B22630-668E-11CF-A6D9-00AA0062CE6C}",
+    ]
+
+    for key in asfMappings {
+        let keyValues = Dictionary(uniqueKeysWithValues: (values[key] ?? [])
+            .map { ($0.valueName, $0.data) })
+        #expect(keyValues["0"] == "0,16,,3026B2758E66CF11A6D900AA0062CE6C")
+        #expect(keyValues["Source Filter"] == "{B98D13E7-55DB-4385-A33D-09FD1BA26338}")
+    }
+
+    #expect(!preset.registryValues.contains { $0.key == "HKCR\\Media Type\\Extensions\\.dat" })
+    #expect(!preset.registryValues.contains { $0.key == "HKCR\\Wow6432Node\\Media Type\\Extensions\\.dat" })
+    #expect(preset.registryKeysToDelete.contains("HKCR\\Media Type\\Extensions\\.dat"))
+    #expect(preset.registryKeysToDelete.contains("HKCR\\Wow6432Node\\Media Type\\Extensions\\.dat"))
+}
+
 @Test func commonPresetCoversDirectShowBasedEngines() {
     let engines: [Engine] = [.bgi, .artemis, .nscripter, .yuris, .realLive]
 
@@ -155,11 +176,48 @@ import Foundation
 
     #expect(Engine.artemisD3D11.displayName == "Artemis Engine (D3D11)")
     #expect(Engine.artemisD3D11.runtimeProfile.rawValue == "artemis-d3d11")
-    #expect(preset.components == ["d3dcompiler_47"])
+    #expect(Engine.artemisD3D11.runtimeConfigVersion == 4)
+    #expect(preset.components.contains("quartz"))
+    #expect(preset.components.contains("amstream"))
+    #expect(preset.components.contains("lavfilters"))
+    #expect(preset.components.contains("d3dcompiler_47"))
     #expect(preset.managedComponents == [.dxmt])
+    #expect(preset.dllOverrides["quartz"] == "native,builtin")
+    #expect(preset.dllOverrides["*quartz"] == "native,builtin")
+    #expect(preset.dllOverrides["amstream"] == "native,builtin")
+    #expect(preset.dllOverrides["*amstream"] == "native,builtin")
     #expect(preset.dllOverrides["d3dcompiler_47"] == "native,builtin")
     #expect(preset.dllOverrides["d3d11"] == nil)
     #expect(preset.dllOverrides["dxgi"] == nil)
+
+    let lavAudioFormatsKey = "HKCU\\Software\\LAV\\Audio\\Formats"
+    let values = Dictionary(uniqueKeysWithValues: preset.registryValues
+        .filter { $0.key == lavAudioFormatsKey }
+        .map { ($0.valueName, $0.data) })
+    #expect(values["wma"] == "1")
+    #expect(values["wmapro"] == "1")
+    #expect(values["wmalossless"] == "1")
+}
+
+@Test func artemisMediaFoundationD3D11PresetUsesSeparateDXMTProfile() {
+    let preset = Engine.artemisMFD3D11.preset
+
+    #expect(Engine.artemisMFD3D11.displayName == "Artemis Engine (MF / D3D11)")
+    #expect(Engine.artemisMFD3D11.runtimeProfile.rawValue == "artemis-mf-d3d11")
+    #expect(Engine.artemisMFD3D11.runtimeConfigVersion == 2)
+    #expect(Engine.artemisMFD3D11.usesDXMTWineVariant)
+    #expect(preset.components.contains("d3dcompiler_47"))
+    #expect(preset.managedComponents == [.dxmt, .mediaFoundation])
+    #expect(preset.dllOverrides.count == 1)
+    #expect(preset.dllOverrides["d3dcompiler_47"] == "native,builtin")
+    #expect(!preset.components.contains("quartz"))
+    #expect(!preset.components.contains("amstream"))
+    #expect(!preset.components.contains("lavfilters"))
+
+    let mediaFoundationValues = Dictionary(uniqueKeysWithValues: preset.registryValues
+        .filter { $0.key == "HKCU\\Software\\Wine\\MediaFoundation" }
+        .map { ($0.valueName, $0.data) })
+    #expect(mediaFoundationValues["DisableGstByteStreamHandler"] == "1")
 }
 
 @Test func ikuraGDLFamilyProjectPresetUsesSeparateBuiltinQuartzProfile() {
@@ -238,7 +296,9 @@ import Foundation
     #expect(values["uyvy"] == "0")
     #expect(values["rgb24"] == "1")
     #expect(values["rgb32"] == "1")
-    #expect(preset.registryValues.allSatisfy { $0.type == "REG_DWORD" })
+    #expect(preset.registryValues
+        .filter { $0.key == lavOutputKey }
+        .allSatisfy { $0.type == "REG_DWORD" })
 }
 
 @Test func leafPresetEnablesLAVWMAAudioFormats() {

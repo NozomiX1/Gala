@@ -198,8 +198,17 @@ public enum EngineDetector {
             if data.containsASCII("Artemis") || data.containsASCII("iarsys") {
                 candidates.append(EngineCandidate(engine: .artemisD3D11, score: 95, reason: "Artemis/iarsys string in \(exe)"))
             }
-            if hasArtemisFileGroup && data.containsASCII("D3D11CreateDevice") {
+            let hasD3D11 = data.containsASCII("D3D11CreateDevice")
+            let hasMediaFoundation = containsMediaFoundationSignal(in: data)
+            if hasArtemisFileGroup && hasD3D11 {
                 candidates.append(EngineCandidate(engine: .artemisD3D11, score: 45, reason: "D3D11CreateDevice import in \(exe)"))
+            }
+            if hasArtemisFileGroup && hasD3D11 && hasMediaFoundation {
+                candidates.append(EngineCandidate(
+                    engine: .artemisMFD3D11,
+                    score: 500,
+                    reason: "Media Foundation + D3D11 Artemis imports in \(exe)"
+                ))
             }
             if hasArtemisFileGroup &&
                 (data.containsASCII("D3DCompile") || data.containsASCII("D3DCOMPILER_47.dll")) {
@@ -208,6 +217,16 @@ public enum EngineDetector {
         }
 
         return candidates
+    }
+
+    private static func containsMediaFoundationSignal(in data: Data) -> Bool {
+        data.containsASCII("MFCreateMediaSession") ||
+            data.containsASCII("MFStartup") ||
+            data.containsASCII("MF.dll") ||
+            data.containsASCII("MF.DLL") ||
+            data.containsASCII("MFPlat.DLL") ||
+            data.containsASCII("mfplat.dll") ||
+            data.containsASCII("MFReadWrite.dll")
     }
 
     // MARK: - Engine Executable Resolution

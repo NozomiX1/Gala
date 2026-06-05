@@ -218,6 +218,48 @@ import Foundation
     #expect(env["MVK_CONFIG_LOG_LEVEL"] == "3")
 }
 
+@Test func mediaFoundationRuntimeEnvironmentAddsGStreamerPaths() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+
+    let runtimeRoot = dir.appendingPathComponent("gala-mf-runtime-1.0")
+    let runtimeLib = runtimeRoot.appendingPathComponent("lib")
+    let pluginDir = runtimeRoot.appendingPathComponent("lib/gstreamer-1.0")
+    let scanner = runtimeRoot.appendingPathComponent("libexec/gstreamer-1.0/gst-plugin-scanner")
+    let registry = dir.appendingPathComponent("Cache/media-foundation/gst-registry.bin")
+    for url in [runtimeLib, pluginDir, scanner.deletingLastPathComponent()] {
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+    }
+    FileManager.default.createFile(atPath: scanner.path, contents: Data("#!/bin/sh\n".utf8))
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: scanner.path)
+
+    let game = Game(
+        title: "Amakano 3",
+        executablePath: dir.appendingPathComponent("Amakano3_chs.exe").path,
+        engine: .artemisMFD3D11,
+        bottleConfig: BottleConfig(prefixPath: dir.appendingPathComponent("prefix").path)
+    )
+    let fakeBin = dir.appendingPathComponent("Wine/bin/wine")
+    try FileManager.default.createDirectory(
+        at: fakeBin.deletingLastPathComponent(), withIntermediateDirectories: true
+    )
+    FileManager.default.createFile(atPath: fakeBin.path, contents: nil)
+
+    let env = WineLaunchConfig.buildEnvironment(
+        game: game,
+        wineBinary: fakeBin,
+        mediaFoundationRuntime: MediaFoundationRuntime(rootURL: runtimeRoot, gStreamerRegistryURL: registry)
+    )
+
+    #expect(env["DYLD_FALLBACK_LIBRARY_PATH"]?.split(separator: ":").first == Substring(runtimeLib.path))
+    #expect(env["GST_PLUGIN_PATH_1_0"] == pluginDir.path)
+    #expect(env["GST_PLUGIN_SYSTEM_PATH_1_0"] == "")
+    #expect(env["GST_PLUGIN_SCANNER_1_0"] == scanner.path)
+    #expect(env["GST_REGISTRY"] == registry.path)
+    #expect(env["GST_REGISTRY_FORK"] == "no")
+}
+
 @Test func launchArgumentsArePrepended() throws {
     let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

@@ -82,6 +82,71 @@ import Foundation
     #expect(!RuntimeConfigurationPolicy.needsRuntimeConfiguration(for: game, bottleReady: false))
 }
 
+@Test func runtimePolicySkipsPresetForUnconfiguredGameWhenSharedProfileMarkerIsCurrent() {
+    let game = Game(
+        title: "Shared Artemis Game",
+        executablePath: "/game.exe",
+        engine: .artemisD3D11,
+        isRuntimeConfigured: false,
+        bottleConfig: BottleConfig(prefixPath: "/tmp/Gala/Bottles/Profiles/artemis-d3d11")
+    )
+
+    #expect(!RuntimeConfigurationPolicy.needsEnginePreset(
+        for: game,
+        bottleReady: true,
+        runtimeMarkerStatus: .current,
+        managedRuntimeReady: true
+    ))
+}
+
+@Test func runtimePolicyReappliesPresetForOutdatedSharedProfileMarker() {
+    let game = configuredGame(
+        id: UUID(),
+        title: "Configured Artemis Game",
+        engine: .artemisD3D11,
+        prefix: "/tmp/Gala/Bottles/Profiles/artemis-d3d11"
+    )
+
+    #expect(RuntimeConfigurationPolicy.needsEnginePreset(
+        for: game,
+        bottleReady: true,
+        runtimeMarkerStatus: .outdated,
+        managedRuntimeReady: true
+    ))
+}
+
+@Test func runtimePolicyKeepsLegacyMarkerlessConfiguredBottle() {
+    let game = configuredGame(
+        id: UUID(),
+        title: "Legacy Configured Game",
+        engine: .bgi,
+        prefix: "/tmp/Gala/Bottles/Profiles/common"
+    )
+
+    #expect(!RuntimeConfigurationPolicy.needsEnginePreset(
+        for: game,
+        bottleReady: true,
+        runtimeMarkerStatus: .missing,
+        managedRuntimeReady: true
+    ))
+}
+
+@Test func runtimePolicyReappliesPresetWhenManagedRuntimeIsMissing() {
+    let game = configuredGame(
+        id: UUID(),
+        title: "Configured Artemis Game",
+        engine: .artemisD3D11,
+        prefix: "/tmp/Gala/Bottles/Profiles/artemis-d3d11"
+    )
+
+    #expect(RuntimeConfigurationPolicy.needsEnginePreset(
+        for: game,
+        bottleReady: true,
+        runtimeMarkerStatus: .current,
+        managedRuntimeReady: false
+    ))
+}
+
 private func configuredGame(id: UUID, title: String, engine: Engine, prefix: String) -> Game {
     Game(
         id: id,

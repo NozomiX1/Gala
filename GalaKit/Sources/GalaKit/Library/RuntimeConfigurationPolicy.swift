@@ -6,6 +6,23 @@ public enum RuntimeConfigurationPolicy {
         return !bottleReady
     }
 
+    public static func needsEnginePreset(
+        for game: Game,
+        bottleReady: Bool,
+        runtimeMarkerStatus: RuntimeMarkerStatus,
+        managedRuntimeReady: Bool
+    ) -> Bool {
+        guard game.engine != nil else { return false }
+        guard game.engine?.supportsNativeLaunch != true else { return false }
+
+        if !managedRuntimeReady { return true }
+        if runtimeMarkerStatus == .outdated { return true }
+        if game.isRuntimeConfigured { return false }
+
+        guard bottleReady else { return true }
+        return runtimeMarkerStatus != .current
+    }
+
     public static func shouldDeleteRuntimeConfiguration(for game: Game, in games: [Game]) -> Bool {
         guard game.isRuntimeConfigured else { return false }
         guard game.engine?.supportsNativeLaunch != true else { return false }

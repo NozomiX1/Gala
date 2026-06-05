@@ -2,7 +2,9 @@ import Foundation
 
 public enum Engine: String, Codable, CaseIterable, Sendable {
     case kirikiri, nscripter, renpy, rpgMaker, unity
-    case bgi, catSystem2, siglusEngine, artemis, artemisD3D11, yuris
+    case bgi, catSystem2, siglusEngine, artemis, artemisD3D11
+    case artemisMFD3D11 = "artemis-mf-d3d11"
+    case yuris
     case majiro, advHD, realLive, qlie, leaf
     case ikuraGDLFamilyProject = "doKizunar"
     case unknown
@@ -25,6 +27,7 @@ public enum RuntimeProfile: String, Codable, Sendable {
     case catSystem2 = "cat-system2"
     case siglusEngine = "siglus-engine"
     case artemisD3D11 = "artemis-d3d11"
+    case artemisMFD3D11 = "artemis-mf-d3d11"
     case leaf = "leaf"
     case ikuraGDLFamilyProject = "do-kizunar"
     case rpgMaker = "rpg-maker"
@@ -33,6 +36,7 @@ public enum RuntimeProfile: String, Codable, Sendable {
 
 public enum ManagedRuntimeComponent: String, Sendable {
     case dxmt
+    case mediaFoundation
 }
 
 public struct RegistryValue: Sendable {
@@ -54,17 +58,20 @@ public struct EnginePreset: Sendable {
     public let managedComponents: [ManagedRuntimeComponent]
     public let dllOverrides: [String: String]
     public let registryValues: [RegistryValue]
+    public let registryKeysToDelete: [String]
 
     public init(
         components: [String],
         managedComponents: [ManagedRuntimeComponent] = [],
         dllOverrides: [String: String],
-        registryValues: [RegistryValue] = []
+        registryValues: [RegistryValue] = [],
+        registryKeysToDelete: [String] = []
     ) {
         self.components = components
         self.managedComponents = managedComponents
         self.dllOverrides = dllOverrides
         self.registryValues = registryValues
+        self.registryKeysToDelete = registryKeysToDelete
     }
 
     public static let empty = EnginePreset(components: [], dllOverrides: [:])
@@ -84,9 +91,42 @@ extension Engine {
         RegistryValue(key: lavAudioFormatsKey, valueName: "wmapro", type: "REG_DWORD", data: "1"),
         RegistryValue(key: lavAudioFormatsKey, valueName: "wmalossless", type: "REG_DWORD", data: "1"),
     ]
+    private static let legacyDATMediaExtensionRegistryKeys = [
+        "HKCR\\Media Type\\Extensions\\.dat",
+        "HKCR\\Wow6432Node\\Media Type\\Extensions\\.dat",
+    ]
+    private static let asfHeaderMediaSubtype = "{75B22630-668E-11CF-A6D9-00AA0062CE6C}"
+    private static let lavSplitterSourceCLSID = "{B98D13E7-55DB-4385-A33D-09FD1BA26338}"
+    private static let lavASFStreamSourceRegistryValues = [
+        RegistryValue(
+            key: "HKCR\\Media Type\\{e436eb83-524f-11ce-9f53-0020af0ba770}\\\(asfHeaderMediaSubtype)",
+            valueName: "0",
+            type: "REG_SZ",
+            data: "0,16,,3026B2758E66CF11A6D900AA0062CE6C"
+        ),
+        RegistryValue(
+            key: "HKCR\\Media Type\\{e436eb83-524f-11ce-9f53-0020af0ba770}\\\(asfHeaderMediaSubtype)",
+            valueName: "Source Filter",
+            type: "REG_SZ",
+            data: lavSplitterSourceCLSID
+        ),
+        RegistryValue(
+            key: "HKCR\\Wow6432Node\\Media Type\\{e436eb83-524f-11ce-9f53-0020af0ba770}\\\(asfHeaderMediaSubtype)",
+            valueName: "0",
+            type: "REG_SZ",
+            data: "0,16,,3026B2758E66CF11A6D900AA0062CE6C"
+        ),
+        RegistryValue(
+            key: "HKCR\\Wow6432Node\\Media Type\\{e436eb83-524f-11ce-9f53-0020af0ba770}\\\(asfHeaderMediaSubtype)",
+            valueName: "Source Filter",
+            type: "REG_SZ",
+            data: lavSplitterSourceCLSID
+        ),
+    ]
 
     private static func commonVideoPreset(
         additionalComponents: [String] = [],
+        managedComponents: [ManagedRuntimeComponent] = [],
         dllOverrides: [String: String] = [:],
         baseDllOverrides: [String: String] = nativeDirectShowDLLOverrides,
         registryValues additionalRegistryValues: [RegistryValue] = []
@@ -98,8 +138,10 @@ extension Engine {
 
         return EnginePreset(
             components: commonVideoComponents + additionalComponents,
+            managedComponents: managedComponents,
             dllOverrides: mergedDllOverrides,
-            registryValues: lavWMARegistryValues + additionalRegistryValues
+            registryValues: lavWMARegistryValues + lavASFStreamSourceRegistryValues + additionalRegistryValues,
+            registryKeysToDelete: legacyDATMediaExtensionRegistryKeys
         )
     }
 
@@ -110,10 +152,24 @@ extension Engine {
         case .bgi, .artemis, .nscripter, .yuris, .realLive, .renpy, .majiro, .advHD, .qlie, .unknown:
             return Self.commonVideoPreset()
         case .artemisD3D11:
-            return EnginePreset(
-                components: ["d3dcompiler_47"],
+            return Self.commonVideoPreset(
+                additionalComponents: ["d3dcompiler_47"],
                 managedComponents: [.dxmt],
                 dllOverrides: ["d3dcompiler_47": "native,builtin"]
+            )
+        case .artemisMFD3D11:
+            return EnginePreset(
+                components: ["d3dcompiler_47"],
+                managedComponents: [.dxmt, .mediaFoundation],
+                dllOverrides: ["d3dcompiler_47": "native,builtin"],
+                registryValues: [
+                    RegistryValue(
+                        key: "HKCU\\Software\\Wine\\MediaFoundation",
+                        valueName: "DisableGstByteStreamHandler",
+                        type: "REG_DWORD",
+                        data: "1"
+                    ),
+                ]
             )
         case .catSystem2:
             return Self.commonVideoPreset(additionalComponents: ["dotnet40", "vcrun2015"])
@@ -182,6 +238,8 @@ extension Engine {
             return .common
         case .artemisD3D11:
             return .artemisD3D11
+        case .artemisMFD3D11:
+            return .artemisMFD3D11
         case .kirikiri:
             return .kirikiri
         case .catSystem2:
@@ -199,8 +257,24 @@ extension Engine {
         }
     }
 
+    public var usesDXMTWineVariant: Bool {
+        switch self {
+        case .artemisD3D11, .artemisMFD3D11:
+            return true
+        default:
+            return false
+        }
+    }
+
     public var runtimeConfigVersion: Int {
-        1
+        switch self {
+        case .artemisD3D11:
+            return 4
+        case .artemisMFD3D11:
+            return 2
+        default:
+            return 1
+        }
     }
 
     public var displayName: String {
@@ -215,6 +289,7 @@ extension Engine {
         case .siglusEngine: return "SiglusEngine"
         case .artemis: return "Artemis Engine"
         case .artemisD3D11: return "Artemis Engine (D3D11)"
+        case .artemisMFD3D11: return "Artemis Engine (MF / D3D11)"
         case .yuris: return "YU-RIS"
         case .majiro: return "Majiro"
         case .advHD: return "AdvHD"

@@ -33,6 +33,9 @@ public enum RuntimeProfileMigration {
         if shouldMoveToIkuraGDLFamilyProject(game) {
             return .ikuraGDLFamilyProject
         }
+        if shouldMoveToArtemisMFD3D11(game) {
+            return .artemisMFD3D11
+        }
         if shouldMoveToArtemisD3D11(game) {
             return .artemisD3D11
         }
@@ -55,7 +58,10 @@ public enum RuntimeProfileMigration {
     }
 
     private static func shouldMoveToArtemisD3D11(_ game: Game) -> Bool {
-        if game.engine == .artemisD3D11 { return true }
+        if game.engine == .artemisD3D11 {
+            let directory = URL(fileURLWithPath: game.executablePath).deletingLastPathComponent()
+            return EngineDetector.detect(in: directory) != .artemisMFD3D11
+        }
         guard game.engine == nil ||
             game.engine == .unknown ||
             game.engine == .kirikiri ||
@@ -63,5 +69,17 @@ public enum RuntimeProfileMigration {
 
         let directory = URL(fileURLWithPath: game.executablePath).deletingLastPathComponent()
         return EngineDetector.detect(in: directory) == .artemisD3D11
+    }
+
+    private static func shouldMoveToArtemisMFD3D11(_ game: Game) -> Bool {
+        if game.engine == .artemisMFD3D11 { return true }
+        guard game.engine == nil ||
+            game.engine == .unknown ||
+            game.engine == .kirikiri ||
+            game.engine == .artemis ||
+            game.engine == .artemisD3D11 else { return false }
+
+        let directory = URL(fileURLWithPath: game.executablePath).deletingLastPathComponent()
+        return EngineDetector.detect(in: directory) == .artemisMFD3D11
     }
 }

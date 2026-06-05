@@ -22,6 +22,8 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
     public var cacheDirectory: URL { baseURL.appendingPathComponent("Cache") }
     public var winetricksCacheDirectory: URL { cacheDirectory.appendingPathComponent("winetricks") }
     public var dxmtCacheDirectory: URL { cacheDirectory.appendingPathComponent("dxmt") }
+    public var mediaFoundationCacheDirectory: URL { cacheDirectory.appendingPathComponent("media-foundation") }
+    public var mediaOverlaysDirectory: URL { baseURL.appendingPathComponent("MediaOverlays") }
     private var activeLink: URL { wineDirectory.appendingPathComponent("active") }
 
     @Published public var isDownloading = false
@@ -36,6 +38,7 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
         try? FileManager.default.createDirectory(at: fontsDirectory, withIntermediateDirectories: true)
         try? FileManager.default.createDirectory(at: toolsDirectory, withIntermediateDirectories: true)
         try? FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(at: mediaOverlaysDirectory, withIntermediateDirectories: true)
     }
 
     public var isWineInstalled: Bool {
@@ -116,6 +119,7 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
         try FileManager.default.createDirectory(at: fontsDirectory, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: toolsDirectory, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: mediaOverlaysDirectory, withIntermediateDirectories: true)
     }
 
     public func repairMissingDependencies() async throws {
@@ -152,6 +156,12 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
     public static let dxmtDownloadURL = URL(string: "https://github.com/NozomiX1/Gala/releases/download/deps-v2/dxmt-v0.80-builtin.tar.gz")!
     public static let dxmtArchiveName = "dxmt-v0.80-builtin.tar.gz"
     public static let dxmtSHA256 = "8f260e36b5739e68f3bad613381441385c4dc7b85b78ba8de653d5a6a264529d"
+
+    /// Download URL for the Gala Media Foundation runtime bundle.
+    public static let mediaFoundationRuntimeDownloadURL = URL(string: "https://github.com/NozomiX1/Gala/releases/download/deps-v3/gala-mf-runtime-1.0-macos.tar.gz")!
+    public static let mediaFoundationRuntimeVersionName = "gala-mf-runtime-1.0"
+    public static let mediaFoundationRuntimeArchiveName = "gala-mf-runtime-1.0-macos.tar.gz"
+    public static let mediaFoundationRuntimeSHA256: String? = "66596147ba88f694ae2280e780c501f991e0e83a0c08253e39cbea43f8b14da5"
 
     public var fontFileURL: URL {
         fontsDirectory.appendingPathComponent(Self.bundledFontName)
@@ -211,8 +221,61 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
         return nil
     }
 
+    public var mediaFoundationRuntimeArchiveURL: URL {
+        mediaFoundationCacheDirectory
+            .appendingPathComponent(Self.mediaFoundationRuntimeVersionName)
+            .appendingPathComponent(Self.mediaFoundationRuntimeArchiveName)
+    }
+
+    public var mediaFoundationRuntimeDirectory: URL {
+        toolsDirectory
+            .appendingPathComponent("MediaFoundation")
+            .appendingPathComponent(Self.mediaFoundationRuntimeVersionName)
+    }
+
+    public var mediaFoundationFFmpegURL: URL {
+        mediaFoundationRuntimeDirectory.appendingPathComponent("bin/ffmpeg")
+    }
+
+    public var mediaFoundationGStreamerRegistryURL: URL {
+        mediaFoundationCacheDirectory
+            .appendingPathComponent(Self.mediaFoundationRuntimeVersionName)
+            .appendingPathComponent("gst-registry.bin")
+    }
+
+    public var mediaFoundationRuntime: MediaFoundationRuntime? {
+        guard isMediaFoundationRuntimeInstalled else { return nil }
+        return MediaFoundationRuntime(
+            rootURL: mediaFoundationRuntimeDirectory,
+            gStreamerRegistryURL: mediaFoundationGStreamerRegistryURL
+        )
+    }
+
+    public var isMediaFoundationRuntimeInstalled: Bool {
+        let libDir = mediaFoundationRuntimeDirectory.appendingPathComponent("lib")
+        return FileManager.default.isExecutableFile(atPath: mediaFoundationFFmpegURL.path) &&
+            FileManager.default.fileExists(atPath: libDir.path)
+    }
+
+    public func isManagedRuntimeReady(for game: Game) -> Bool {
+        guard let components = game.engine?.preset.managedComponents,
+              !components.isEmpty else {
+            return true
+        }
+
+        for component in components {
+            switch component {
+            case .dxmt:
+                if wineBinaryURL(for: game) == nil { return false }
+            case .mediaFoundation:
+                if !isMediaFoundationRuntimeInstalled { return false }
+            }
+        }
+        return true
+    }
+
     public func wineBinaryURL(for game: Game) -> URL? {
-        guard game.engine?.runtimeProfile == .artemisD3D11 else {
+        guard game.engine?.usesDXMTWineVariant == true else {
             return wineBinaryURL
         }
         return dxmtWineBinaryURL
@@ -254,6 +317,40 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
             try FileManager.default.createDirectory(at: extractDir, withIntermediateDirectories: true)
             try extractArchive(dxmtArchiveURL, to: extractDir)
             try installDXMTOverlay(from: extractDir.appendingPathComponent("v0.80"), to: destinationDir)
+            try? FileManager.default.removeItem(at: extractDir)
+        } catch {
+            try? FileManager.default.removeItem(at: extractDir)
+            try? FileManager.default.removeItem(at: destinationDir)
+            throw error
+        }
+    }
+
+    public func ensureMediaFoundationRuntime(
+        progressHandler: (@Sendable (Double?) -> Void)? = nil
+    ) async throws {
+        if isMediaFoundationRuntimeInstalled { return }
+
+        try await downloadMediaFoundationRuntime(progressHandler: progressHandler)
+
+        let destinationDir = mediaFoundationRuntimeDirectory
+        let extractDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("gala-mf-runtime-\(UUID().uuidString)")
+
+        do {
+            try? FileManager.default.removeItem(at: destinationDir)
+            try FileManager.default.createDirectory(at: extractDir, withIntermediateDirectories: true)
+            try extractArchive(mediaFoundationRuntimeArchiveURL, to: extractDir)
+
+            let extractedRoot = try extractedMediaFoundationRuntimeRoot(in: extractDir)
+            try FileManager.default.createDirectory(
+                at: destinationDir.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try FileManager.default.moveItem(at: extractedRoot, to: destinationDir)
+            try FileManager.default.setAttributes(
+                [.posixPermissions: 0o755],
+                ofItemAtPath: mediaFoundationFFmpegURL.path
+            )
             try? FileManager.default.removeItem(at: extractDir)
         } catch {
             try? FileManager.default.removeItem(at: extractDir)
@@ -314,6 +411,85 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
                 throw error
             }
         }
+    }
+
+    private func downloadMediaFoundationRuntime(
+        progressHandler: (@Sendable (Double?) -> Void)? = nil
+    ) async throws {
+        var shouldDownload = !FileManager.default.fileExists(atPath: mediaFoundationRuntimeArchiveURL.path)
+        if let expectedSHA = Self.mediaFoundationRuntimeSHA256, !shouldDownload {
+            do {
+                try verifySHA256(fileURL: mediaFoundationRuntimeArchiveURL, expected: expectedSHA)
+            } catch {
+                try? FileManager.default.removeItem(at: mediaFoundationRuntimeArchiveURL)
+                shouldDownload = true
+            }
+        }
+
+        guard shouldDownload else { return }
+
+        await MainActor.run {
+            isDownloading = true
+            currentDownloadDescription = "正在下载 Media Foundation 媒体运行时..."
+            downloadProgress = 0
+            isDownloadProgressIndeterminate = false
+        }
+
+        do {
+            try FileManager.default.createDirectory(
+                at: mediaFoundationRuntimeArchiveURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try await Self.downloadFile(
+                from: Self.mediaFoundationRuntimeDownloadURL,
+                to: mediaFoundationRuntimeArchiveURL
+            ) { progress in
+                progressHandler?(progress)
+                Task { @MainActor in
+                    self.downloadProgress = progress
+                }
+            }
+            if let expectedSHA = Self.mediaFoundationRuntimeSHA256 {
+                try verifySHA256(fileURL: mediaFoundationRuntimeArchiveURL, expected: expectedSHA)
+            }
+            await MainActor.run {
+                downloadProgress = 1.0
+                finishDownloadState()
+            }
+        } catch {
+            await MainActor.run {
+                finishDownloadState()
+            }
+            throw error
+        }
+    }
+
+    private func extractedMediaFoundationRuntimeRoot(in extractDir: URL) throws -> URL {
+        let preferred = extractDir.appendingPathComponent(Self.mediaFoundationRuntimeVersionName)
+        if FileManager.default.fileExists(atPath: preferred.path) {
+            return preferred
+        }
+
+        let contents = try FileManager.default.contentsOfDirectory(
+            at: extractDir,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        )
+        if contents.count == 1,
+           (try contents[0].resourceValues(forKeys: [.isDirectoryKey])).isDirectory == true {
+            return contents[0]
+        }
+
+        let stagedRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("gala-mf-runtime-root-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: stagedRoot, withIntermediateDirectories: true)
+        for item in contents {
+            try FileManager.default.moveItem(
+                at: item,
+                to: stagedRoot.appendingPathComponent(item.lastPathComponent)
+            )
+        }
+        return stagedRoot
     }
 
     private func cloneDirectory(from source: URL, to destination: URL) throws {
