@@ -17,6 +17,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - App version metadata is synchronized to `1.2.0` / build `5` so update comparisons can use the bundle version reliably.
 - Runtime profile migrations now write through the migration-safe save path.
 
+### Fixed
+- Manual update checks now ignore Gala dependency-bundle releases such as `deps-v2` and select the latest App version release instead.
+
 ## [1.1.2] - 2026-06-05
 
 ### Added

@@ -267,9 +267,9 @@ struct RuntimeEnvironmentView: View {
 
         Task {
             do {
-                let release = try await updateClient.latestRelease(owner: "NozomiX1", repo: "Gala")
+                let releases = try await updateClient.releases(owner: "NozomiX1", repo: "Gala")
                 let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
-                let result = AppUpdateEvaluator.evaluate(currentVersion: currentVersion, release: release)
+                let result = AppUpdateEvaluator.evaluate(currentVersion: currentVersion, releases: releases)
                 await MainActor.run {
                     isCheckingForUpdates = false
                     updateResult = result
