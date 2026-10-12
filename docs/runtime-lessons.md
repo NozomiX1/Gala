@@ -38,6 +38,15 @@ Checked on Wine Staging 11.6 on 2026-10-13 by loading `quartz.dll` in real prefi
 - `quartz=native` (the `kirikiri` profile) and `quartz=native,builtin` (`common`) load the same native DLL as long as it is installed, which it is in both. 千恋＊万花 starts and runs normally in `common`. The two profiles differ only if the native DLL fails to load; in-game video playback was not exercised in this check.
 - A native-only override on a prefix where the native DLL was never installed makes the load fail outright. Offer "native" only where the component is installed, or write it as `native,builtin`.
 
+## DXMT Is Chosen By The Wine Build
+
+Checked on 2026-10-13 with ハミダシクリエイティブ凸 (64-bit, D3D11) and 千恋＊万花 (32-bit, D3D9), reading `WINEDEBUG=+loaddll` and the title screen.
+
+- The DXMT Wine variant and the plain one differ only in `d3d11`, `dxgi`, `d3d10core`, `winemetal` (plus `nvapi64`, `nvngx`) in Wine's own `lib/wine`. They share the same `wine.inf`, so alternating between them on one prefix does not trigger a prefix update.
+- Which one renders is decided by the Wine binary alone. DXMT Wine against the plain `common` prefix: ハミダシ reaches its title screen. Plain Wine against the `artemis-d3d11` prefix: black window and `CreateVertexShader ... failed (0x80070057)`. Rendering can therefore be a per-game, per-launch choice.
+- A D3D9 game never loads those DLLs: 千恋＊万花 runs the same under the DXMT variant.
+- `installDXMTPEOverrides` copies every DLL from the variant's `lib/wine` into the prefix. The copies are builtin-marked, so Wine loads its own `lib/wine` files regardless, and the copy overwrites what winetricks installed just before. In an `artemis-d3d11` prefix `quartz`, `amstream`, and `d3dcompiler_47` are Wine's builtin files and load as builtin, whatever the profile's overrides say. The verified game runs in that state; with native `quartz` (the `common` prefix) it also reaches the title screen. Video playback was not compared between the two.
+
 ## Known Bugs And Fixes
 
 | Symptom | Root Cause | Current Handling |
