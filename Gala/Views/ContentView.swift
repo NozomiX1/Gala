@@ -158,6 +158,9 @@ struct ContentView: View {
             if environment["GALA_DEBUG_CONFIGURE"] != nil {
                 gameVM.configureRuntime(for: game, viewModel: library)
             }
+            if let message = environment["GALA_DEBUG_ERROR"] {
+                gameVM.debugFail(game, message: message)
+            }
         }
         if let executable = environment["GALA_DEBUG_ADD"] {
             addGameRequest = AddGameRequest(executable: URL(fileURLWithPath: executable))

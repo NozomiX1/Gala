@@ -129,7 +129,7 @@ public struct Diagnostics: Codable, Equatable, Sendable {
         lines += files.map { "  \($0)" }
         lines += ["", "【最近一次启动的日志】\(logPath ?? "没有日志")"]
         if let logExcerpt {
-            lines.append(logExcerpt.isEmpty ? "  （日志是空的。用调试启动再运行一次，才会有输出。）" : logExcerpt)
+            lines.append(logExcerpt.isEmpty ? "  （日志是空的：这次启动 Wine 没有报错。用 gala-cli launch 再运行一次，能得到更详细的输出。）" : logExcerpt)
         }
         return lines.joined(separator: "\n")
     }
@@ -142,5 +142,35 @@ public struct Diagnostics: Codable, Equatable, Sendable {
         let chip = String(cString: buffer)
         let os = ProcessInfo.processInfo.operatingSystemVersion
         return "macOS \(os.majorVersion).\(os.minorVersion).\(os.patchVersion)" + (chip.isEmpty ? "" : " · \(chip)")
+    }
+}
+
+extension Diagnostics {
+    /// The report wrapped so that someone who has never seen Gala, or an AI assistant, can answer with a setting to change.
+    public func helpRequest(profiles: [RuntimeRecipe]) -> String {
+        var lines = [
+            "我在用 Gala 玩一个 Windows 视觉小说，遇到了问题。Gala 是 macOS 上的启动器，用 Wine 运行游戏。",
+            "请根据下面的信息判断原因，并告诉我该改哪个设置。",
+            "",
+            "【我遇到的问题】",
+            "（在这里写：什么时候出的问题，看到了什么）",
+            "",
+            "【我能改的设置】都在游戏页面的“运行设置”里",
+            "运行环境：" + profiles.map { "\($0.name)（\($0.id)）" }.joined(separator: "、"),
+        ]
+        lines += LaunchSwitch.all.map { item in
+            "\(item.name)：自动、\(item.options.map(\.label).joined(separator: "、"))。\(item.hint)"
+        }
+        lines += [
+            "高级：自定义 DLL 设置（例如 quartz=builtin）、环境变量、启动参数",
+            "",
+            "请用「设置名 → 选项」的形式回答，例如：视频播放方式 → Wine 自带。",
+            "一次只建议改一处，我试完会告诉你结果。",
+            "不要建议修改游戏目录里的文件，也不要建议从别的网站下载 DLL。",
+            "",
+            "—— 以下是 Gala 生成的诊断信息 ——",
+            text,
+        ]
+        return lines.joined(separator: "\n")
     }
 }

@@ -235,6 +235,15 @@ final class LibraryViewModel {
         updateGame(updated)
     }
 
+    /// Gathers the diagnostics off the main thread: it reads the game folder and the last log.
+    func diagnostics(for game: Game) async -> Diagnostics {
+        let wineManager = wineManager
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+        return await Task.detached {
+            Diagnostics.collect(game: game, appVersion: version, wineManager: wineManager)
+        }.value
+    }
+
     func toggleFavorite(_ game: Game) {
         var updated = game
         updated.isFavorite.toggle()

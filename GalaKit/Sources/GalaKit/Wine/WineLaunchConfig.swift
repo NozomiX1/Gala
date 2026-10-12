@@ -33,8 +33,9 @@ public struct WineLaunchConfig: Sendable {
         env["WINEPREFIX"] = game.bottleConfig.prefixPath
         env["LANG"] = game.bottleConfig.locale
         env["LC_ALL"] = game.bottleConfig.locale
-        // Debug keeps Wine's default error output and adds which DLLs load as native or builtin.
-        env["WINEDEBUG"] = debug ? "+loaddll" : "-all"
+        // Errors are always kept, so the first failed launch already has something to show.
+        // Debug adds Wine's fixme lines and which DLLs load as native or builtin.
+        env["WINEDEBUG"] = debug ? "+loaddll" : "fixme-all"
         env["MVK_CONFIG_LOG_LEVEL"] = "0"
 
         // Only set DYLD_FALLBACK_LIBRARY_PATH if the lib directories actually exist.

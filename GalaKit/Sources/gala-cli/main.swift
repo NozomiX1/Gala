@@ -58,8 +58,8 @@ Gala 排查指南（给人和 AI 助手）
   文字是方框              字体的问题。
   文字是乱码、或因此报错  区域的问题。日文原版游戏需要日文区域。
 
-日志是空的
-  从 Gala 界面启动时不记录 Wine 的输出。用 gala-cli launch 再运行一次。
+日志是空的或太少
+  从 Gala 界面启动时只记录 Wine 的报错行。用 gala-cli launch 再运行一次，会多出 fixme 行和每个 DLL 的加载情况。
 
 先试开关
   gala-cli launch <游戏> --switch video=builtin

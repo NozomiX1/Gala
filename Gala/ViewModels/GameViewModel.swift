@@ -15,6 +15,14 @@ final class GameViewModel {
 
     var isBusy: Bool { isRunning || isSettingUp }
 
+    #if DEBUG
+    /// For screenshots: shows a launch failure without launching anything.
+    func debugFail(_ game: Game, message: String) {
+        activeGameID = game.id
+        errorMessage = message
+    }
+    #endif
+
     func configureRuntime(for game: Game, viewModel: LibraryViewModel) {
         guard !isRunning && !isSettingUp else { return }
 

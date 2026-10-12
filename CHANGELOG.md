@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - A game can be pointed at any profile by hand. `gala-cli profiles` lists them, `gala-cli use <game> <profile>` switches and saves, and `--profile` tries one for a single run.
 - Run settings on the game page (the sliders button next to launch): pick the runtime profile, set the two switches, and fill in custom DLL overrides, environment variables, and launch arguments. "把当前配置导出为文件…" writes the result as a profile file someone else can use.
 - Two per-game switches that take effect at the next launch without reconfiguring: 视频播放方式 (automatic, Windows original, or Wine's own DirectShow) and 图形渲染 (automatic, DXMT, or Wine's own). `gala-cli` accepts them as `--switch video=builtin` and lists them in `guide`.
+- "复制求助信息…" on the game page (in the ··· menu and on a failed launch): previews, then copies, a self-contained text with the diagnostics, the settings that can be changed, and how to phrase an answer, ready to paste into an AI assistant or an issue. "导出诊断信息…" saves the diagnostics as a text file.
+- A failed launch offers "换个运行环境试试", which opens the run settings.
 - `gala-cli`, a command-line tool inside the app bundle (`Gala.app/Contents/MacOS/gala-cli`): `list`, `diagnose`, `configure`, `launch`, and `guide`, with `--json` output. `configure` and `launch` accept one-off `--profile`, `--dll`, `--env`, and `--locale` options for trying a change without saving it.
 - Diagnostics report for a game: versions, engine detection candidates with scores and reasons, runtime profile and state, launch settings, the game directory listing, and an excerpt of the last Wine log. Paths under the home directory are shortened to `~`.
 - Wine output of the last three launches of each game is kept under `Logs/` in Gala's data directory.
@@ -27,6 +29,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Adding a game opens the file picker straight away, then a redesigned sheet for matching it against VNDB.
 - Ren'Py, RPG Maker, and Unity games now run through Wine in the `common` profile. Native launch only worked when a `.app` sat next to the selected exe and otherwise left the game unlaunchable. Existing entries on those engines go back to "配置环境".
 - The two Artemis D3D11 profiles no longer copy DXMT's DLLs into the prefix or install a native `d3dcompiler_47`: neither had any effect, and the copy replaced the native `quartz` and `amstream` the profile had just installed. A profile now only needs `"wine": "dxmt"`. Prefixes configured by earlier versions stay valid.
+- Launches from the app now keep Wine's error lines in the log (`WINEDEBUG=fixme-all` instead of `-all`), so the first failed launch already has something to show. `gala-cli launch` still records more.
 - `Gala.xcodeproj` is no longer committed; generate it with `xcodegen generate`.
 - The bundle build number now equals the version number.
 

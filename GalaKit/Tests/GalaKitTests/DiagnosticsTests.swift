@@ -53,7 +53,8 @@ import Foundation
     let game = Game(title: "Test", executablePath: "/games/test/game.exe", bottleConfig: BottleConfig(prefixPath: "/tmp/prefix"))
     let wine = URL(fileURLWithPath: "/nonexistent/bin/wine")
 
-    #expect(WineLaunchConfig.buildEnvironment(game: game, wineBinary: wine)["WINEDEBUG"] == "-all")
+    // Errors only: enough to explain a failed launch without the noise.
+    #expect(WineLaunchConfig.buildEnvironment(game: game, wineBinary: wine)["WINEDEBUG"] == "fixme-all")
     #expect(WineLaunchConfig.buildEnvironment(game: game, wineBinary: wine, debug: true)["WINEDEBUG"] == "+loaddll")
 }
 
@@ -98,4 +99,30 @@ import Foundation
 
     let decoded = try JSONDecoder().decode(Diagnostics.self, from: JSONEncoder().encode(report))
     #expect(decoded == report)
+}
+
+@Test func logExcerptDropsTheMapNoiseEveryLaunchPrints() {
+    let noise = (1...50).map { "002c:err:virtual:try_map_free_area mmap() error Cannot allocate memory, range \($0)" }
+    let excerpt = LogExcerpt.make((noise + ["0024:err:module:import_dll Library d3dx9_43.dll not found"]).joined(separator: "\n"))
+
+    #expect(excerpt == "0024:err:module:import_dll Library d3dx9_43.dll not found")
+}
+
+@Test func helpRequestListsWhatCanBeChangedAndCarriesTheReport() throws {
+    let home = FileManager.default.temporaryDirectory.appendingPathComponent("gala-help-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: home) }
+    let wineManager = WineManager(baseURL: home)
+    let game = Game(title: "千恋＊万花", executablePath: home.appendingPathComponent("g/game.exe").path, engine: .kirikiri)
+    let report = Diagnostics.collect(game: game, appVersion: "2.0.0", wineManager: wineManager, home: home.path)
+
+    let text = report.helpRequest(profiles: wineManager.profiles.recipes)
+
+    #expect(text.contains("通用（common）"))
+    for item in LaunchSwitch.all {
+        #expect(text.contains(item.name))
+        #expect(text.contains(item.hint))
+    }
+    #expect(text.contains("设置名 → 选项"))
+    #expect(text.hasSuffix(report.text))
+    #expect(!text.contains(home.path))
 }

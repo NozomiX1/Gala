@@ -39,6 +39,7 @@ public enum LaunchLog {
 public enum LogExcerpt {
     public static func make(_ log: String, tailLines: Int = 40, errorLines: Int = 40) -> String {
         let lines = log.split(separator: "\n", omittingEmptySubsequences: true).map(String.init)
+            .filter { !$0.contains("try_map_free_area") }
         guard lines.count > tailLines else { return lines.joined(separator: "\n") }
 
         let tail = lines.suffix(tailLines)

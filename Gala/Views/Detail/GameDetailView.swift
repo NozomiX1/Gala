@@ -8,6 +8,7 @@ struct GameDetailView: View {
     let gameVM: GameViewModel
 
     @State private var showsRunSettings = false
+    @State private var showsHelpRequest = false
 
     private static let coverSize = CGSize(width: 250, height: 353)
 
@@ -47,13 +48,21 @@ struct GameDetailView: View {
         .sheet(isPresented: $showsRunSettings) {
             RunSettingsView(game: game, library: library, showsAdvanced: debugRunSettings == "advanced")
         }
-        .onAppear { showsRunSettings = debugRunSettings != nil }
+        .sheet(isPresented: $showsHelpRequest) {
+            HelpRequestView(game: game, library: library)
+        }
+        .onAppear {
+            showsRunSettings = debugRunSettings != nil
+            showsHelpRequest = debugValue("GALA_DEBUG_HELP") != nil
+        }
     }
 
     /// Set to open the run settings right away, for screenshots; "advanced" also unfolds the advanced fields.
-    private var debugRunSettings: String? {
+    private var debugRunSettings: String? { debugValue("GALA_DEBUG_RUNSETTINGS") }
+
+    private func debugValue(_ name: String) -> String? {
         #if DEBUG
-        ProcessInfo.processInfo.environment["GALA_DEBUG_RUNSETTINGS"]
+        ProcessInfo.processInfo.environment[name]
         #else
         nil
         #endif
@@ -151,6 +160,9 @@ struct GameDetailView: View {
             .disabled(gameVM.isBusy)
 
             Menu {
+                Button("复制求助信息…") { showsHelpRequest = true }
+                Button("导出诊断信息…", action: exportDiagnostics)
+                Divider()
                 GameMenuItems(game: game, library: library, gameVM: gameVM, includesToggles: false)
             } label: {
                 Image(systemName: "ellipsis")
@@ -251,6 +263,21 @@ struct GameDetailView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    private func exportDiagnostics() {
+        Task { @MainActor in
+            let text = await library.diagnostics(for: game).text
+            let panel = NSSavePanel()
+            panel.allowedContentTypes = [.plainText]
+            panel.nameFieldStringValue = "Gala 诊断 - \(game.title).txt"
+            guard panel.runModal() == .OK, let url = panel.url else { return }
+            do {
+                try Data(text.utf8).write(to: url)
+            } catch {
+                NSAlert(error: error).runModal()
+            }
+        }
+    }
+
     // MARK: - Panels
 
     private func errorPanel(_ message: String) -> some View {
@@ -263,6 +290,13 @@ struct GameDetailView: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(8)
                 .textSelection(.enabled)
+            HStack(spacing: 8) {
+                Button("换个运行环境试试") { showsRunSettings = true }
+                Button("复制求助信息…") { showsHelpRequest = true }
+            }
+            .galaButtonStyle()
+            .controlSize(.small)
+            .padding(.top, 5)
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)

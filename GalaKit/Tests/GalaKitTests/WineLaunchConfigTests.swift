@@ -186,7 +186,7 @@ import Foundation
 
     let env = WineLaunchConfig.buildEnvironment(game: game, wineBinary: fakeBin)
 
-    #expect(env["WINEDEBUG"] == "-all")
+    #expect(env["WINEDEBUG"] == "fixme-all")
     #expect(env["MVK_CONFIG_LOG_LEVEL"] == "0")
 }
 
