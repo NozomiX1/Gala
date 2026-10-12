@@ -7,7 +7,11 @@ final class GameViewModel {
     var isSettingUp = false
     var setupStatus = ""
     var setupProgress: Double?
-    var errorMessage: String?
+    var errorMessage: String? {
+        didSet { if errorMessage != nil { hasUnseenFailure = true } }
+    }
+    /// Set by every new failure; the game page shows it once and clears this.
+    var hasUnseenFailure = false
     /// The game the state above belongs to. Only one game is configured or running at a time.
     private(set) var activeGameID: UUID?
 

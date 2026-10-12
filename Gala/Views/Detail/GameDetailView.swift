@@ -7,8 +7,13 @@ struct GameDetailView: View {
     let library: LibraryViewModel
     let gameVM: GameViewModel
 
-    @State private var showsRunSettings = false
-    @State private var showsHelpRequest = false
+    @State private var sheet: Sheet?
+
+    /// One sheet at a time, so the failure sheet can hand over to the run settings or the help text.
+    private enum Sheet: String, Identifiable {
+        case runSettings, helpRequest, failure
+        var id: String { rawValue }
+    }
 
     private static let coverSize = CGSize(width: 250, height: 353)
 
@@ -44,16 +49,31 @@ struct GameDetailView: View {
         .toolbarColorScheme(.dark, for: .windowToolbar)
         .toolbarBackground(.hidden, for: .windowToolbar)
         .hidingWindowTitle()
-        // Attached after the dark colour scheme above, so the sheet follows the system appearance.
-        .sheet(isPresented: $showsRunSettings) {
-            RunSettingsView(game: game, library: library, showsAdvanced: debugRunSettings == "advanced")
+        // Attached after the dark colour scheme above, so the sheets follow the system appearance.
+        .sheet(item: $sheet) { sheet in
+            switch sheet {
+            case .runSettings:
+                RunSettingsView(game: game, library: library, showsAdvanced: debugRunSettings == "advanced")
+            case .helpRequest:
+                HelpRequestView(game: game, library: library)
+            case .failure:
+                FailureView(
+                    title: game.title,
+                    message: errorMessage ?? "",
+                    onChangeSettings: { self.sheet = .runSettings },
+                    onCopyHelp: { self.sheet = .helpRequest }
+                )
+            }
         }
-        .sheet(isPresented: $showsHelpRequest) {
-            HelpRequestView(game: game, library: library)
+        // A new failure opens its sheet once, also when the page is opened just after the launch failed.
+        .onChange(of: isActive && gameVM.hasUnseenFailure && !isSettingUp, initial: true) { _, unseen in
+            guard unseen else { return }
+            gameVM.hasUnseenFailure = false
+            sheet = .failure
         }
         .onAppear {
-            showsRunSettings = debugRunSettings != nil
-            showsHelpRequest = debugValue("GALA_DEBUG_HELP") != nil
+            if debugRunSettings != nil { sheet = .runSettings }
+            if debugValue("GALA_DEBUG_HELP") != nil { sheet = .helpRequest }
         }
     }
 
@@ -95,11 +115,6 @@ struct GameDetailView: View {
             // Equal spacers keep the actions midway between the status line and the facts.
             Spacer(minLength: 16)
 
-            if !isSettingUp, let errorMessage {
-                errorPanel(errorMessage)
-                    .padding(.bottom, 16)
-            }
-
             actions
 
             Spacer(minLength: 16)
@@ -131,6 +146,10 @@ struct GameDetailView: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .truncationMode(.tail)
+            if !isRunning, !isSettingUp, errorMessage != nil {
+                Button("查看原因") { sheet = .failure }
+                    .buttonStyle(.link)
+            }
         }
     }
 
@@ -155,12 +174,12 @@ struct GameDetailView: View {
                 library.toggleCompleted(game)
             }
             iconButton("slider.horizontal.3", help: "运行设置") {
-                showsRunSettings = true
+                sheet = .runSettings
             }
             .disabled(gameVM.isBusy)
 
             Menu {
-                Button("复制求助信息…") { showsHelpRequest = true }
+                Button("复制求助信息…") { sheet = .helpRequest }
                 Button("导出诊断信息…", action: exportDiagnostics)
                 Divider()
                 GameMenuItems(game: game, library: library, gameVM: gameVM, includesToggles: false)
@@ -276,30 +295,5 @@ struct GameDetailView: View {
                 NSAlert(error: error).runModal()
             }
         }
-    }
-
-    // MARK: - Panels
-
-    private func errorPanel(_ message: String) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text("没能启动")
-                .font(.callout.weight(.semibold))
-                .foregroundStyle(.orange)
-            Text(message)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .lineLimit(8)
-                .textSelection(.enabled)
-            HStack(spacing: 8) {
-                Button("换个运行环境试试") { showsRunSettings = true }
-                Button("复制求助信息…") { showsHelpRequest = true }
-            }
-            .galaButtonStyle()
-            .controlSize(.small)
-            .padding(.top, 5)
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .galaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
