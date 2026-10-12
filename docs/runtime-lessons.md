@@ -30,6 +30,14 @@ This note captures hard-won Gala runtime diagnosis lessons. Keep it short and up
 - Treat first-run media cache generation as a possible warmup artifact if a second launch is synchronized.
 - Runtime migrations should be repeatable and skippable. If scanning is expensive, persist a marker and rerun only when rules or selected executable change.
 
+## Launch-Time Overrides
+
+Checked on Wine Staging 11.6 on 2026-10-13 by loading `quartz.dll` in real prefixes with `WINEDEBUG=+loaddll`.
+
+- `WINEDLLOVERRIDES` set for one launch wins over the prefix's registry `DllOverrides`, in both directions. A DLL choice can therefore be a per-game, per-launch setting; it does not need its own prefix.
+- `quartz=native` (the `kirikiri` profile) and `quartz=native,builtin` (`common`) load the same native DLL as long as it is installed, which it is in both. 千恋＊万花 starts and runs normally in `common`. The two profiles differ only if the native DLL fails to load; in-game video playback was not exercised in this check.
+- A native-only override on a prefix where the native DLL was never installed makes the load fail outright. Offer "native" only where the component is installed, or write it as `native,builtin`.
+
 ## Known Bugs And Fixes
 
 | Symptom | Root Cause | Current Handling |
