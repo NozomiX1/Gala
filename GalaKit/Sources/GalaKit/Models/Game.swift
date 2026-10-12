@@ -59,6 +59,8 @@ public struct Game: Identifiable, Codable, Sendable {
     public var engine: Engine?
     /// The runtime profile picked by hand. Nil means the engine's default profile.
     public var profileID: String?
+    /// Chosen options of the named switches, by switch id. A switch that is absent follows the profile.
+    public var launchSwitches: [String: String] = [:]
     public var totalPlayTime: TimeInterval
     public var lastPlayedAt: Date?
     public var addedAt: Date
@@ -134,6 +136,7 @@ public struct Game: Identifiable, Codable, Sendable {
         coverImagePath = try container.decodeIfPresent(String.self, forKey: .coverImagePath)
         engine = try container.decodeIfPresent(Engine.self, forKey: .engine)
         profileID = try container.decodeIfPresent(String.self, forKey: .profileID)
+        launchSwitches = try container.decodeIfPresent([String: String].self, forKey: .launchSwitches) ?? [:]
         totalPlayTime = try container.decodeIfPresent(TimeInterval.self, forKey: .totalPlayTime) ?? 0
         lastPlayedAt = try container.decodeIfPresent(Date.self, forKey: .lastPlayedAt)
         addedAt = try container.decodeIfPresent(Date.self, forKey: .addedAt) ?? Date()

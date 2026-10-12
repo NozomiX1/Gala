@@ -108,3 +108,72 @@ private final class Messages: @unchecked Sendable {
     func append(_ message: String) { lock.lock(); items.append(message); lock.unlock() }
     var all: [String] { lock.lock(); defer { lock.unlock() }; return items }
 }
+
+@Test func videoSwitchBecomesLaunchOverridesAndHandWrittenOnesWin() {
+    var game = Game(title: "T", executablePath: "/tmp/g/game.exe", bottleConfig: BottleConfig(prefixPath: "/tmp/p"))
+    #expect(game.launchDLLOverrides.isEmpty)
+
+    game.launchSwitches = ["video": "builtin"]
+    #expect(game.launchDLLOverrides == ["quartz": "builtin", "amstream": "builtin"])
+
+    game.launchSwitches = ["video": "native", "graphics": "dxmt"]
+    game.bottleConfig.dllOverrides = ["quartz": "builtin", "d3dx9_43": "native"]
+    #expect(game.launchDLLOverrides == ["quartz": "builtin", "amstream": "native,builtin", "d3dx9_43": "native"])
+
+    let environment = WineLaunchConfig.buildEnvironment(game: game, wineBinary: URL(fileURLWithPath: "/tmp/wine/bin/wine"))
+    #expect(environment["WINEDLLOVERRIDES"] == "amstream=native,builtin;d3dx9_43=native;quartz=builtin")
+}
+
+@Test func graphicsSwitchPicksTheWineBuildInBothDirections() throws {
+    let home = FileManager.default.temporaryDirectory.appendingPathComponent("gala-switch-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: home) }
+    let wineManager = WineManager(baseURL: home)
+    var kirikiri = Game(title: "K", executablePath: "/tmp/g/k.exe", engine: .kirikiri)
+    var artemis = Game(title: "A", executablePath: "/tmp/g/a.exe", engine: .artemisD3D11)
+
+    #expect(!wineManager.usesDXMTWine(for: kirikiri))
+    #expect(wineManager.usesDXMTWine(for: artemis))
+
+    kirikiri.launchSwitches = ["graphics": "dxmt"]
+    artemis.launchSwitches = ["graphics": "builtin"]
+    #expect(wineManager.usesDXMTWine(for: kirikiri))
+    #expect(!wineManager.usesDXMTWine(for: artemis))
+
+    // An option this version does not know is ignored rather than guessed at.
+    artemis.launchSwitches = ["graphics": "vulkan"]
+    #expect(wineManager.usesDXMTWine(for: artemis))
+}
+
+@Test func switchesSurviveSavingAndOldLibrariesLoadWithoutThem() throws {
+    var game = Game(title: "T", executablePath: "/tmp/g/game.exe")
+    game.launchSwitches = ["video": "builtin"]
+    let data = try JSONEncoder().encode(game)
+    #expect(try JSONDecoder().decode(Game.self, from: data).launchSwitches == ["video": "builtin"])
+
+    var object = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+    object["launchSwitches"] = nil
+    let old = try JSONDecoder().decode(Game.self, from: JSONSerialization.data(withJSONObject: object))
+    #expect(old.launchSwitches.isEmpty)
+}
+
+@Test func exportedProfileCarriesTheSwitchesAndSurvivesJSON() throws {
+    var game = Game(title: "千恋＊万花", executablePath: "/tmp/g/game.exe", engine: .kirikiri)
+    game.launchSwitches = ["video": "builtin", "graphics": "dxmt"]
+    game.bottleConfig.environment = ["FOO": "1"]
+    let base = try #require(ProfileStore.bundled.recipe(for: game))
+
+    let file = game.exportedProfile(base: base)
+    #expect(file.base == "kirikiri")
+    #expect(file.wine == .dxmt)
+    #expect(file.dllOverrides == ["quartz": "builtin", "amstream": "builtin"])
+    #expect(file.notes?.contains("FOO=1") == true)
+
+    // Round-trips through JSON the way a user's file is read.
+    let decoded = try JSONDecoder().decode(ProfileFile.self, from: JSONEncoder().encode(file))
+    #expect(decoded == file)
+}
+
+@Test func keyValueLinesSkipWhatIsNotAPair() {
+    #expect(BottleConfig.pairs(fromLines: "quartz = builtin\n\nnonsense\n=x\nA=b=c") == ["quartz": "builtin", "A": "b=c"])
+    #expect(BottleConfig.lines(from: ["b": "2", "a": "1"]) == "a=1\nb=2")
+}

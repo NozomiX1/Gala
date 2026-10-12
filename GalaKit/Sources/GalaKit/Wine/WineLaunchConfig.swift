@@ -54,10 +54,10 @@ public struct WineLaunchConfig: Sendable {
             applyMediaFoundationRuntime(mediaFoundationRuntime, to: &env)
         }
 
-        if !game.bottleConfig.dllOverrides.isEmpty {
-            let overrides = game.bottleConfig.dllOverrides
+        let dllOverrides = game.launchDLLOverrides
+        if !dllOverrides.isEmpty {
+            env["WINEDLLOVERRIDES"] = dllOverrides.sorted { $0.key < $1.key }
                 .map { "\($0.key)=\($0.value)" }.joined(separator: ";")
-            env["WINEDLLOVERRIDES"] = overrides
         }
 
         for (key, value) in game.bottleConfig.environment {

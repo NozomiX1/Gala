@@ -260,11 +260,13 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
         return true
     }
 
+    /// The profile decides, unless the game's graphics switch says otherwise.
+    public func usesDXMTWine(for game: Game) -> Bool {
+        game.forcesDXMTWine ?? (profiles.recipe(for: game)?.usesDXMTWine == true)
+    }
+
     public func wineBinaryURL(for game: Game) -> URL? {
-        guard profiles.recipe(for: game)?.usesDXMTWine == true else {
-            return wineBinaryURL
-        }
-        return dxmtWineBinaryURL
+        usesDXMTWine(for: game) ? dxmtWineBinaryURL : wineBinaryURL
     }
 
     public func downloadCabextract() async throws {

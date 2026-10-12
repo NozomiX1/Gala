@@ -25,11 +25,17 @@ let usage = """
 
 只对这一次 configure 或 launch 生效、不会保存的选项：
   --profile <环境>     临时换用另一个运行环境
+  --switch <开关=取值>  设置一个开关，例如 --switch video=builtin。可以写多次。开关的清单见 guide
   --dll <名字=模式>    追加一条 DLL 设置，例如 --dll quartz=builtin。可以写多次
   --env <名字=取值>    追加一个环境变量。可以写多次
   --locale <区域>      例如 ja_JP.UTF-8
   --no-debug           launch 默认记录 Wine 的报错和 DLL 加载情况，加上它就不记录
 """
+
+let switchGuide = LaunchSwitch.all.map { item in
+    let options = item.options.map { "\($0.id)（\($0.label)）" }.joined(separator: "、")
+    return "  \(item.id)  \(item.name)：auto（自动）、\(options)。\(item.hint)"
+}.joined(separator: "\n")
 
 let guide = """
 Gala 排查指南（给人和 AI 助手）
@@ -47,15 +53,21 @@ Gala 排查指南（给人和 AI 助手）
 
 按症状判断
   启动就退出、弹出报错    看日志里的 err: 行。提到找不到某个 DLL 时，多半是运行环境缺组件。
-  有声音但画面全黑        图形渲染的问题，和视频播放无关。较新的 Artemis 引擎游戏需要带 DXMT 的运行环境。
-  片头或过场动画黑屏、被跳过  视频播放的问题，游戏本体通常还能运行。与 quartz、amstream、LAV 这几个组件用谁的实现有关。
+  有声音但画面全黑        图形渲染的问题，和视频播放无关。先试 --switch graphics=dxmt。
+  片头或过场动画黑屏、被跳过  视频播放的问题，游戏本体通常还能运行。与 quartz、amstream、LAV 这几个组件用谁的实现有关。先试 --switch video=builtin 或 video=native。
   文字是方框              字体的问题。
   文字是乱码、或因此报错  区域的问题。日文原版游戏需要日文区域。
 
 日志是空的
   从 Gala 界面启动时不记录 Wine 的输出。用 gala-cli launch 再运行一次。
 
-试一个改动
+先试开关
+  gala-cli launch <游戏> --switch video=builtin
+\(switchGuide)
+  开关只影响启动的这一次，不改动运行环境，换完直接启动就行。auto 表示跟随运行环境。
+  在界面里，它们在游戏页面的"运行设置"里，选了就会保存。
+
+再试别的改动
   gala-cli launch <游戏> --dll quartz=builtin
   gala-cli launch <游戏> --locale ja_JP.UTF-8
   gala-cli configure <游戏> --profile common ，然后 gala-cli launch <游戏> --profile common
@@ -154,6 +166,16 @@ func applyOverrides(to game: inout Game, wineManager: WineManager) throws {
     for item in try takeValues("--dll") {
         let (name, mode) = try keyValue(item, flag: "--dll")
         game.bottleConfig.dllOverrides[name] = mode
+    }
+    for item in try takeValues("--switch") {
+        let (name, option) = try keyValue(item, flag: "--switch")
+        guard let known = LaunchSwitch.all.first(where: { $0.id == name }) else {
+            throw Failure(message: "没有叫「\(name)」的开关。可用的有：\(LaunchSwitch.all.map(\.id).joined(separator: " "))")
+        }
+        guard option == "auto" || known.options.contains(where: { $0.id == option }) else {
+            throw Failure(message: "开关 \(name) 的取值可以是：auto \(known.options.map(\.id).joined(separator: " "))")
+        }
+        game.launchSwitches[name] = option == "auto" ? nil : option
     }
     for item in try takeValues("--env") {
         let (name, value) = try keyValue(item, flag: "--env")

@@ -22,6 +22,7 @@ public struct Diagnostics: Codable, Equatable, Sendable {
     public var isBottleReady: Bool
     public var runtimeMarker: String
     public var locale: String
+    public var launchSwitches: [String: String]
     public var dllOverrides: [String: String]
     public var environment: [String: String]
     public var launchArguments: [String]
@@ -45,7 +46,7 @@ public struct Diagnostics: Codable, Equatable, Sendable {
         let gameDirectory = URL(fileURLWithPath: game.executablePath).deletingLastPathComponent()
         let bottleManager = BottleManager(bottlesDirectory: wineManager.bottlesDirectory, wineManager: wineManager)
         let recipe = wineManager.profiles.recipe(for: game)
-        let usesDXMT = recipe?.usesDXMTWine == true
+        let usesDXMT = wineManager.usesDXMTWine(for: game)
 
         let entries = (try? FileManager.default.contentsOfDirectory(
             at: gameDirectory,
@@ -82,6 +83,7 @@ public struct Diagnostics: Codable, Equatable, Sendable {
             isBottleReady: bottleManager.isBottleReady(for: game),
             runtimeMarker: marker,
             locale: game.bottleConfig.locale,
+            launchSwitches: game.launchSwitches,
             dllOverrides: game.bottleConfig.dllOverrides,
             environment: game.bottleConfig.environment.mapValues(scrub),
             launchArguments: game.bottleConfig.launchArguments.map(scrub),
@@ -110,6 +112,7 @@ public struct Diagnostics: Codable, Equatable, Sendable {
             "【运行环境】\(runtimeProfile ?? "无")\(isProfileChosenByHand ? "（手动选择）" : "") · \(prefixPath.isEmpty ? "未指定位置" : prefixPath)",
             "【环境状态】已配置=\(isRuntimeConfigured ? "是" : "否") · bottle 就绪=\(isBottleReady ? "是" : "否") · 配置标记=\(runtimeMarker)",
             "【区域】\(locale)",
+            "【开关】\(pairs(launchSwitches))",
             "【DLL 设置】\(pairs(dllOverrides))",
             "【环境变量】\(pairs(environment))",
             "【启动参数】\(launchArguments.isEmpty ? "无" : launchArguments.joined(separator: " "))",

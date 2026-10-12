@@ -69,6 +69,11 @@ public struct GameRuntime: Sendable {
             try await bottleManager.createBottle(for: game)
         }
 
+        // A game can ask for the DXMT Wine through its graphics switch even when its profile does not.
+        if wineManager.usesDXMTWine(for: game) {
+            try await wineManager.ensureDXMTWineVariant { progress("正在下载 DXMT 图形运行时...", $0) }
+        }
+
         guard needsBottle || needsPreset else {
             progress("复用已有运行环境...", nil)
             return
@@ -85,7 +90,7 @@ public struct GameRuntime: Sendable {
     public func wineBinaryForLaunch(_ game: Game) throws -> URL {
         guard game.isRuntimeConfigured else { throw LaunchBlocker.notConfigured }
         guard let wineBinary = wineManager.wineBinaryURL(for: game) else {
-            throw recipe(for: game)?.usesDXMTWine == true ? LaunchBlocker.dxmtMissing : LaunchBlocker.wineMissing
+            throw wineManager.usesDXMTWine(for: game) ? LaunchBlocker.dxmtMissing : LaunchBlocker.wineMissing
         }
 
         let bottleManager = bottleManager
