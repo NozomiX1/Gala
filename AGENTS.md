@@ -46,6 +46,7 @@ Read `docs/runtime-lessons.md` before changing a profile or debugging playback, 
 
 ## Conventions
 - Tests use Swift Testing (`import Testing`, `@Test`, `#expect`), not XCTest.
+- Tests also run on GitHub's machines (`.github/workflows/test.yml`), which have no login session and three cores. A call that waits on a system service there (CoreText asked about a font macOS could download) never returns, and three blocked tests starve every other one. Keep such calls behind a timeout in the code and out of the tests that run with `CI` set.
 - `Gala.xcodeproj` is generated and not committed. Edit `project.yml`, which also holds the version number, then run `xcodegen generate`.
 - Commit messages use a `feat:`, `fix:`, `perf:`, `docs:`, or `chore:` prefix.
 - Record user-visible changes under `## [Unreleased]` in `CHANGELOG.md`.

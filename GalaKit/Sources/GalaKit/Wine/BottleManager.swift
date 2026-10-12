@@ -491,7 +491,7 @@ public final class BottleManager: @unchecked Sendable {
         // text in window titles, menus, dialogs, and game UI.
         let regKey = "HKLM\\Software\\Microsoft\\Windows NT\\CurrentVersion\\FontSubstitutes"
 
-        for substitute in Self.cjkFontSubstitutes {
+        for substitute in Self.cjkFontSubstitutes(installedFamilies: Self.installedOnDemandFontFamilies()) {
             try await runWineCommand(
                 wineBinary: wineBinary,
                 arguments: [
@@ -753,7 +753,7 @@ extension BottleManager {
         return japaneseName.data(using: .shiftJIS).flatMap { String(data: $0, encoding: gbk) }
     }
 
-    static var cjkFontSubstitutes: [FontSubstitute] {
+    static func cjkFontSubstitutes(installedFamilies: Set<String>) -> [FontSubstitute] {
         let fontName = cjkUIFaceName
         return [
             // Wine and legacy Win32 system UI fonts (menus, dialogs, title bars)
@@ -786,7 +786,7 @@ extension BottleManager {
             FontSubstitute(sourceName: "\u{FF2D}\u{FF33} \u{30B4}\u{30B7}\u{30C3}\u{30AF}", targetName: fontName),
             FontSubstitute(sourceName: "\u{FF2D}\u{FF33} \u{FF30}\u{660E}\u{671D}", targetName: fontName),
             FontSubstitute(sourceName: "\u{FF2D}\u{FF33} \u{FF30}\u{30B4}\u{30B7}\u{30C3}\u{30AF}", targetName: fontName),
-        ] + misreadJapaneseFontSubstitutes(installedFamilies: installedOnDemandFontFamilies())
+        ] + misreadJapaneseFontSubstitutes(installedFamilies: installedFamilies)
     }
 
     /// Apple fonts that fit the games below and that macOS fetches on request instead of shipping: the family name
@@ -797,8 +797,17 @@ extension BottleManager {
     ]
 
     /// Asking for a missing font by name returns a fallback, so the font is here only if the same name comes back.
-    static func isFontInstalled(postScriptName: String) -> Bool {
-        CTFontCopyPostScriptName(CTFontCreateWithName(postScriptName as CFString, 12, nil)) as String == postScriptName
+    /// CoreText is asked on another thread and given a few seconds: without a login session (a build machine)
+    /// looking up a font macOS could download never returns, and that must not hang whoever asked.
+    static func isFontInstalled(postScriptName: String, timeout: TimeInterval = 5) -> Bool {
+        let found = OSAllocatedUnfairLock(initialState: false)
+        let answered = DispatchSemaphore(value: 0)
+        DispatchQueue.global().async {
+            let name = CTFontCopyPostScriptName(CTFontCreateWithName(postScriptName as CFString, 12, nil)) as String
+            found.withLock { $0 = name == postScriptName }
+            answered.signal()
+        }
+        return answered.wait(timeout: .now() + timeout) == .success && found.withLock { $0 }
     }
 
     static func installedOnDemandFontFamilies() -> Set<String> {
@@ -811,17 +820,19 @@ extension BottleManager {
         _ postScriptNames: [String] = onDemandFonts.map(\.postScriptName),
         timeout: TimeInterval = 120
     ) async {
-        let missing = postScriptNames.filter { !isFontInstalled(postScriptName: $0) }
-        guard !missing.isEmpty else { return }
-        let descriptors = missing.map { CTFontDescriptorCreateWithAttributes([kCTFontNameAttribute: $0] as CFDictionary) }
-
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             // The handler and the timeout race; whichever comes first resumes, the other finds nothing left to do.
             let pending = OSAllocatedUnfairLock<CheckedContinuation<Void, Never>?>(initialState: continuation)
             let finish: @Sendable () -> Void = { pending.withLock { $0.take() }?.resume() }
-            CTFontDescriptorMatchFontDescriptorsWithProgressHandler(descriptors as CFArray, nil) { state, _ in
-                if state == .didFinish { finish() }
-                return true
+            // Every CoreText call happens on this queue, never on the caller's thread: see `isFontInstalled`.
+            DispatchQueue.global().async {
+                let missing = postScriptNames.filter { !isFontInstalled(postScriptName: $0) }
+                guard !missing.isEmpty else { return finish() }
+                let descriptors = missing.map { CTFontDescriptorCreateWithAttributes([kCTFontNameAttribute: $0] as CFDictionary) }
+                CTFontDescriptorMatchFontDescriptorsWithProgressHandler(descriptors as CFArray, nil) { state, _ in
+                    if state == .didFinish { finish() }
+                    return true
+                }
             }
             DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: finish)
         }

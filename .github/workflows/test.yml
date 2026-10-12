@@ -1,0 +1,17 @@
+name: Test
+
+# Runs the package tests on every push to main and on pull requests.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: macos-26
+    # The suite takes seconds; a run that is still going after this is stuck.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test
+        run: swift test --package-path GalaKit

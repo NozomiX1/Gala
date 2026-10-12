@@ -50,7 +50,7 @@ import Foundation
 }
 
 @Test func fontSubstitutesCoverLegacyWin32MenuFonts() {
-    let sourceNames = Set(BottleManager.cjkFontSubstitutes.map(\.sourceName))
+    let sourceNames = Set(BottleManager.cjkFontSubstitutes(installedFamilies: []).map(\.sourceName))
 
     #expect(sourceNames.contains("MS Sans Serif"))
     #expect(sourceNames.contains("Microsoft Sans Serif"))
@@ -108,15 +108,18 @@ import Foundation
     #expect(bare[gothic] == "Arial Unicode MS")
 
     // And they are part of what every new prefix gets.
-    #expect(Set(BottleManager.cjkFontSubstitutes.map(\.sourceName)).isSuperset(of: [mincho, gothic]))
+    #expect(Set(BottleManager.cjkFontSubstitutes(installedFamilies: []).map(\.sourceName)).isSuperset(of: [mincho, gothic]))
 }
 
-@Test func aMissingFontIsNotMistakenForItsFallback() {
+/// CoreText needs a login session to answer about fonts; on a build machine these two would only measure the timeout.
+private let hasLoginSession = ProcessInfo.processInfo.environment["CI"] == nil
+
+@Test(.enabled(if: hasLoginSession)) func aMissingFontIsNotMistakenForItsFallback() {
     #expect(BottleManager.isFontInstalled(postScriptName: "Helvetica"))
     #expect(!BottleManager.isFontInstalled(postScriptName: "Gala-No-Such-Font"))
 }
 
-@Test func askingForFontsMacOSDoesNotOfferReturnsInsteadOfWaiting() async {
+@Test(.enabled(if: hasLoginSession)) func askingForFontsMacOSDoesNotOfferReturnsInsteadOfWaiting() async {
     let started = Date()
     await BottleManager.downloadOnDemandFonts(["Gala-No-Such-Font"], timeout: 20)
     #expect(Date().timeIntervalSince(started) < 15)
@@ -147,4 +150,11 @@ import Foundation
 
     // Pointing at the fallbacks is out of date once the better fonts are installed.
     #expect(!BottleManager.prefix(prefix, has: BottleManager.misreadJapaneseFontSubstitutes(installedFamilies: [])))
+}
+
+@Test func aFontLookupThatNeverAnswersIsGivenUpOn() {
+    // Timeout zero stands in for CoreText not answering: the caller gets "not installed" at once instead of hanging.
+    let started = Date()
+    #expect(!BottleManager.isFontInstalled(postScriptName: "Helvetica", timeout: 0))
+    #expect(Date().timeIntervalSince(started) < 1)
 }
