@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - In-app updates through Sparkle: Gala checks for new versions, shows the release notes, and downloads and installs the update. Updates are verified against Gala's own signing key.
 
 ### Changed
+- Runtime profiles are now JSON files bundled with the app instead of Swift code. Prefixes configured by earlier versions stay valid; a prefix configured from here on also remembers a fingerprint of its recipe, so a later change to its profile is noticed automatically.
 - New main window: a wall of covers with the filters in the toolbar and no sidebar; clicking a cover opens the game's own page, which uses the cover art as a dark backdrop. Controls use the system glass material on macOS 26 and later and an ordinary material on older systems.
 - The runtime environment sheet is now a standard Settings window (⌘,) with General, Runtime, and Data tabs; the two destructive actions sit on their own tab.
 - Covers show the original-script title instead of the romanised one.

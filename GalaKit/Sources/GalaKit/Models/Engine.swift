@@ -74,140 +74,17 @@ public struct EnginePreset: Equatable, Sendable {
 }
 
 extension Engine {
-    private static let commonVideoComponents = ["quartz", "amstream", "lavfilters"]
-    private static let nativeDirectShowDLLOverrides = [
-        "quartz": "native,builtin",
-        "*quartz": "native,builtin",
-        "amstream": "native,builtin",
-        "*amstream": "native,builtin",
-    ]
-    private static let lavAudioFormatsKey = "HKCU\\Software\\LAV\\Audio\\Formats"
-    private static let lavWMARegistryValues = [
-        RegistryValue(key: lavAudioFormatsKey, valueName: "wma", type: "REG_DWORD", data: "1"),
-        RegistryValue(key: lavAudioFormatsKey, valueName: "wmapro", type: "REG_DWORD", data: "1"),
-        RegistryValue(key: lavAudioFormatsKey, valueName: "wmalossless", type: "REG_DWORD", data: "1"),
-    ]
-    private static let legacyDATMediaExtensionRegistryKeys = [
-        "HKCR\\Media Type\\Extensions\\.dat",
-        "HKCR\\Wow6432Node\\Media Type\\Extensions\\.dat",
-    ]
-    private static let asfHeaderMediaSubtype = "{75B22630-668E-11CF-A6D9-00AA0062CE6C}"
-    private static let lavSplitterSourceCLSID = "{B98D13E7-55DB-4385-A33D-09FD1BA26338}"
-    private static let lavASFStreamSourceRegistryValues = [
-        RegistryValue(
-            key: "HKCR\\Media Type\\{e436eb83-524f-11ce-9f53-0020af0ba770}\\\(asfHeaderMediaSubtype)",
-            valueName: "0",
-            type: "REG_SZ",
-            data: "0,16,,3026B2758E66CF11A6D900AA0062CE6C"
-        ),
-        RegistryValue(
-            key: "HKCR\\Media Type\\{e436eb83-524f-11ce-9f53-0020af0ba770}\\\(asfHeaderMediaSubtype)",
-            valueName: "Source Filter",
-            type: "REG_SZ",
-            data: lavSplitterSourceCLSID
-        ),
-        RegistryValue(
-            key: "HKCR\\Wow6432Node\\Media Type\\{e436eb83-524f-11ce-9f53-0020af0ba770}\\\(asfHeaderMediaSubtype)",
-            valueName: "0",
-            type: "REG_SZ",
-            data: "0,16,,3026B2758E66CF11A6D900AA0062CE6C"
-        ),
-        RegistryValue(
-            key: "HKCR\\Wow6432Node\\Media Type\\{e436eb83-524f-11ce-9f53-0020af0ba770}\\\(asfHeaderMediaSubtype)",
-            valueName: "Source Filter",
-            type: "REG_SZ",
-            data: lavSplitterSourceCLSID
-        ),
-    ]
-
-    private static func commonVideoPreset(
-        additionalComponents: [String] = [],
-        managedComponents: [ManagedRuntimeComponent] = [],
-        dllOverrides: [String: String] = [:],
-        baseDllOverrides: [String: String] = nativeDirectShowDLLOverrides,
-        registryValues additionalRegistryValues: [RegistryValue] = []
-    ) -> EnginePreset {
-        var mergedDllOverrides = baseDllOverrides
-        for (dll, mode) in dllOverrides {
-            mergedDllOverrides[dll] = mode
-        }
-
-        return EnginePreset(
-            components: commonVideoComponents + additionalComponents,
-            managedComponents: managedComponents,
-            dllOverrides: mergedDllOverrides,
-            registryValues: lavWMARegistryValues + lavASFStreamSourceRegistryValues + additionalRegistryValues,
-            registryKeysToDelete: legacyDATMediaExtensionRegistryKeys
-        )
+    /// The recipe of the profile this engine's games use by default, read from the bundled profile files.
+    public var recipe: RuntimeRecipe {
+        // Every RuntimeProfile case has a bundled file; a test checks that.
+        ProfileStore.bundled.recipe(id: runtimeProfile.rawValue)!
     }
 
-    public var preset: EnginePreset {
-        switch self {
-        case .kirikiri:
-            return Self.commonVideoPreset(dllOverrides: ["quartz": "native"])
-        case .bgi, .artemis, .nscripter, .yuris, .realLive, .renpy, .rpgMaker, .unity,
-             .majiro, .advHD, .qlie, .unknown:
-            return Self.commonVideoPreset()
-        case .artemisD3D11:
-            return Self.commonVideoPreset(
-                additionalComponents: ["d3dcompiler_47"],
-                managedComponents: [.dxmt],
-                dllOverrides: ["d3dcompiler_47": "native,builtin"]
-            )
-        case .artemisMFD3D11:
-            return EnginePreset(
-                components: ["d3dcompiler_47"],
-                managedComponents: [.dxmt, .mediaFoundation],
-                dllOverrides: ["d3dcompiler_47": "native,builtin"],
-                registryValues: [
-                    RegistryValue(
-                        key: "HKCU\\Software\\Wine\\MediaFoundation",
-                        valueName: "DisableGstByteStreamHandler",
-                        type: "REG_DWORD",
-                        data: "1"
-                    ),
-                ]
-            )
-        case .catSystem2:
-            return Self.commonVideoPreset(additionalComponents: ["dotnet40", "vcrun2015"])
-        case .siglusEngine:
-            return Self.commonVideoPreset(
-                additionalComponents: ["xact", "xinput", "vcrun2019"],
-                dllOverrides: ["xaudio2_7": "native", "xactengine3_7": "native"]
-            )
-        case .leaf:
-            let lavOutputKey = "HKCU\\Software\\LAV\\Video\\Output"
-            return Self.commonVideoPreset(
-                dllOverrides: [
-                    "quartz": "builtin",
-                    "amstream": "builtin",
-                    "devenum": "builtin",
-                    "*quartz": "builtin",
-                    "*amstream": "builtin",
-                    "*devenum": "builtin",
-                    "wmvdecod": "disabled",
-                    "wmadmod": "disabled",
-                    "winegstreamer": "disabled",
-                ],
-                registryValues: [
-                    RegistryValue(key: lavOutputKey, valueName: "nv12", type: "REG_DWORD", data: "0"),
-                    RegistryValue(key: lavOutputKey, valueName: "yv12", type: "REG_DWORD", data: "0"),
-                    RegistryValue(key: lavOutputKey, valueName: "yuy2", type: "REG_DWORD", data: "0"),
-                    RegistryValue(key: lavOutputKey, valueName: "uyvy", type: "REG_DWORD", data: "0"),
-                    RegistryValue(key: lavOutputKey, valueName: "rgb24", type: "REG_DWORD", data: "1"),
-                    RegistryValue(key: lavOutputKey, valueName: "rgb32", type: "REG_DWORD", data: "1"),
-                ]
-            )
-        case .ikuraGDLFamilyProject:
-            return Self.commonVideoPreset(
-                dllOverrides: [
-                    "quartz": "builtin",
-                    "*quartz": "builtin",
-                ],
-                baseDllOverrides: [:]
-            )
-        }
-    }
+    public var preset: EnginePreset { recipe.preset }
+
+    public var usesDXMTWineVariant: Bool { recipe.usesDXMTWine }
+
+    public var runtimeConfigVersion: Int { recipe.version }
 
     func gameSpecificRegistryValues(for game: Game) -> [RegistryValue] {
         guard self == .ikuraGDLFamilyProject else { return [] }
@@ -244,26 +121,6 @@ extension Engine {
             return .leaf
         case .ikuraGDLFamilyProject:
             return .ikuraGDLFamilyProject
-        }
-    }
-
-    public var usesDXMTWineVariant: Bool {
-        switch self {
-        case .artemisD3D11, .artemisMFD3D11:
-            return true
-        default:
-            return false
-        }
-    }
-
-    public var runtimeConfigVersion: Int {
-        switch self {
-        case .artemisD3D11:
-            return 4
-        case .artemisMFD3D11:
-            return 2
-        default:
-            return 1
         }
     }
 

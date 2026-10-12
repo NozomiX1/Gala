@@ -46,19 +46,23 @@ public struct RuntimeProfileMarker: Codable, Equatable, Sendable {
     public let configuredAt: Date
     public let wineVersionName: String
     public let managedComponents: [String]
+    /// What the prefix was built from. Absent in markers written before profiles became files.
+    public let recipeFingerprint: String?
 
     public init(
         profile: RuntimeProfile,
         configVersion: Int,
         configuredAt: Date,
         wineVersionName: String,
-        managedComponents: [String]
+        managedComponents: [String],
+        recipeFingerprint: String? = nil
     ) {
         self.profile = profile
         self.configVersion = configVersion
         self.configuredAt = configuredAt
         self.wineVersionName = wineVersionName
         self.managedComponents = managedComponents
+        self.recipeFingerprint = recipeFingerprint
     }
 
     static func current(for game: Game, configuredAt: Date) -> RuntimeProfileMarker? {
@@ -68,7 +72,8 @@ public struct RuntimeProfileMarker: Codable, Equatable, Sendable {
             configVersion: engine.runtimeConfigVersion,
             configuredAt: configuredAt,
             wineVersionName: engine.usesDXMTWineVariant ? WineManager.dxmtWineVersionName : WineManager.wineVersionName,
-            managedComponents: engine.preset.managedComponents.map(\.runtimeMarkerName)
+            managedComponents: engine.preset.managedComponents.map(\.runtimeMarkerName),
+            recipeFingerprint: engine.recipe.fingerprint
         )
     }
 }
@@ -360,7 +365,9 @@ public final class BottleManager: @unchecked Sendable {
         return marker.profile == current.profile &&
             marker.configVersion == current.configVersion &&
             marker.wineVersionName == current.wineVersionName &&
-            marker.managedComponents == current.managedComponents ? .current : .outdated
+            marker.managedComponents == current.managedComponents &&
+            // An edited profile file changes the fingerprint even when nobody raised its version.
+            (marker.recipeFingerprint == nil || marker.recipeFingerprint == current.recipeFingerprint) ? .current : .outdated
     }
 
     private static func runtimeMarkerURL(prefix: String) -> URL {

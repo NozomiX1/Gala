@@ -160,6 +160,7 @@ struct ListEntry: Encodable {
     let executablePath: String
 }
 
+@MainActor
 func run() async throws {
     let json = takeFlag("--json")
     let home = try takeValue("--home").map { URL(fileURLWithPath: $0) }

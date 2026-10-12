@@ -2,14 +2,47 @@ import Testing
 import Foundation
 @testable import GalaKit
 
-// The bundled JSON profiles must describe exactly what the Swift presets did.
+// Engine.recipe force-unwraps this lookup, so every engine's default profile must ship as a file.
 @Test(arguments: Engine.allCases)
-func bundledProfileMatchesTheEnginePreset(engine: Engine) throws {
-    let recipe = try #require(ProfileStore.bundled.recipe(id: engine.runtimeProfile.rawValue))
+func everyEngineHasABundledProfile(engine: Engine) {
+    #expect(ProfileStore.bundled.recipe(id: engine.runtimeProfile.rawValue) != nil)
+}
 
-    #expect(recipe.preset == engine.preset)
-    #expect(recipe.version == engine.runtimeConfigVersion)
-    #expect(recipe.usesDXMTWine == engine.usesDXMTWineVariant)
+// These versions are what existing prefixes were marked with; lowering or raising one makes them reconfigure.
+@Test func bundledProfilesKeepTheVersionsExistingPrefixesWereMarkedWith() {
+    let versions = Dictionary(uniqueKeysWithValues: ProfileStore.bundled.recipes.map { ($0.id, $0.version) })
+
+    #expect(versions == [
+        "common": 1, "kirikiri": 1, "cat-system2": 1, "siglus-engine": 1,
+        "leaf": 1, "do-kizunar": 1, "artemis-d3d11": 4, "artemis-mf-d3d11": 2,
+    ])
+    #expect(Engine.artemisD3D11.usesDXMTWineVariant)
+    #expect(Engine.artemisMFD3D11.usesDXMTWineVariant)
+    #expect(!Engine.kirikiri.usesDXMTWineVariant)
+}
+
+@Test func markerWithoutAFingerprintStaysCurrentButAnEditedRecipeDoesNot() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: dir) }
+    let manager = BottleManager(bottlesDirectory: dir)
+    let game = Game(title: "T", executablePath: "/g/a.exe", engine: .kirikiri,
+                    bottleConfig: BottleConfig(prefixPath: dir.appendingPathComponent("Profiles/kirikiri").path))
+    let markerURL = URL(fileURLWithPath: game.bottleConfig.prefixPath).appendingPathComponent(".gala-runtime.json")
+    try FileManager.default.createDirectory(at: markerURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+    let marker = { (fingerprint: String) in
+        #"{"profile":"kirikiri","configVersion":1,"configuredAt":"2026-01-01T00:00:00Z","wineVersionName":"wine-staging-11.6","managedComponents":[]\#(fingerprint)}"#
+    }
+
+    // Written by 1.x: no fingerprint, so only the version decides.
+    try Data(marker("").utf8).write(to: markerURL)
+    #expect(try manager.runtimeMarkerStatus(for: game) == .current)
+
+    // Written by 2.0 from a recipe that has since been edited.
+    try Data(marker(#","recipeFingerprint":"something-else""#).utf8).write(to: markerURL)
+    #expect(try manager.runtimeMarkerStatus(for: game) == .outdated)
+
+    try manager.writeRuntimeMarker(for: game)
+    #expect(try manager.runtimeMarkerStatus(for: game) == .current)
 }
 
 private func file(_ id: String, base: String? = nil, version: Int? = nil, components: [String]? = nil,
