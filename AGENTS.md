@@ -1,7 +1,7 @@
 # AGENTS.md
 
 ## Project Snapshot
-- Gala is a macOS SwiftUI galgame launcher. Core logic lives in the `GalaKit` Swift package, which has no third-party dependencies.
+- Gala is a macOS SwiftUI galgame launcher. Core logic lives in the `GalaKit` Swift package, which has no third-party dependencies. The app target has one: Sparkle, for updates, pinned to an exact version in `project.yml`.
 - Runtime is app-managed Wine Staging 11.6.
 - Wine prefixes (bottles) are shared by runtime profile, not created per game.
 - App data lives in `~/Library/Application Support/Gala`.
@@ -48,9 +48,10 @@ Read `docs/runtime-lessons.md` before changing a profile or debugging playback, 
 
 ## Releasing
 - Set the version in `project.yml` and move the `[Unreleased]` changelog entries under a `## [X.Y.Z] - date` heading.
-- `scripts/release.sh` builds `dist/Gala.dmg` locally.
-- Pushing a `vX.Y.Z` tag runs `.github/workflows/release.yml`: it tests, builds, and publishes the DMG with that changelog section as the release notes. The tag must match the version in `project.yml`.
-- Keep the `vX.Y.Z` tag format and the `.dmg` asset. The 1.x in-app update check finds new versions through them.
+- `scripts/release.sh` builds `dist/Gala.dmg` and the signed `dist/appcast.xml` locally.
+- Pushing a `vX.Y.Z` tag runs `.github/workflows/release.yml`: it tests, builds, and publishes the DMG and `appcast.xml` with that changelog section as the release notes. The tag must match the version in `project.yml`.
+- Installed copies read `releases/latest/download/appcast.xml`, so every release must carry that asset. Keep the `vX.Y.Z` tag format and the `.dmg` asset too: the 1.x update check finds new versions through them.
+- Updates are signed with a Sparkle EdDSA key. The private key lives in the maintainer's login keychain (account `gala`) and in the `SPARKLE_PRIVATE_KEY` repository secret; the public key is in `project.yml`. Never replace the key pair: copies already installed would reject every later update.
 
 ## Verification
 - `swift test --package-path GalaKit`

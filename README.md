@@ -34,7 +34,7 @@
 
 - **显式运行环境** — 添加游戏后按需配置 Wine 前缀、中日文 locale / codepage / 字体
 - **运行环境检查与修复** — 检查 Wine、字体、辅助工具和 bottle 状态，缺失时可重新下载
-- **手动更新检查** — 从 GitHub Releases 检查新版本，查看更新说明并打开最新 DMG
+- **应用内更新** — 自动检查新版本，查看更新说明，下载并安装
 - **引擎识别** — 自动检测 KiriKiri、BGI、Leaf/AQUAPLUS、Artemis、SiglusEngine 等 10+ 引擎，本地特征使用打分合并，并用 VNDB release 信息作为保守 fallback
 - **VNDB 集成** — 搜索匹配游戏，自动拉取封面、简介和评分
 - **游戏库管理** — 网格视图，支持搜索、收藏、移除运行环境和从库中移除
@@ -92,16 +92,16 @@
 
 6. 清理与修复
    - 「运行环境」页面可以检查 Wine、字体、辅助工具和 bottle 状态
-   - 可以检查 Gala 新版本，并打开最新 DMG 或发布页
+   - 可以检查 Gala 新版本
    - 缺失依赖可以在这里重新下载
    - 可以清理所有 Wine 配置，让相关游戏回到「配置环境」状态
    - 卸载前可以清除所有 Gala 本地数据，释放 Wine 运行时、bottle、缓存和封面占用的空间
 
 7. 更新 Gala
-   - 在「运行环境」页面点击「检查更新」
-   - 下载新版 DMG 后退出 Gala
-   - 将新版 Gala.app 拖入 Applications 覆盖旧版
-   - 覆盖安装只替换应用本体，不会删除 `~/Library/Application Support/Gala` 里的游戏库、游玩时间、收藏、Wine 运行时和 bottle
+   - Gala 会自动检查新版本；也可以在菜单栏「Gala → 检查更新…」或「运行环境」页面手动检查
+   - 发现新版本后按提示安装，Gala 会自动下载、替换并重新打开
+   - 1.x 没有应用内更新，需要手动下载一次 2.0 的 DMG 并拖入 Applications 覆盖旧版
+   - 更新只替换应用本体，不会删除 `~/Library/Application Support/Gala` 里的游戏库、游玩时间、收藏、Wine 运行时和 bottle
 
 ## 构建
 

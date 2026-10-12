@@ -6,15 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+- In-app updates through Sparkle: Gala checks for new versions, shows the release notes, and downloads and installs the update. Updates are verified against Gala's own signing key.
+
 ### Changed
 - Ren'Py, RPG Maker, and Unity games now run through Wine in the `common` profile. Native launch only worked when a `.app` sat next to the selected exe and otherwise left the game unlaunchable. Existing entries on those engines go back to "配置环境".
 - `Gala.xcodeproj` is no longer committed; generate it with `xcodegen generate`.
+- The bundle build number now equals the version number.
 
 ### Fixed
 - VNDB matches now fill in the game description; the search request never asked for it.
 - `宋体` and `黑体` font substitutes are registered under their real names instead of literal `\u` escape text.
 
 ### Removed
+- The manual update check that only opened the latest DMG; Sparkle replaces it.
 - Unused game tags, VNDB detail request, and `BottleConfig` `windowsVersion` / `winetricksComponents` fields. Libraries saved by this version cannot be opened by 1.2.1 or earlier.
 - Homebrew winetricks fallback; Gala only uses its managed copy.
 - Unused `rpg-maker` and `unity` runtime profiles and their untested presets.

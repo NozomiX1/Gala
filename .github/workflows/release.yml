@@ -1,6 +1,7 @@
 name: Release
 
-# Pushing a tag like v2.0.0 builds the DMG and attaches it to the GitHub release.
+# Pushing a tag like v2.0.0 builds the DMG and the Sparkle update feed and attaches both to the GitHub release.
+# Needs the repository secret SPARKLE_PRIVATE_KEY (export it with Sparkle's `generate_keys --account gala -x <file>`).
 on:
   push:
     tags: ['v*.*.*']
@@ -26,7 +27,9 @@ jobs:
       - name: Test
         run: swift test --package-path GalaKit
 
-      - name: Build DMG
+      - name: Build DMG and update feed
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
           brew install xcodegen
           scripts/release.sh
@@ -35,10 +38,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Release notes are this version's section of the changelog.
-          awk -v v="$VERSION" 'index($0, "## [" v "]") == 1 { on = 1; next } /^## \[/ { on = 0 } on' CHANGELOG.md > notes.md
+          # Installed copies read releases/latest/download/appcast.xml, so the feed must be an asset of every release.
           if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" dist/Gala.dmg --clobber
+            gh release upload "$GITHUB_REF_NAME" dist/Gala.dmg dist/appcast.xml --clobber
           else
-            gh release create "$GITHUB_REF_NAME" dist/Gala.dmg --title "Gala $VERSION" --notes-file notes.md
+            gh release create "$GITHUB_REF_NAME" dist/Gala.dmg dist/appcast.xml --title "Gala $VERSION" --notes-file dist/Gala.md
           fi

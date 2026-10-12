@@ -9,6 +9,9 @@ options:
 packages:
   GalaKit:
     path: GalaKit
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: 2.10.0
 
 targets:
   Gala:
@@ -18,11 +21,11 @@ targets:
       - Gala
     dependencies:
       - package: GalaKit
+      - package: Sparkle
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.nozomi.gala
         MARKETING_VERSION: "1.2.1"
-        CURRENT_PROJECT_VERSION: 6
         SWIFT_VERSION: "5.10"
         MACOSX_DEPLOYMENT_TARGET: "14.0"
         INFOPLIST_KEY_LSApplicationCategoryType: "public.app-category.games"
@@ -32,5 +35,9 @@ targets:
         CFBundleDisplayName: Gala
         CFBundleName: Gala
         CFBundleShortVersionString: $(MARKETING_VERSION)
-        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # Sparkle compares CFBundleVersion, so it tracks the marketing version instead of a separate build number.
+        CFBundleVersion: $(MARKETING_VERSION)
+        SUFeedURL: https://github.com/NozomiX1/Gala/releases/latest/download/appcast.xml
+        SUPublicEDKey: KJKBiYQmjLMWF6CDpOk2g4R9gfjaCxD1ri0X22MAVeY=
+        SUEnableAutomaticChecks: true
         LSMinimumSystemVersion: "14.0"

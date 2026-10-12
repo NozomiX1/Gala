@@ -19,6 +19,8 @@ enum SidebarCategory: String, CaseIterable {
 }
 
 struct ContentView: View {
+    let onCheckForUpdates: () -> Void
+
     @State private var viewModel = LibraryViewModel()
     @State private var selectedCategory: SidebarCategory = .all
     @State private var showingAddGame = false
@@ -70,7 +72,10 @@ struct ContentView: View {
             await viewModel.loadInitialState()
         }
         .sheet(isPresented: $showingRuntimeEnvironment) {
-            RuntimeEnvironmentView(wineManager: viewModel.wineManagerInstance) { change in
+            RuntimeEnvironmentView(
+                wineManager: viewModel.wineManagerInstance,
+                onCheckForUpdates: onCheckForUpdates
+            ) { change in
                 switch change {
                 case .dependenciesRepaired:
                     didResetAllApplicationData = false

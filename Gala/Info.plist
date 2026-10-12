@@ -19,8 +19,14 @@
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
-	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<string>$(MARKETING_VERSION)</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://github.com/NozomiX1/Gala/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>KJKBiYQmjLMWF6CDpOk2g4R9gfjaCxD1ri0X22MAVeY=</string>
 </dict>
 </plist>
