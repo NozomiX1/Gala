@@ -33,20 +33,15 @@ public struct VNDBProducer: Decodable, Sendable {
     public let name: String
 }
 
-/// Extra facts about one visual novel, fetched when its page is opened.
+/// The part of a visual novel's VNDB entry that the game page shows beyond the search result.
 public struct VNDBDetail: Decodable, Sendable {
     public let lengthMinutes: Int?
+    public let votecount: Int?
     public let titles: [VNDBTitle]?
-    public let screenshots: [VNDBScreenshot]?
 
     enum CodingKeys: String, CodingKey {
         case lengthMinutes = "length_minutes"
-        case titles, screenshots
-    }
-
-    /// Screenshots VNDB's voters flagged as neither sexual nor violent. Anything else is never shown.
-    public var safeScreenshots: [VNDBScreenshot] {
-        (screenshots ?? []).filter { $0.sexual == 0 && $0.violence == 0 }
+        case votecount, titles
     }
 
     /// The Chinese title, Simplified before Traditional.
@@ -63,10 +58,14 @@ public struct VNDBTitle: Decodable, Sendable {
     public let title: String
 }
 
-public struct VNDBScreenshot: Decodable, Hashable, Sendable {
-    public let url: String
-    public let sexual: Double
-    public let violence: Double
+public struct VNDBReleaseLanguage: Decodable, Sendable {
+    public let lang: String
+    public let mtl: Bool?
+
+    public init(lang: String, mtl: Bool? = nil) {
+        self.lang = lang
+        self.mtl = mtl
+    }
 }
 
 public struct VNDBRelease: Decodable, Sendable {
@@ -75,18 +74,24 @@ public struct VNDBRelease: Decodable, Sendable {
     public let engine: String?
     public let platforms: [String]?
     public let patch: Bool?
+    public let official: Bool?
+    public let languages: [VNDBReleaseLanguage]?
 
     public init(
         id: String,
         title: String?,
         engine: String?,
         platforms: [String]?,
-        patch: Bool? = nil
+        patch: Bool? = nil,
+        official: Bool? = nil,
+        languages: [VNDBReleaseLanguage]? = nil
     ) {
         self.id = id
         self.title = title
         self.engine = engine
         self.platforms = platforms
         self.patch = patch
+        self.official = official
+        self.languages = languages
     }
 }

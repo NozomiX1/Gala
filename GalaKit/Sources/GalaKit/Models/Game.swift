@@ -15,6 +15,40 @@ public enum GameStatus: String, Codable, CaseIterable, Sendable {
     }
 }
 
+/// Whether a visual novel can be played in Chinese, as far as VNDB's release list knows.
+public enum ChineseAvailability: String, Codable, Sendable {
+    case official, fan, none
+
+    public init(from decoder: Decoder) throws {
+        let rawValue = try decoder.singleValueContainer().decode(String.self)
+        self = ChineseAvailability(rawValue: rawValue) ?? .none
+    }
+
+    /// Official beats fan-made; machine translations count as neither.
+    public static func from(chineseReleases releases: [VNDBRelease]) -> ChineseAvailability {
+        let translated = releases.filter { release in
+            (release.languages ?? []).contains { $0.lang.hasPrefix("zh") && $0.mtl != true }
+        }
+        if translated.contains(where: { $0.official == true }) { return .official }
+        return translated.isEmpty ? .none : .fan
+    }
+}
+
+/// Facts about a visual novel looked up on VNDB once and then stored with the game.
+public struct VNDBFacts: Equatable, Sendable {
+    public var chineseTitle: String?
+    public var voteCount: Int?
+    public var lengthMinutes: Int?
+    public var chineseAvailability: ChineseAvailability
+
+    public init(chineseTitle: String?, voteCount: Int?, lengthMinutes: Int?, chineseAvailability: ChineseAvailability) {
+        self.chineseTitle = chineseTitle
+        self.voteCount = voteCount
+        self.lengthMinutes = lengthMinutes
+        self.chineseAvailability = chineseAvailability
+    }
+}
+
 public struct Game: Identifiable, Codable, Sendable {
     public var id: UUID
     public var title: String
@@ -27,6 +61,11 @@ public struct Game: Identifiable, Codable, Sendable {
     public var lastPlayedAt: Date?
     public var addedAt: Date
     public var rating: Double?
+    public var voteCount: Int?
+    public var lengthMinutes: Int?
+    public var chineseTitle: String?
+    /// Nil until the VNDB facts have been fetched for this game.
+    public var chineseAvailability: ChineseAvailability?
     public var developer: String?
     public var releasedAt: String?
     public var description: String?
@@ -94,6 +133,10 @@ public struct Game: Identifiable, Codable, Sendable {
         lastPlayedAt = try container.decodeIfPresent(Date.self, forKey: .lastPlayedAt)
         addedAt = try container.decodeIfPresent(Date.self, forKey: .addedAt) ?? Date()
         rating = try container.decodeIfPresent(Double.self, forKey: .rating)
+        voteCount = try container.decodeIfPresent(Int.self, forKey: .voteCount)
+        lengthMinutes = try container.decodeIfPresent(Int.self, forKey: .lengthMinutes)
+        chineseTitle = try container.decodeIfPresent(String.self, forKey: .chineseTitle)
+        chineseAvailability = try container.decodeIfPresent(ChineseAvailability.self, forKey: .chineseAvailability)
         developer = try container.decodeIfPresent(String.self, forKey: .developer)
         releasedAt = try container.decodeIfPresent(String.self, forKey: .releasedAt)
         description = try container.decodeIfPresent(String.self, forKey: .description)
@@ -110,5 +153,12 @@ public struct Game: Identifiable, Codable, Sendable {
         bottleConfig = try container.decode(BottleConfig.self, forKey: .bottleConfig)
         isRuntimeConfigured = try container.decodeIfPresent(Bool.self, forKey: .isRuntimeConfigured)
             ?? !bottleConfig.prefixPath.isEmpty
+    }
+
+    public mutating func apply(_ facts: VNDBFacts) {
+        chineseTitle = facts.chineseTitle
+        voteCount = facts.voteCount
+        lengthMinutes = facts.lengthMinutes
+        chineseAvailability = facts.chineseAvailability
     }
 }

@@ -152,24 +152,24 @@ struct GameMenuItems: View {
     let game: Game
     let library: LibraryViewModel
     let gameVM: GameViewModel
+    /// The detail page has its own buttons for favourite and completed.
+    var includesToggles = true
 
     var body: some View {
         Button("更改启动文件…", action: changeExecutable)
 
         Divider()
 
-        Button(game.isFavorite ? "取消收藏" : "收藏") {
-            var updated = game
-            updated.isFavorite.toggle()
-            library.updateGame(updated)
-        }
-        Button(game.status == .completed ? "取消通关标记" : "标记为已通关") {
-            var updated = game
-            updated.status = game.status == .completed ? .backlog : .completed
-            library.updateGame(updated)
-        }
+        if includesToggles {
+            Button(game.isFavorite ? "取消收藏" : "收藏") {
+                library.toggleFavorite(game)
+            }
+            Button(game.status == .completed ? "取消通关标记" : "标记为已通关") {
+                library.toggleCompleted(game)
+            }
 
-        Divider()
+            Divider()
+        }
 
         if game.isRuntimeConfigured {
             Button("移除运行环境") {

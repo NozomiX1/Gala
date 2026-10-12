@@ -30,8 +30,6 @@ final class LibraryViewModel {
     var didResetAllApplicationData = false
 
     private let covers = NSCache<NSString, NSImage>()
-    // shortcut: VNDB details live in memory only, so the game page needs a connection to show them; store them with the game if that turns out to matter.
-    private var details: [String: VNDBDetail] = [:]
     private let libraryStore: LibraryStore
     private let wineManager: WineManager
     let imageCache: ImageCache
@@ -68,16 +66,14 @@ final class LibraryViewModel {
         return image
     }
 
-    func detail(for game: Game) -> VNDBDetail? {
-        game.vndbId.flatMap { details[$0] }
-    }
-
+    /// Fetches the VNDB facts for a game added before they were stored, then saves them. Retries next time if offline.
     @MainActor
-    func loadDetail(for game: Game) async {
-        guard let id = game.vndbId, details[id] == nil else { return }
-        if let detail = try? await vndbClient.getDetail(vnId: id) {
-            details[id] = detail
-        }
+    func loadFactsIfMissing(for game: Game) async {
+        guard let id = game.vndbId, game.chineseAvailability == nil,
+              let facts = try? await vndbClient.getFacts(vnId: id),
+              var current = games.first(where: { $0.id == game.id }) else { return }
+        current.apply(facts)
+        updateGame(current)
     }
 
     /// The cover that tints the wall: the most recently played game's, else the first one that has art.
@@ -228,6 +224,18 @@ final class LibraryViewModel {
             games[index] = game
             saveLibrary()
         }
+    }
+
+    func toggleFavorite(_ game: Game) {
+        var updated = game
+        updated.isFavorite.toggle()
+        updateGame(updated)
+    }
+
+    func toggleCompleted(_ game: Game) {
+        var updated = game
+        updated.status = game.status == .completed ? .backlog : .completed
+        updateGame(updated)
     }
 
     func recordPlayTime(gameId: UUID, duration: TimeInterval) {

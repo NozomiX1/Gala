@@ -16,7 +16,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - New main window: a wall of covers with the filters in the toolbar and no sidebar; clicking a cover opens the game's own page, which uses the cover art as a dark backdrop. Controls use the system glass material on macOS 26 and later and an ordinary material on older systems.
 - The runtime environment sheet is now a standard Settings window (⌘,) with General, Runtime, and Data tabs; the two destructive actions sit on their own tab.
 - Covers show the original-script title instead of the romanised one.
-- The game page shows the Chinese title, up to three screenshots, and the average time to finish, all from VNDB. Only screenshots with no sexual or violent content flag are shown; clicking one enlarges it.
+- The game page shows the Chinese title, the developer and release date, the VNDB rating with its vote count, the average time to finish, whether a Chinese version exists (official, fan translation, or none), and the engine. These are fetched from VNDB when a game is added and stored with it; games added earlier fetch them the first time their page is opened.
+- Favourite and completed are icon buttons next to the launch button on the game page.
 - Games can be added by dropping a game folder or an .exe onto the window.
 - Adding a game opens the file picker straight away, then a redesigned sheet for matching it against VNDB.
 - Ren'Py, RPG Maker, and Unity games now run through Wine in the `common` profile. Native launch only worked when a `.app` sat next to the selected exe and otherwise left the game unlaunchable. Existing entries on those engines go back to "配置环境".

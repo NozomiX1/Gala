@@ -13,9 +13,16 @@ public final class VNDBClient: Sendable {
         return try await post(endpoint: "vn", body: body)
     }
 
-    public func getDetail(vnId: String) async throws -> VNDBDetail? {
-        let response: VNDBResponse<VNDBDetail> = try await post(endpoint: "vn", body: Self.detailRequestBody(vnId: vnId))
-        return response.results.first
+    /// Looks up what the game page shows beyond the search result: two requests, one result.
+    public func getFacts(vnId: String) async throws -> VNDBFacts {
+        let detail: VNDBResponse<VNDBDetail> = try await post(endpoint: "vn", body: Self.detailRequestBody(vnId: vnId))
+        let chinese: VNDBResponse<VNDBRelease> = try await post(endpoint: "release", body: Self.chineseReleasesRequestBody(vnId: vnId))
+        return VNDBFacts(
+            chineseTitle: detail.results.first?.chineseTitle,
+            voteCount: detail.results.first?.votecount,
+            lengthMinutes: detail.results.first?.lengthMinutes,
+            chineseAvailability: .from(chineseReleases: chinese.results)
+        )
     }
 
     public func getReleases(vnId: String) async throws -> [VNDBRelease] {
@@ -42,7 +49,16 @@ public final class VNDBClient: Sendable {
     static func detailRequestBody(vnId: String) -> Data {
         let body: [String: Any] = [
             "filters": ["id", "=", vnId],
-            "fields": "length_minutes, titles{lang,title}, screenshots{url,sexual,violence}"
+            "fields": "length_minutes, votecount, titles{lang,title}"
+        ]
+        return try! JSONSerialization.data(withJSONObject: body)
+    }
+
+    static func chineseReleasesRequestBody(vnId: String) -> Data {
+        let body: [String: Any] = [
+            "filters": ["and", ["vn", "=", ["id", "=", vnId]], ["or", ["lang", "=", "zh-Hans"], ["lang", "=", "zh-Hant"]]],
+            "fields": "id, official, patch, languages{lang,mtl}",
+            "results": 100
         ]
         return try! JSONSerialization.data(withJSONObject: body)
     }

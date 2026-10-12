@@ -157,6 +157,12 @@ struct AddGameView: View {
                 }
             }
 
+            var facts: VNDBFacts?
+            if let vn {
+                addingStatus = "获取游戏信息..."
+                facts = try? await viewModel.vndbClient.getFacts(vnId: vn.id)
+            }
+
             addingStatus = "检测引擎信息..."
             var engine = await engineDetection?.value
             if engine == nil, let vn, let releases = try? await viewModel.vndbClient.getReleases(vnId: vn.id) {
@@ -168,7 +174,7 @@ struct AddGameView: View {
             }
             let resolvedEngine = engine ?? .unknown
 
-            viewModel.addGame(Game(
+            var game = Game(
                 id: gameId,
                 title: vn.map { $0.alttitle ?? $0.title } ?? gameDirectory.lastPathComponent,
                 originalTitle: vn?.alttitle != nil ? vn?.title : nil,
@@ -184,7 +190,9 @@ struct AddGameView: View {
                 runtimeProfileMigrationVersion: RuntimeProfileMigration.currentRulesVersion,
                 runtimeProfileMigrationExecutablePath: executable.path,
                 bottleConfig: BottleConfig(prefixPath: viewModel.bottleManager.prefixPath(for: resolvedEngine))
-            ))
+            )
+            if let facts { game.apply(facts) }
+            viewModel.addGame(game)
             dismiss()
         }
     }
