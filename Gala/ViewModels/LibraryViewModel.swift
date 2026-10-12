@@ -4,6 +4,21 @@ import OSLog
 
 private let startupLogger = Logger(subsystem: "com.nozomi.gala", category: "Startup")
 
+enum RuntimeEnvironmentChange {
+    case dependenciesRepaired
+    case wineConfigurationReset
+    case allApplicationDataReset
+}
+
+enum LibraryFilter: String, CaseIterable, Identifiable {
+    case all = "全部"
+    case recent = "最近"
+    case favorites = "收藏"
+    case completed = "已通关"
+
+    var id: Self { self }
+}
+
 @Observable
 final class LibraryViewModel {
     var games: [Game] = []
@@ -12,7 +27,9 @@ final class LibraryViewModel {
     var isRuntimeEnvironmentReady = false
     var isLoadingInitialState = true
     var libraryLoadErrorMessage: String?
+    var didResetAllApplicationData = false
 
+    private let covers = NSCache<NSString, NSImage>()
     private let libraryStore: LibraryStore
     private let wineManager: WineManager
     let imageCache: ImageCache
@@ -24,17 +41,57 @@ final class LibraryViewModel {
         games.first { $0.id == selectedGameId }
     }
 
-    var filteredGames: [Game] {
-        if searchText.isEmpty { return games }
-        return games.filter {
+    func games(matching filter: LibraryFilter) -> [Game] {
+        let found = searchText.isEmpty ? games : games.filter {
             $0.title.localizedCaseInsensitiveContains(searchText) ||
             ($0.originalTitle?.localizedCaseInsensitiveContains(searchText) ?? false)
         }
+        switch filter {
+        case .all: return found
+        case .recent:
+            return found.filter { $0.lastPlayedAt != nil }
+                .sorted { ($0.lastPlayedAt ?? .distantPast) > ($1.lastPlayedAt ?? .distantPast) }
+        case .favorites: return found.filter(\.isFavorite)
+        case .completed: return found.filter { $0.status == .completed }
+        }
+    }
+
+    /// Decoded cover art, kept in memory so views do not decode it on every redraw.
+    func cover(for game: Game) -> NSImage? {
+        guard let path = game.coverImagePath else { return nil }
+        let key = URL(fileURLWithPath: path).lastPathComponent
+        if let cached = covers.object(forKey: key as NSString) { return cached }
+        guard let data = imageCache.load(forKey: key), let image = NSImage(data: data) else { return nil }
+        covers.setObject(image, forKey: key as NSString)
+        return image
+    }
+
+    /// The cover that tints the wall: the most recently played game's, else the first one that has art.
+    var ambientCover: NSImage? {
+        let byRecency = games.sorted { ($0.lastPlayedAt ?? .distantPast) > ($1.lastPlayedAt ?? .distantPast) }
+        return byRecency.lazy.compactMap { self.cover(for: $0) }.first
+    }
+
+    func apply(_ change: RuntimeEnvironmentChange) {
+        switch change {
+        case .dependenciesRepaired:
+            didResetAllApplicationData = false
+        case .wineConfigurationReset:
+            markWineRuntimesUnconfigured()
+        case .allApplicationDataReset:
+            covers.removeAllObjects()
+            loadLibrary()
+            selectedGameId = nil
+            didResetAllApplicationData = true
+        }
+        refreshRuntimeEnvironmentStatus()
     }
 
     init() {
-        let baseURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Gala")
+        // GALA_HOME points development runs at a throwaway data directory.
+        let baseURL = ProcessInfo.processInfo.environment["GALA_HOME"].map { URL(fileURLWithPath: $0) }
+            ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("Gala")
         try? FileManager.default.createDirectory(at: baseURL, withIntermediateDirectories: true)
 
         self.libraryStore = LibraryStore(baseURL: baseURL)

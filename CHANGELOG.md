@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - In-app updates through Sparkle: Gala checks for new versions, shows the release notes, and downloads and installs the update. Updates are verified against Gala's own signing key.
 
 ### Changed
+- New main window: a wall of covers with the filters in the toolbar and no sidebar; clicking a cover opens the game's own page, which uses the cover art as a dark backdrop. Controls use the system glass material on macOS 26 and later and an ordinary material on older systems.
+- The runtime environment sheet is now a standard Settings window (⌘,) with General, Runtime, and Data tabs; the two destructive actions sit on their own tab.
+- Covers show the original-script title instead of the romanised one.
+- Games can be added by dropping a game folder or an .exe onto the window.
 - Ren'Py, RPG Maker, and Unity games now run through Wine in the `common` profile. Native launch only worked when a `.app` sat next to the selected exe and otherwise left the game unlaunchable. Existing entries on those engines go back to "配置环境".
 - `Gala.xcodeproj` is no longer committed; generate it with `xcodegen generate`.
 - The bundle build number now equals the version number.

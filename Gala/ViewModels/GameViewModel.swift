@@ -8,12 +8,17 @@ final class GameViewModel {
     var setupStatus = ""
     var setupProgress: Double?
     var errorMessage: String?
+    /// The game the state above belongs to. Only one game is configured or running at a time.
+    private(set) var activeGameID: UUID?
 
     private let wineProcess = WineProcess()
+
+    var isBusy: Bool { isRunning || isSettingUp }
 
     func configureRuntime(for game: Game, viewModel: LibraryViewModel) {
         guard !isRunning && !isSettingUp else { return }
 
+        activeGameID = game.id
         errorMessage = nil
         let runtime = GameRuntime(wineManager: viewModel.wineManagerInstance)
 
@@ -43,6 +48,7 @@ final class GameViewModel {
     func launchGame(_ game: Game, viewModel: LibraryViewModel) {
         guard !isRunning && !isSettingUp else { return }
 
+        activeGameID = game.id
         let wineManager = viewModel.wineManagerInstance
         let runtime = GameRuntime(wineManager: wineManager)
 

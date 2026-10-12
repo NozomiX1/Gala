@@ -1,158 +1,191 @@
 import SwiftUI
 import GalaKit
 
+/// One game's page: its cover blurred into a dark backdrop, the essentials centred on top.
 struct GameDetailView: View {
     let game: Game
-    let viewModel: LibraryViewModel
-    @State private var gameVM = GameViewModel()
+    let library: LibraryViewModel
+    let gameVM: GameViewModel
+
+    private var isActive: Bool { gameVM.activeGameID == game.id }
+    private var isRunning: Bool { isActive && gameVM.isRunning }
+    private var isSettingUp: Bool { isActive && gameVM.isSettingUp }
+    private var errorMessage: String? { isActive ? gameVM.errorMessage : nil }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                HStack(alignment: .top, spacing: 20) {
-                    coverImage
-                        .frame(width: 200, height: 283)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                        .shadow(radius: 4)
+        let cover = library.cover(for: game)
+        GeometryReader { proxy in
+            ScrollView {
+                HStack(alignment: .center, spacing: 46) {
+                    CoverArt(title: game.title, image: cover)
+                        .frame(width: 250, height: 353)
+                        .shadow(color: .black.opacity(0.5), radius: 30, y: 18)
 
-                    VStack(alignment: .leading, spacing: 8) {
-                        if let originalTitle = game.originalTitle {
-                            Text(originalTitle)
-                                .font(.title.bold())
-                            Text(game.title)
-                                .font(.title3)
-                                .foregroundStyle(.secondary)
-                        } else {
-                            Text(game.title)
-                                .font(.title.bold())
-                        }
-
-                        if let developer = game.developer {
-                            Text(developer)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        if let engine = game.engine {
-                            Label(engine.displayName, systemImage: "gearshape")
-                                .font(.caption)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .background(.blue.opacity(0.1))
-                                .clipShape(Capsule())
-                        }
-
-                        Spacer()
-
-                        if gameVM.isSettingUp {
-                            VStack(spacing: 4) {
-                                if let setupProgress = gameVM.setupProgress {
-                                    ProgressView(value: setupProgress)
-                                        .frame(width: 160)
-                                } else {
-                                    ProgressView()
-                                }
-                                Text(gameVM.setupStatus)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .multilineTextAlignment(.center)
-                                    .frame(width: 200)
-                            }
-                        } else {
-                            Button {
-                                if game.isRuntimeConfigured {
-                                    gameVM.launchGame(game, viewModel: viewModel)
-                                } else {
-                                    gameVM.configureRuntime(for: game, viewModel: viewModel)
-                                }
-                            } label: {
-                                Label(
-                                    primaryButtonTitle,
-                                    systemImage: primaryButtonIcon
-                                )
-                                .frame(width: 130)
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .controlSize(.large)
-                            .disabled(gameVM.isRunning)
-                        }
-
-                        if let error = gameVM.errorMessage {
-                            Text(error)
-                                .font(.caption)
-                                .foregroundStyle(.red)
-                                .textSelection(.enabled)
-                        }
-                    }
+                    info
+                        .frame(maxWidth: 430, alignment: .leading)
                 }
-
-                Divider()
-
-                HStack(spacing: 30) {
-                    statItem(label: "游玩时间", value: formatPlayTime(game.totalPlayTime))
-                    if let lastPlayed = game.lastPlayedAt {
-                        statItem(label: "上次游玩", value: lastPlayed.formatted(date: .abbreviated, time: .omitted))
-                    }
-                    if let rating = game.rating {
-                        statItem(label: "VNDB 评分", value: String(format: "%.0f", rating))
-                    }
-                }
-
-                if let description = game.description {
-                    Text("简介")
-                        .font(.headline)
-                    Text(description)
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                }
+                .padding(48)
+                .frame(minWidth: proxy.size.width, minHeight: proxy.size.height)
             }
-            .padding(24)
         }
+        .background { AmbientBackground(image: cover, style: .detail) }
+        // The page keeps its dark look in the light appearance too.
+        .environment(\.colorScheme, .dark)
+        .toolbarColorScheme(.dark, for: .windowToolbar)
+        .toolbarBackground(.hidden, for: .windowToolbar)
+        .hidingWindowTitle()
     }
 
-    @ViewBuilder
-    private var coverImage: some View {
-        if let coverPath = game.coverImagePath,
-           let data = viewModel.imageCache.load(forKey: URL(fileURLWithPath: coverPath).lastPathComponent),
-           let nsImage = NSImage(data: data) {
-            Image(nsImage: nsImage)
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-        } else {
-            ZStack {
-                LinearGradient(
-                    colors: [.purple.opacity(0.3), .blue.opacity(0.3)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                Image(systemName: "gamecontroller")
-                    .font(.system(size: 40))
+    private var info: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(game.title)
+                .font(.system(size: 31, weight: .semibold))
+                .fixedSize(horizontal: false, vertical: true)
+            if let developer = game.developer {
+                Text(developer)
+                    .font(.title3)
                     .foregroundStyle(.secondary)
+                    .padding(.top, 4)
+            }
+
+            statusLine
+                .padding(.top, 14)
+
+            HStack(spacing: 10) {
+                Button(action: primaryAction) {
+                    Label(primaryTitle, systemImage: game.isRuntimeConfigured ? "play.fill" : "wrench.and.screwdriver.fill")
+                        .frame(minWidth: 76)
+                }
+                .galaButtonStyle(prominent: true)
+                .disabled(gameVM.isBusy)
+
+                Menu {
+                    GameMenuItems(game: game, library: library, gameVM: gameVM)
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .frame(width: 18, height: 18)
+                }
+                .menuIndicator(.hidden)
+                .galaButtonStyle()
+                .buttonBorderShape(.circle)
+                .fixedSize()
+                .help("更多")
+            }
+            .controlSize(.large)
+            .padding(.top, 18)
+
+            if isSettingUp {
+                progressPanel
+                    .padding(.top, 16)
+            } else if let errorMessage {
+                errorPanel(errorMessage)
+                    .padding(.top, 16)
+            }
+
+            stats
+                .padding(.top, 22)
+
+            if let description = game.description, !description.isEmpty {
+                Text(Self.plainText(description))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .lineSpacing(4)
+                    .lineLimit(7)
+                    .padding(.top, 20)
             }
         }
+        .foregroundStyle(.white)
     }
 
-    private func statItem(label: String, value: String) -> some View {
-        VStack(spacing: 4) {
-            Text(value).font(.headline)
-            Text(label).font(.caption).foregroundStyle(.secondary)
+    private var statusLine: some View {
+        let (color, text): (Color, String) = {
+            if isRunning { return (.green, "运行中") }
+            if isSettingUp { return (.blue, "正在配置运行环境") }
+            if errorMessage != nil { return (.orange, "上次没能启动") }
+            guard game.isRuntimeConfigured else { return (.gray, "还没有配置运行环境") }
+            return (.green, "就绪 · \(game.engine?.displayName ?? "未识别引擎")")
+        }()
+        return HStack(spacing: 7) {
+            Circle()
+                .fill(color)
+                .frame(width: 7, height: 7)
+            Text(text)
+                .foregroundStyle(.secondary)
         }
     }
 
-    private var primaryButtonTitle: String {
-        if gameVM.isRunning { return "运行中..." }
+    private var primaryTitle: String {
+        if isRunning { return "运行中" }
+        if isSettingUp { return "配置中" }
         return game.isRuntimeConfigured ? "启动" : "配置环境"
     }
 
-    private var primaryButtonIcon: String {
-        if gameVM.isRunning { return "stop.circle" }
-        return game.isRuntimeConfigured ? "play.fill" : "wrench.and.screwdriver"
+    private func primaryAction() {
+        if game.isRuntimeConfigured {
+            gameVM.launchGame(game, viewModel: library)
+        } else {
+            gameVM.configureRuntime(for: game, viewModel: library)
+        }
     }
 
-    private func formatPlayTime(_ seconds: TimeInterval) -> String {
-        let hours = Int(seconds) / 3600
-        let minutes = (Int(seconds) % 3600) / 60
-        if hours > 0 { return "\(hours)小时\(minutes)分钟" }
-        if minutes > 0 { return "\(minutes)分钟" }
-        return "未游玩"
+    private var stats: some View {
+        HStack(spacing: 30) {
+            stat("游玩时间", PlayTime.text(game.totalPlayTime))
+            stat("上次游玩", game.lastPlayedAt?.formatted(.relative(presentation: .named).locale(Locale(identifier: "zh_CN"))) ?? "—")
+            if let rating = game.rating {
+                stat("VNDB 评分", String(format: "%.0f", rating))
+            }
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 11)
+        .galaGlass(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private func stat(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.callout.weight(.medium))
+        }
+    }
+
+    private var progressPanel: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let progress = gameVM.setupProgress {
+                ProgressView(value: progress)
+            } else {
+                ProgressView()
+                    .progressViewStyle(.linear)
+            }
+            Text(gameVM.setupStatus)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .galaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private func errorPanel(_ message: String) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text("没能启动")
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(.orange)
+            Text(message)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .lineLimit(8)
+                .textSelection(.enabled)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .galaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    /// VNDB descriptions carry BBCode such as [url=...]...[/url]; show only the words.
+    static func plainText(_ description: String) -> String {
+        description.replacingOccurrences(of: #"\[/?[a-zA-Z]+(=[^\]]*)?\]"#, with: "", options: .regularExpression)
     }
 }

@@ -3,6 +3,9 @@ import SwiftUI
 
 @main
 struct GalaApp: App {
+    @State private var library = LibraryViewModel()
+    @State private var gameVM = GameViewModel()
+
     private let updaterController = SPUStandardUpdaterController(
         startingUpdater: true,
         updaterDelegate: nil,
@@ -10,15 +13,18 @@ struct GalaApp: App {
     )
 
     var body: some Scene {
-        WindowGroup {
-            ContentView(onCheckForUpdates: updaterController.updater.checkForUpdates)
+        Window("Gala", id: "main") {
+            ContentView(library: library, gameVM: gameVM)
         }
-        .windowStyle(.automatic)
-        .defaultSize(width: 1000, height: 650)
+        .defaultSize(width: 1100, height: 720)
         .commands {
             CommandGroup(after: .appInfo) {
                 CheckForUpdatesCommand(updater: updaterController.updater)
             }
+        }
+
+        Settings {
+            SettingsView(library: library, updater: updaterController.updater)
         }
     }
 }

@@ -2,65 +2,45 @@ import SwiftUI
 import GalaKit
 import UniformTypeIdentifiers
 
-enum SidebarCategory: String, CaseIterable {
-    case all = "全部游戏"
-    case recent = "最近游玩"
-    case favorites = "收藏"
-    case completed = "已通关"
-
-    var icon: String {
-        switch self {
-        case .recent: return "clock"
-        case .all: return "gamecontroller"
-        case .favorites: return "star"
-        case .completed: return "checkmark.circle"
-        }
-    }
-}
-
 struct ContentView: View {
-    let onCheckForUpdates: () -> Void
+    @Bindable var library: LibraryViewModel
+    let gameVM: GameViewModel
 
-    @State private var viewModel = LibraryViewModel()
-    @State private var selectedCategory: SidebarCategory = .all
-    @State private var showingAddGame = false
-    @State private var showingRuntimeEnvironment = false
-    @State private var gameVM = GameViewModel()
-    @State private var changeExeGame: Game?
-    @State private var didResetAllApplicationData = false
+    @State private var path: [UUID] = []
+    @State private var filter: LibraryFilter = .all
+    @State private var addGameRequest: AddGameRequest?
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         Group {
-            if viewModel.isLoadingInitialState {
+            if library.isLoadingInitialState {
                 startupLoadingView
             } else {
                 switch RuntimeEnvironmentEntryPolicy.presentation(
-                    isRuntimeEnvironmentReady: viewModel.isRuntimeEnvironmentReady,
-                    didResetAllApplicationData: didResetAllApplicationData
+                    isRuntimeEnvironmentReady: library.isRuntimeEnvironmentReady,
+                    didResetAllApplicationData: library.didResetAllApplicationData
                 ) {
                 case .prepareEnvironment:
                     WelcomeView(
-                        wineManager: viewModel.wineManagerInstance,
+                        wineManager: library.wineManagerInstance,
                         onComplete: {
-                            didResetAllApplicationData = false
-                            viewModel.refreshRuntimeEnvironmentStatus()
+                            library.didResetAllApplicationData = false
+                            library.refreshRuntimeEnvironmentStatus()
                         },
-                        onOpenEnvironment: {
-                            showingRuntimeEnvironment = true
-                        }
+                        onOpenEnvironment: { openSettings() }
                     )
                 case .resetComplete:
                     ResetCompleteView(
                         onInstallRuntime: {
-                            didResetAllApplicationData = false
-                            viewModel.refreshRuntimeEnvironmentStatus()
+                            library.didResetAllApplicationData = false
+                            library.refreshRuntimeEnvironmentStatus()
                         },
                         onQuit: {
                             NSApplication.shared.terminate(nil)
                         }
                     )
                 case .library:
-                    if let errorMessage = viewModel.libraryLoadErrorMessage {
+                    if let errorMessage = library.libraryLoadErrorMessage {
                         libraryErrorView(errorMessage)
                     } else {
                         mainContent
@@ -68,27 +48,36 @@ struct ContentView: View {
                 }
             }
         }
+        .frame(minWidth: 820, minHeight: 540)
         .task {
-            await viewModel.loadInitialState()
+            await library.loadInitialState()
+            #if DEBUG
+            applyDebugLaunchOptions()
+            #endif
         }
-        .sheet(isPresented: $showingRuntimeEnvironment) {
-            RuntimeEnvironmentView(
-                wineManager: viewModel.wineManagerInstance,
-                onCheckForUpdates: onCheckForUpdates
-            ) { change in
-                switch change {
-                case .dependenciesRepaired:
-                    didResetAllApplicationData = false
-                case .wineConfigurationReset:
-                    viewModel.markWineRuntimesUnconfigured()
-                case .allApplicationDataReset:
-                    viewModel.loadLibrary()
-                    viewModel.selectedGameId = nil
-                    didResetAllApplicationData = true
-                    showingRuntimeEnvironment = false
+    }
+
+    private var mainContent: some View {
+        NavigationStack(path: $path) {
+            LibraryView(
+                library: library,
+                gameVM: gameVM,
+                filter: $filter,
+                onOpen: { path = [$0.id] },
+                onAdd: { addGameRequest = AddGameRequest(droppedURL: $0) }
+            )
+            .navigationDestination(for: UUID.self) { id in
+                if let game = library.games.first(where: { $0.id == id }) {
+                    GameDetailView(game: game, library: library, gameVM: gameVM)
                 }
-                viewModel.refreshRuntimeEnvironmentStatus()
             }
+        }
+        .sheet(item: $addGameRequest) { request in
+            AddGameView(viewModel: library, droppedURL: request.droppedURL)
+        }
+        .onChange(of: library.games.map(\.id)) { _, ids in
+            // Leave the detail page of a game that was just removed.
+            path.removeAll { !ids.contains($0) }
         }
     }
 
@@ -100,92 +89,7 @@ struct ContentView: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }
-        .frame(minWidth: 500, minHeight: 400)
-    }
-
-    private var mainContent: some View {
-        NavigationSplitView {
-            List(SidebarCategory.allCases, id: \.self, selection: $selectedCategory) { category in
-                Label(category.rawValue, systemImage: category.icon)
-            }
-            .listStyle(.sidebar)
-            .navigationSplitViewColumnWidth(min: 150, ideal: 180)
-        } content: {
-            GameGridView(
-                games: filteredByCategory,
-                selectedGameId: $viewModel.selectedGameId,
-                imageCache: viewModel.imageCache,
-                onLaunch: { game in
-                    gameVM.launchGame(game, viewModel: viewModel)
-                },
-                onConfigureRuntime: { game in
-                    gameVM.configureRuntime(for: game, viewModel: viewModel)
-                },
-                onRemoveRuntime: { game in
-                    viewModel.removeRuntime(for: game)
-                },
-                onRemoveFromLibrary: { game in
-                    if viewModel.selectedGameId == game.id {
-                        viewModel.selectedGameId = nil
-                    }
-                    viewModel.removeFromLibrary(game)
-                },
-                onChangeExe: { game in
-                    changeExeGame = game
-                },
-                onSetStatus: { game, status in
-                    var updated = game
-                    updated.status = status
-                    viewModel.updateGame(updated)
-                },
-                onToggleFavorite: { game in
-                    var updated = game
-                    updated.isFavorite.toggle()
-                    viewModel.updateGame(updated)
-                }
-            )
-            .searchable(text: $viewModel.searchText, prompt: "搜索游戏...")
-            .navigationSplitViewColumnWidth(min: 300, ideal: 500)
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showingRuntimeEnvironment = true
-                    } label: {
-                        Label("运行环境", systemImage: "wrench.and.screwdriver")
-                    }
-                }
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showingAddGame = true
-                    } label: {
-                        Label("添加游戏", systemImage: "plus")
-                    }
-                }
-            }
-        } detail: {
-            if let game = viewModel.selectedGame {
-                GameDetailView(game: game, viewModel: viewModel)
-            } else {
-                Text("选择一个游戏")
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .frame(minWidth: 800, minHeight: 500)
-        .sheet(isPresented: $showingAddGame) {
-            AddGameView(viewModel: viewModel)
-        }
-        .onChange(of: changeExeGame?.id) { _, newValue in
-            guard newValue != nil else { return }
-            let panel = NSOpenPanel()
-            panel.allowedContentTypes = [.exe]
-            panel.canChooseDirectories = false
-            panel.message = "选择新的启动文件"
-            if panel.runModal() == .OK, let url = panel.url, var game = changeExeGame {
-                game.executablePath = url.path
-                viewModel.updateGame(game)
-            }
-            changeExeGame = nil
-        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func libraryErrorView(_ message: String) -> some View {
@@ -206,27 +110,40 @@ struct ContentView: View {
                 .frame(maxWidth: 520)
             HStack {
                 Button("重新读取") {
-                    viewModel.loadLibrary()
+                    library.loadLibrary()
                 }
-                Button("运行环境") {
-                    showingRuntimeEnvironment = true
+                Button("打开设置") {
+                    openSettings()
                 }
             }
         }
         .padding(32)
-        .frame(minWidth: 640, minHeight: 420)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private var filteredByCategory: [Game] {
-        let games = viewModel.filteredGames
-        switch selectedCategory {
-        case .recent:
-            let recent = games.filter { $0.lastPlayedAt != nil }
-                .sorted { ($0.lastPlayedAt ?? .distantPast) > ($1.lastPlayedAt ?? .distantPast) }
-            return recent.isEmpty ? games : recent
-        case .all: return games
-        case .favorites: return games.filter { $0.isFavorite }
-        case .completed: return games.filter { $0.status == .completed }
+    #if DEBUG
+    /// Development-only shortcuts for reaching a screen without clicking, used when capturing screenshots.
+    private func applyDebugLaunchOptions() {
+        let environment = ProcessInfo.processInfo.environment
+        if let appearance = environment["GALA_DEBUG_APPEARANCE"] {
+            NSApp.appearance = NSAppearance(named: appearance == "dark" ? .darkAqua : .aqua)
+        }
+        if let query = environment["GALA_DEBUG_OPEN"],
+           let game = library.games.first(where: { $0.title.localizedCaseInsensitiveContains(query) }) {
+            path = [game.id]
+        }
+        if environment["GALA_DEBUG_SETTINGS"] != nil {
+            openSettings()
+        }
+        if environment["GALA_DEBUG_ACTIVATE"] != nil {
+            NSApp.activate(ignoringOtherApps: true)
         }
     }
+    #endif
+}
+
+/// A request to show the add-game sheet, optionally starting from something dropped on the window.
+struct AddGameRequest: Identifiable {
+    let id = UUID()
+    let droppedURL: URL?
 }

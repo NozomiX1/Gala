@@ -8,6 +8,7 @@ extension UTType {
 
 struct AddGameView: View {
     let viewModel: LibraryViewModel
+    var droppedURL: URL?
     @Environment(\.dismiss) private var dismiss
 
     @State private var step: AddGameStep = .selectFile
@@ -51,6 +52,14 @@ struct AddGameView: View {
             }
         }
         .frame(minWidth: 500, minHeight: 400)
+        .onAppear {
+            guard let droppedURL else { return }
+            if droppedURL.pathExtension.lowercased() == "exe" {
+                use(executable: droppedURL)
+            } else {
+                selectFile(startingIn: droppedURL)
+            }
+        }
     }
 
     private var selectFileView: some View {
@@ -79,15 +88,19 @@ struct AddGameView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private func selectFile() {
+    private func selectFile(startingIn directory: URL? = nil) {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.exe]
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false
         panel.message = "选择游戏的 .exe 文件"
+        panel.directoryURL = directory
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
+        use(executable: url)
+    }
 
+    private func use(executable url: URL) {
         selectedExePath = url.path
         gameDirectory = url.deletingLastPathComponent()
         detectedEngine = nil
