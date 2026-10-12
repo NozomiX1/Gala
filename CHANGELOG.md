@@ -37,7 +37,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - The bundle build number now equals the version number.
 
 ### Fixed
-- Games written for Japanese Windows that pick their text font by name (BGI, for one) can switch between Song and Hei typefaces again: 穢翼のユースティア's 宋体/黑体 option used to change nothing. They are drawn in SimSong and STHeiti, which fit the size those games ask for, when macOS has them installed, and in STSong and Arial Unicode MS otherwise. Applies to runtime environments configured from this version on; to get it in an existing one, clear the Wine configuration in Settings → 数据 and configure again.
+- Games written for Japanese Windows that pick their text font by name (BGI, for one) can switch between Song and Hei typefaces again: 穢翼のユースティア's 宋体/黑体 option used to change nothing. They are drawn in SimSong and STHeiti, which fit the size those games ask for. Both are Apple fonts that macOS downloads on request; Gala asks for them while creating a runtime environment and uses STSong and Arial Unicode MS if that fails. Applies to runtime environments configured from this version on; to get it in an existing one, clear the Wine configuration in Settings → 数据 and configure again.
 - VNDB matches now fill in the game description; the search request never asked for it.
 - `宋体` and `黑体` font substitutes are registered under their real names instead of literal `\u` escape text.
 

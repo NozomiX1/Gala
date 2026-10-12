@@ -160,6 +160,8 @@ Wine、字体、`winetricks`、`cabextract`、DXMT 和 Gala MF Runtime 由 Gala 
 ~/Library/Application Support/Gala/Cache/winetricks
 ```
 
+另外，Gala 在创建运行环境时会请 macOS 下载两个苹果自带清单里的字体（简宋、华文黑体，约 50 MB），用于日本引擎游戏的宋体和黑体显示。它们由系统下载并存放在系统的字体目录里，Gala 不分发这两个字体；下载失败时改用系统已有的字体。
+
 这个缓存可被不同 bottle 复用，清除所有 Gala 本地数据时会一起删除。如果下载失败，「设置」的「运行环境」页会显示缺失，并可一键重新下载。
 
 ## 卸载与空间清理

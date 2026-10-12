@@ -110,3 +110,14 @@ import Foundation
     // And they are part of what every new prefix gets.
     #expect(Set(BottleManager.cjkFontSubstitutes.map(\.sourceName)).isSuperset(of: [mincho, gothic]))
 }
+
+@Test func aMissingFontIsNotMistakenForItsFallback() {
+    #expect(BottleManager.isFontInstalled(postScriptName: "Helvetica"))
+    #expect(!BottleManager.isFontInstalled(postScriptName: "Gala-No-Such-Font"))
+}
+
+@Test func askingForFontsMacOSDoesNotOfferReturnsInsteadOfWaiting() async {
+    let started = Date()
+    await BottleManager.downloadOnDemandFonts(["Gala-No-Such-Font"], timeout: 20)
+    #expect(Date().timeIntervalSince(started) < 15)
+}

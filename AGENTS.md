@@ -39,6 +39,7 @@ Read `docs/runtime-lessons.md` before changing a profile or debugging playback, 
 
 ## Dependencies
 - Gala-managed dependencies download from Gala GitHub release assets, never directly from upstream. Upload the asset first, then reference its URL and sha256 in `WineManager`.
+- Apple's on-demand fonts (SimSong, STHeiti) are the one exception: they cannot be redistributed, so `BottleManager` asks macOS to download them and falls back to fonts every macOS ships.
 - `deps-v1`: Wine Staging 11.6, Source Han Sans SC, winetricks, cabextract.
 - `deps-v2`: DXMT v0.80 builtin.
 - `deps-v3`: Gala MF Runtime for `artemis-mf-d3d11` GStreamer/FFmpeg media handling.
