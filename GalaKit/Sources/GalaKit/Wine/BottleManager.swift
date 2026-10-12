@@ -1,3 +1,4 @@
+import CoreText
 import Foundation
 
 struct FontSubstitute: Sendable {
@@ -730,14 +731,6 @@ public final class BottleManager: @unchecked Sendable {
 
 extension BottleManager {
     private static let cjkUIFaceName = "Source Han Sans SC"
-    /// macOS's own Song typeface, which Wine can see. It has one weight; "Songti SC" has four,
-    /// and Wine picks the heaviest of them for a regular-weight request.
-    private static let cjkSerifFaceName = "STSong"
-    /// A macOS Hei typeface whose average character width is about half its height, like MS Gothic's.
-    /// Games that ask for an explicit width (BGI asks for height 48, width 24) get glyphs squeezed to half size
-    /// from a font that reports a full-width average, which Source Han Sans does.
-    private static let cjkHalfWidthSansFaceName = "Hiragino Sans GB"
-
     /// A font name as a game written for Japanese Windows ends up asking for it in a prefix with the Chinese code page:
     /// its Shift-JIS bytes read as GBK. "ＭＳ 明朝" becomes "俵俽 柧挬".
     static func misreadAsGBK(_ japaneseName: String) -> String? {
@@ -780,18 +773,34 @@ extension BottleManager {
             FontSubstitute(sourceName: "\u{FF2D}\u{FF33} \u{30B4}\u{30B7}\u{30C3}\u{30AF}", targetName: fontName),
             FontSubstitute(sourceName: "\u{FF2D}\u{FF33} \u{FF30}\u{660E}\u{671D}", targetName: fontName),
             FontSubstitute(sourceName: "\u{FF2D}\u{FF33} \u{FF30}\u{30B4}\u{30B7}\u{30C3}\u{30AF}", targetName: fontName),
-        ] + misreadJapaneseFontSubstitutes
+        ] + misreadJapaneseFontSubstitutes(installedFamilies: installedFontFamilies())
     }()
+
+    /// The font families macOS has installed. Wine enumerates the same list, so these are the names a substitute can point at.
+    static func installedFontFamilies() -> Set<String> {
+        Set(CTFontManagerCopyAvailableFontFamilyNames() as? [String] ?? [])
+    }
 
     /// Without these no font matches the misread name, every request falls back to the same default font,
     /// and a game's Mincho/Gothic (宋体/黑体) option changes nothing. Seen with 穢翼のユースティア (BGI).
-    private static let misreadJapaneseFontSubstitutes: [FontSubstitute] = [
-        ("ＭＳ 明朝", cjkSerifFaceName),
-        ("ＭＳ Ｐ明朝", cjkSerifFaceName),
-        ("ＭＳ ゴシック", cjkHalfWidthSansFaceName),
-        ("ＭＳ Ｐゴシック", cjkHalfWidthSansFaceName),
-    ].compactMap { name, target in
-        misreadAsGBK(name).map { FontSubstitute(sourceName: $0, targetName: target) }
+    ///
+    /// Such a game asks for an explicit cell (height 48, width 24), sized for the MS fonts. Wine derives the glyph size
+    /// from the substitute's own line height and its width from the substitute's average character width, so the target
+    /// has to match on both or the text comes out small, squeezed, or overlapping. The first choice of each pair matches;
+    /// it is a font macOS downloads on demand, so it may be absent, and the second choice ships with every macOS.
+    static func misreadJapaneseFontSubstitutes(installedFamilies: Set<String>) -> [FontSubstitute] {
+        // SimSong: size 1.00, width 1.00 of what the game expects. STSong: 1.00 and 1.23, so its glyphs touch.
+        let serif = installedFamilies.contains("SimSong") ? "SimSong" : "STSong"
+        // STHeiti: 1.00 and 1.04. Arial Unicode MS: 0.75 and 1.13, readable but small; it is what Wine fell back to before.
+        let sans = installedFamilies.contains("STHeiti") ? "STHeiti" : "Arial Unicode MS"
+        return [
+            ("ＭＳ 明朝", serif),
+            ("ＭＳ Ｐ明朝", serif),
+            ("ＭＳ ゴシック", sans),
+            ("ＭＳ Ｐゴシック", sans),
+        ].compactMap { name, target in
+            misreadAsGBK(name).map { FontSubstitute(sourceName: $0, targetName: target) }
+        }
     }
 
     static let cjkWindowMetricFonts: [WindowMetricFont] = [

@@ -90,12 +90,23 @@ import Foundation
 
 @Test func japaneseFontNamesMisreadUnderTheChineseCodePageAreMapped() {
     // The exact names 穢翼のユースティア asks for, as traced with WINEDEBUG=+font.
-    #expect(BottleManager.misreadAsGBK("ＭＳ 明朝") == "\u{4FF5}\u{4FFD} \u{67E7}\u{632C}")
-    #expect(BottleManager.misreadAsGBK("ＭＳ ゴシック") == "\u{4FF5}\u{4FFD} \u{50D1}\u{50D4}\u{50E2}\u{50CB}")
+    let mincho = "\u{4FF5}\u{4FFD} \u{67E7}\u{632C}", gothic = "\u{4FF5}\u{4FFD} \u{50D1}\u{50D4}\u{50E2}\u{50CB}"
+    #expect(BottleManager.misreadAsGBK("ＭＳ 明朝") == mincho)
+    #expect(BottleManager.misreadAsGBK("ＭＳ ゴシック") == gothic)
 
-    let targets = Dictionary(uniqueKeysWithValues: BottleManager.cjkFontSubstitutes.map { ($0.sourceName, $0.targetName) })
-    #expect(targets["\u{4FF5}\u{4FFD} \u{67E7}\u{632C}"] == "STSong")
-    #expect(targets["\u{4FF5}\u{4FFD} \u{50D1}\u{50D4}\u{50E2}\u{50CB}"] == "Hiragino Sans GB")
-    // Serif and sans must differ, or the game's font option does nothing again.
-    #expect(targets["\u{4FF5}\u{4FFD} \u{67E7}\u{632C}"] != targets["\u{4FF5}\u{4FFD} \u{50D1}\u{50D4}\u{50E2}\u{50CB}"])
+    func targets(_ installed: Set<String>) -> [String: String] {
+        Dictionary(uniqueKeysWithValues: BottleManager.misreadJapaneseFontSubstitutes(installedFamilies: installed)
+            .map { ($0.sourceName, $0.targetName) })
+    }
+    let best = targets(["SimSong", "STHeiti", "STSong", "Arial Unicode MS"])
+    #expect(best[mincho] == "SimSong")
+    #expect(best[gothic] == "STHeiti")
+
+    // Without the on-demand fonts the two options must still be two different typefaces.
+    let bare = targets(["STSong", "Arial Unicode MS"])
+    #expect(bare[mincho] == "STSong")
+    #expect(bare[gothic] == "Arial Unicode MS")
+
+    // And they are part of what every new prefix gets.
+    #expect(Set(BottleManager.cjkFontSubstitutes.map(\.sourceName)).isSuperset(of: [mincho, gothic]))
 }
