@@ -1,0 +1,26 @@
+name: 分享一个运行环境
+description: 你试出了让某款游戏正常运行的配置
+labels: [needs-triage]
+body:
+  - type: input
+    id: game
+    attributes:
+      label: 游戏
+      description: 原名，最好附上 VNDB 链接。
+    validations:
+      required: true
+  - type: textarea
+    id: profile
+    attributes:
+      label: 运行环境文件
+      description: 运行设置里「把当前配置导出为文件…」得到的内容，或者你自己写的文件。
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: 测试情况
+      description: 机器型号和系统版本；启动、片头、游戏内视频、文字显示是否正常。
+    validations:
+      required: true

@@ -1,0 +1,35 @@
+name: 游戏无法运行或运行不正常
+description: 启动失败、黑屏、视频不播放、乱码等
+labels: [needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        提交之前请先试一下游戏页面的「运行设置」：换开关、换运行环境。README 里有[排查顺序](https://github.com/NozomiX1/Gala#游戏跑不起来怎么办)。
+  - type: input
+    id: game
+    attributes:
+      label: 游戏
+      description: 原名，最好附上 VNDB 链接。汉化版请注明。
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: 发生了什么
+      description: 什么时候出的问题，看到了什么。
+    validations:
+      required: true
+  - type: textarea
+    id: tried
+    attributes:
+      label: 已经试过的设置
+      description: 例如"视频播放方式 → Wine 自带，没有变化"。
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: 求助信息
+      description: 游戏页面的 ··· 菜单 →「复制求助信息…」，把内容粘贴到这里。没有它基本没法判断原因。
+      render: text
+    validations:
+      required: true

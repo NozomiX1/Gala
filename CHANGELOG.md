@@ -30,6 +30,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Ren'Py, RPG Maker, and Unity games now run through Wine in the `common` profile. Native launch only worked when a `.app` sat next to the selected exe and otherwise left the game unlaunchable. Existing entries on those engines go back to "配置环境".
 - The two Artemis D3D11 profiles no longer copy DXMT's DLLs into the prefix or install a native `d3dcompiler_47`: neither had any effect, and the copy replaced the native `quartz` and `amstream` the profile had just installed. A profile now only needs `"wine": "dxmt"`. Prefixes configured by earlier versions stay valid.
 - Launches from the app now keep Wine's error lines in the log (`WINEDEBUG=fixme-all` instead of `-all`), so the first failed launch already has something to show. `gala-cli launch` still records more.
+- The README now states what is verified to run and how to get other games going; the list of verified games is generated into `docs/compatibility.md` from the profile files. Issue templates ask for the help text.
 - `Gala.xcodeproj` is no longer committed; generate it with `xcodegen generate`.
 - The bundle build number now equals the version number.
 

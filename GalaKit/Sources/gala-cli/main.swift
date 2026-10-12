@@ -15,6 +15,7 @@ let usage = """
   configure <游戏>     创建运行环境并安装需要的组件
   launch <游戏>        启动游戏，等它退出，然后报告退出状态和日志位置
   guide                输出排查游戏无法运行时的指南
+  compat               输出已验证游戏的列表（Markdown），用来更新 docs/compatibility.md
 
 <游戏> 可以是标题的一部分，也可以是 list 显示的编号开头。
 运行 use 和 configure 之前请先退出 Gala，两边同时写游戏库会互相覆盖。
@@ -249,6 +250,8 @@ func run() async throws {
         let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "开发版"
         let report = Diagnostics.collect(game: game, appVersion: appVersion, wineManager: WineManager(baseURL: home))
         if json { try printJSON(report) } else { print(report.text) }
+    case "compat":
+        print(ProfileStore.bundled.compatibilityMarkdown, terminator: "")
     case "profiles":
         let wineManager = WineManager(baseURL: home)
         let recipes = wineManager.profiles.recipes

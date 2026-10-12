@@ -219,3 +219,12 @@ private func userDirectory(_ files: [String: String]) throws -> URL {
     #expect(migrated[0].isRuntimeConfigured)
     #expect(migrated[0].engine == .unity)
 }
+
+@Test func compatibilityDocumentMatchesTheBundledProfiles() throws {
+    let document = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        .appendingPathComponent("docs/compatibility.md")
+
+    // Out of date? Run: swift run --package-path GalaKit gala-cli compat > docs/compatibility.md
+    #expect(try String(contentsOf: document, encoding: .utf8) == ProfileStore.bundled.compatibilityMarkdown)
+}

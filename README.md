@@ -5,42 +5,33 @@
 <h1 align="center">Gala</h1>
 
 <p align="center">
-  macOS 原生 Galgame 启动器<br>
-  添加游戏，配置环境，点击启动。Wine、字体、引擎适配全部自动完成。
+  macOS 上的 Galgame 启动器<br>
+  添加游戏，配置环境，点击启动。Wine、字体、运行环境由 Gala 管理。
 </p>
 
 ---
 
-> **开发动机**：这个项目的起因是想在 Mac 上玩[秽翼のユースティア](https://vndb.org/v3770)。
->
-> **测试声明**：目前只测试了少量游戏（BGI、Leaf/AQUAPLUS、KiriKiri、Ikura GDL / Family Project、Artemis D3D11），兼容性数据仍然有限。如果你测试了其他游戏，无论成功还是失败，都欢迎[提 Issue](https://github.com/NozomiX1/Gala/issues) 反馈。
+## 先说清楚它能做到什么
 
-## 测试情况与已知问题
+Gala 用 Wine 运行 Windows 视觉小说。日系引擎五花八门，同一套 Wine 配置不可能跑所有游戏，所以：
 
-测试环境：M1 Pro MacBook Pro，Wine Staging 11.6
+- **确定能跑的只有[已验证的游戏](docs/compatibility.md)**，都在 M1 Pro 上测过。
+- **其他游戏可能直接能跑，也可能不能。** 不能跑时，多半是它需要的"运行环境"还没有人配出来。
+- **运行环境是可以自己换、自己写的文件。** 2.0 起不需要等维护者适配：在游戏的"运行设置"里换环境、拨开关，或者自己写一个环境文件，试出来了再[分享给别人](#分享一个运行环境)。
 
-| 游戏 | 引擎 | 状态 |
-|------|------|------|
-| 秽翼のユースティア | BGI/Ethornell | 已完整通关；启动和 OP 播放正常；字体无法修改，少数场景切换时音频加载会卡住数秒 |
-| 大図書館の羊飼い | BGI/Ethornell | 启动和 OP 播放正常；使用 `common` profile |
-| WHITE ALBUM2 | Leaf/AQUAPLUS | 启动、字体、OP/视频播放正常 |
-| 家族計画 追憶 | Ikura GDL / Family Project | 启动和 OP 播放正常；使用独立 `do-kizunar` profile |
-| 千恋万花 | KiriKiri | 体验良好，字体可修改，未发现明显问题 |
-| 甜蜜女友3 / アマカノ3 | Artemis D3D11 / iarsys | 启动、开屏动画和 OP 播放正常；使用独立 `artemis-mf-d3d11` profile、DXMT 与 Media Foundation 媒体兼容缓存 |
-
-- Wine 运行时有一定 CPU 占用，在被动散热机型（MacBook Air 等）上的表现未知，欢迎反馈
+这个项目起因是想在 Mac 上玩[穢翼のユースティア](https://vndb.org/v3770)，由一个人业余维护。维护者手里没有的游戏没法测，所以新游戏的支持主要靠用的人反馈和贡献。
 
 ## 功能
 
-- **显式运行环境** — 添加游戏后按需配置 Wine 前缀、中日文 locale / codepage / 字体
-- **运行环境检查与修复** — 检查 Wine、字体、辅助工具和 bottle 状态，缺失时可重新下载
-- **应用内更新** — 自动检查新版本，查看更新说明，下载并安装
-- **引擎识别** — 自动检测 KiriKiri、BGI、Leaf/AQUAPLUS、Artemis、SiglusEngine 等 10+ 引擎，本地特征使用打分合并，并用 VNDB release 信息作为保守 fallback
-- **VNDB 集成** — 搜索匹配游戏，自动拉取封面、中文标题、开发商、发售日期、评分、通关时长，以及有没有官方中文或民间汉化
-- **游戏库管理** — 封面墙，支持搜索、收藏、把游戏文件夹拖进窗口添加、移除运行环境和从库中移除
-- **空间清理** — 可清理 Wine 配置，或在卸载前清除所有 Gala 本地数据
-- **游戏时间统计** — 自动记录游玩时长
-- **非 ASCII 路径** — 中日文游戏目录通过 Wine 驱动器映射自动处理
+- **封面墙游戏库**：搜索、收藏、标记通关，把游戏文件夹拖进窗口就能添加
+- **VNDB 信息**：封面、中文标题、开发商、发售日期、评分、通关时长、有没有官方中文或民间汉化
+- **引擎识别**：按游戏目录里的文件特征判断引擎，选出默认的运行环境
+- **运行环境**：Gala 下载并管理 Wine、字体和需要的 Windows 组件；同一种环境的游戏共用一个 Wine 前缀，不必每个游戏装一套
+- **运行设置**：每个游戏可以单独换运行环境、切换视频播放方式和图形渲染，还可以填自定义的 DLL 设置、环境变量和启动参数
+- **求助信息**：一键生成包含诊断信息和可调设置的文字，贴给任何 AI 助手或贴到 issue 里
+- **应用内更新**：自动检查新版本，查看更新说明，下载并安装
+- **游戏时间统计**：自动记录游玩时长
+- **命令行工具** `gala-cli`：随应用分发，用来诊断和试验，也方便交给 AI 编程助手操作
 
 ## 截图
 
@@ -56,50 +47,82 @@
 ## 安装
 
 1. 下载 [Gala.dmg](https://github.com/NozomiX1/Gala/releases/latest)，打开后将 Gala 拖入 Applications
-2. 前往访达 → 应用程序，双击 Gala 启动（首次需确认打开）
-3. 首次启动会自动准备 Wine 运行时、CJK 字体和辅助工具，并显示当前下载项目与进度
+2. 前往访达 → 应用程序，双击 Gala 启动。Gala 没有 Apple 的开发者签名，首次打开需要在「系统设置 → 隐私与安全性」里点「仍要打开」
+3. 首次启动会自动准备 Wine 运行时、CJK 字体和辅助工具，并显示当前下载项目与进度。下载量约 1.5 GB，部分依赖在海外，建议打开代理
 
-## 使用指南
+之后的更新在应用内完成。从 1.x 升级需要手动下载一次 2.0 的 DMG 覆盖旧版；游戏库、游玩时间和已经配置好的环境都会保留。
 
-1. 首次启动
-   - 打开 Gala
-   - 等待自动准备 Wine、字体、辅助工具
-   - 准备过程中会显示当前下载项目和进度
-   - 首次下载建议打开 VPN 或代理；部分依赖来自海外上游，速度可能较慢
-   - 如果失败，打开「设置」（⌘,）里的「运行环境」点击修复
+## 使用
 
-2. 添加游戏
-   - 点击添加
-   - 选择游戏目录里的 `.exe`
-   - 匹配 VNDB 信息，或者跳过
-   - 游戏会先进入库，但还不能直接启动
+1. **添加游戏**：把游戏文件夹或 `.exe` 拖进窗口，或者点封面墙最后的虚线格子。然后在 VNDB 的搜索结果里选中这个游戏，也可以不匹配直接添加。
+2. **配置环境**：点封面进入游戏页面，点「配置环境」。第一次配置某一种环境要下载和安装组件，需要几分钟；之后同一种环境的游戏会直接复用。
+3. **启动**：按钮变成「启动」后点它。
 
-3. 配置环境
-   - 点击封面进入游戏详情页
-   - 点击「配置环境」
-   - Gala 会创建或复用对应的 Wine bottle
-   - 首次配置会安装引擎预设，可能下载 DirectShow / LAV / DXMT 等组件，耗时会比较久
-   - 配置完成后，按钮会变成「启动」
+其他操作：
 
-4. 启动游戏
-   - 点击「启动」
-   - 游戏运行时按钮会显示「运行中」
+- 游戏页面的 `···` 菜单里可以更改启动文件、移除运行环境、从库中移除。
+- 「设置」（⌘,）的「运行环境」页检查并修复 Wine、字体和辅助工具；「数据」页清理 Wine 配置或全部本地数据。
 
-5. 管理游戏
-   - 「移除运行环境」会保留游戏记录和游玩时间，只清理运行配置
-   - 「从库中移除」会删除库记录、封面和游玩记录
-   - 如果 Wine bottle 仍被其他游戏使用，Gala 不会删除这个共享环境
+## 游戏跑不起来怎么办
 
-6. 清理与修复
-   - 「设置」（⌘,）的「运行环境」页可以检查 Wine、字体和辅助工具，缺失的依赖可以在这里重新下载
-   - 「数据」页可以清理所有 Wine 配置，让相关游戏回到「配置环境」状态
-   - 卸载前可以在「数据」页清除所有 Gala 本地数据，释放 Wine 运行时、bottle、缓存和封面占用的空间
+按顺序试：
 
-7. 更新 Gala
-   - Gala 会自动检查新版本；也可以在菜单栏「Gala → 检查更新…」或「设置」里手动检查
-   - 发现新版本后按提示安装，Gala 会自动下载、替换并重新打开
-   - 1.x 没有应用内更新，需要手动下载一次 2.0 的 DMG 并拖入 Applications 覆盖旧版
-   - 更新只替换应用本体，不会删除 `~/Library/Application Support/Gala` 里的游戏库、游玩时间、收藏、Wine 运行时和 bottle
+1. **拨开关。** 游戏页面启动按钮旁边的滑块图标是「运行设置」。
+   - 片头或过场动画黑屏、被跳过：换「视频播放方式」。
+   - 有声音但画面全黑：把「图形渲染」换成 DXMT。
+   - 开关改完直接启动就生效，不需要重新配置。
+2. **换运行环境。** 同一个面板最上面一项。换完需要点一次「配置环境」。
+3. **问 AI。** `···` 菜单里的「复制求助信息…」会生成一段文字，里面有诊断信息、所有能改的设置和回答格式。贴给任何 AI 助手，按它说的改一项、试一次。
+4. **提 issue。** [新建 issue](https://github.com/NozomiX1/Gala/issues/new/choose) 并贴上同一段求助信息。没有诊断信息的 issue 基本没法处理。
+
+不要修改游戏目录里的文件，也不要从别的网站下载 DLL 放进去。需要的 Windows 组件都应该通过运行环境来装。
+
+已知问题：
+
+- 穢翼のユースティア：字体无法修改；少数场景切换时音频加载会卡住数秒。
+- アマカノ3：第一次启动时 OP 可能先有声音、画面稍后才出现，第二次启动后恢复同步。
+- Wine 运行时有一定 CPU 占用，在被动散热机型（MacBook Air 等）上的表现未知。
+
+## 自己写一个运行环境
+
+运行环境是一个 JSON 文件。把它放进 `~/Library/Application Support/Gala/Profiles/`，它就会出现在运行设置的环境列表里，标着"我的"。
+
+```json
+{
+  "id": "my-test",
+  "name": "我的试验",
+  "base": "common",
+  "dllOverrides": { "quartz": "builtin" }
+}
+```
+
+写了 `base` 就是继承那个环境的全部内容，这里只写不同的部分。可用的字段：
+
+| 字段 | 含义 |
+| --- | --- |
+| `components` | 要安装的 Windows 组件，写 winetricks 里的名字 |
+| `dllOverrides` | 某个 DLL 用 Windows 原版（`native`）还是 Wine 自带的（`builtin`）；值写 `null` 表示去掉继承来的那一条 |
+| `registry`、`registryDelete` | 要写入或删除的注册表项 |
+| `wine` | `default` 或 `dxmt`（用带 DXMT 的 Wine，由它渲染 D3D11） |
+| `notes`、`verifiedGames` | 说明文字，和用它验证过的游戏 |
+
+内置的环境在 [`GalaKit/Sources/GalaKit/Resources/Profiles/`](GalaKit/Sources/GalaKit/Resources/Profiles) 里，可以直接当例子看。写坏的文件会被跳过并在诊断信息里指出错在哪，不会影响其他游戏。
+
+不想手写的话，先在运行设置里把开关和高级项试到能用，再点「把当前配置导出为文件…」。
+
+喜欢命令行的话，应用里带了 `gala-cli`（`/Applications/Gala.app/Contents/MacOS/gala-cli`）。`gala-cli guide` 会输出完整的排查步骤，也可以把这份指南交给 Claude Code、Codex 这类工具，让它替你试。
+
+### 分享一个运行环境
+
+如果你试出了一个能让某款游戏正常运行的环境，欢迎提交：
+
+1. 把文件放进 `GalaKit/Sources/GalaKit/Resources/Profiles/`，`id` 和文件名保持一致。
+2. 在 `verifiedGames` 里写上你测过的游戏的原名。
+3. 只对个别游戏有效的改动不要加进 `common`，另建一个 `"base": "common"` 的文件。
+4. 运行 `swift test --package-path GalaKit`，再按测试的提示更新 `docs/compatibility.md`。
+5. 提 Pull Request，说明测试的机器、游戏版本，以及片头、视频、文字显示是否正常。
+
+不会用 Git 也没关系：新建一个 issue，把文件内容和测试情况贴上来。
 
 ## 构建
 
@@ -154,16 +177,7 @@ Gala 会先检查本地文件特征，例如 XP3、BGI 可执行文件、Leaf/WH
 
 少数 VNDB 引擎名会被额外保护：`Ikura GDL` 只有在本地也检测到家族计划文件时才进入 `do-kizunar`；`AQUAPLUS Engine` 只有在本地也检测到 Leaf/WHITE ALBUM2 文件时才进入 `leaf`。VNDB 的 `Artemis Engine` 只作为旧式 Artemis fallback；`artemis-d3d11` / `artemis-mf-d3d11` 必须由本地 iarsys/D3D11 特征触发。这样可以避免一个宽泛的 VNDB 引擎标签把其他游戏错误地放进特殊 Wine 环境。
 
-当前主要 profile：
-
-| Profile | 适用范围 | 关键配置 |
-|---------|----------|----------|
-| `common` | BGI、Artemis、NScripter、YU-RIS、RealLive、Majiro、AdvHD、QLIE、Unknown | `quartz` / `amstream` / `lavfilters`，DirectShow `native,builtin`，LAV Audio WMA 开关 |
-| `kirikiri` | KiriKiri | 通用视频组件，`quartz=native` |
-| `artemis-d3d11` | DirectShow 型 Artemis/iarsys D3D11 游戏，例如 ハミダシクリエイティブ凸 | 和 `common` 相同，只是改用 DXMT Wine 变体启动 |
-| `artemis-mf-d3d11` | Media Foundation 型 Artemis/iarsys D3D11 游戏，例如 甜蜜女友3 / アマカノ3 | 独立 DXMT profile，不安装 DirectShow/LAV 预设；启用 Wine MF FFmpeg backend，并为 `movie/*.wmv` 生成只转换音频轨的兼容缓存 |
-| `leaf` | Leaf/AQUAPLUS、WHITE ALBUM2 | builtin DirectShow、禁用 Wine 自带 WMA/WMV 解码器、LAV RGB 输出和 WMA 音频 |
-| `do-kizunar` | 家族計画 追憶 | builtin `quartz`，`HKCU\Software\DO\KIZUNAR` 指向 `G:\` |
+每个运行环境的具体内容以 [`GalaKit/Sources/GalaKit/Resources/Profiles/`](GalaKit/Sources/GalaKit/Resources/Profiles) 里的文件为准，各自验证过哪些游戏见[已验证的游戏](docs/compatibility.md)。
 
 ## 卸载与空间清理
 

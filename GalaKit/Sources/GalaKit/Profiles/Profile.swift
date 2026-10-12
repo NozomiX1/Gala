@@ -240,3 +240,29 @@ public struct ProfileStore: Sendable {
         )
     }
 }
+
+extension ProfileStore {
+    /// The list of games each profile is known to run, as the Markdown kept in `docs/compatibility.md`.
+    public var compatibilityMarkdown: String {
+        var lines = [
+            "# 已验证的游戏",
+            "",
+            "这份列表由各运行环境文件里的 `verifiedGames` 生成，不要手工修改。",
+            "重新生成：`swift run --package-path GalaKit gala-cli compat > docs/compatibility.md`",
+            "",
+            "| 游戏 | 运行环境 |",
+            "| --- | --- |",
+        ]
+        for recipe in recipes {
+            for game in recipe.verifiedGames {
+                lines.append("| \(game) | \(recipe.name)（`\(recipe.id)`） |")
+            }
+        }
+        let unverified = recipes.filter(\.verifiedGames.isEmpty)
+        if !unverified.isEmpty {
+            lines += ["", "## 还没有验证过游戏的运行环境", ""]
+            lines += unverified.map { "- \($0.name)（`\($0.id)`）" }
+        }
+        return lines.joined(separator: "\n") + "\n"
+    }
+}
