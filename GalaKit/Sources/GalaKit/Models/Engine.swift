@@ -73,8 +73,6 @@ public struct EnginePreset: Sendable {
         self.registryValues = registryValues
         self.registryKeysToDelete = registryKeysToDelete
     }
-
-    public static let empty = EnginePreset(components: [], dllOverrides: [:])
 }
 
 extension Engine {

@@ -89,23 +89,16 @@ final class LibraryViewModel {
     }
 
     func loadLibrary() {
-        let loadedGames: [Game]
         do {
-            loadedGames = try libraryStore.load()
+            games = try Self.loadAndMigrate(
+                libraryStore: libraryStore,
+                bottlesDirectory: wineManager.bottlesDirectory
+            ).games
             libraryLoadErrorMessage = nil
         } catch {
             games = []
             selectedGameId = nil
             libraryLoadErrorMessage = "游戏库读取失败：\(error.localizedDescription)"
-            return
-        }
-
-        games = RuntimeProfileMigration.migrate(
-            games: loadedGames,
-            bottlesDirectory: wineManager.bottlesDirectory
-        )
-        if RuntimeProfileMigration.didChangeRuntimeProfile(from: loadedGames, to: games) {
-            _ = try? libraryStore.saveMigrated(games, reason: "runtime-profile-migration")
         }
     }
 
@@ -183,35 +176,42 @@ final class LibraryViewModel {
         let bottlesDirectory = wineManager.bottlesDirectory
 
         return try await Task.detached(priority: .userInitiated) {
-            let loadStart = Self.now()
-            let loadedGames = try libraryStore.load()
-            let loadMilliseconds = Self.milliseconds(since: loadStart)
-
-            let migrationStart = Self.now()
-            let migratedGames = RuntimeProfileMigration.migrate(
-                games: loadedGames,
-                bottlesDirectory: bottlesDirectory
-            )
-            let migrationMilliseconds = Self.milliseconds(since: migrationStart)
-
-            let didMigrate = RuntimeProfileMigration.didChangeRuntimeProfile(
-                from: loadedGames,
-                to: migratedGames
-            )
-            let saveStart = Self.now()
-            if didMigrate {
-                _ = try? libraryStore.saveMigrated(migratedGames, reason: "runtime-profile-migration")
-            }
-            let saveMilliseconds = Self.milliseconds(since: saveStart)
-
-            return LibraryLoadOutcome(
-                games: migratedGames,
-                loadMilliseconds: loadMilliseconds,
-                migrationMilliseconds: migrationMilliseconds,
-                saveMilliseconds: saveMilliseconds,
-                didMigrate: didMigrate
-            )
+            try Self.loadAndMigrate(libraryStore: libraryStore, bottlesDirectory: bottlesDirectory)
         }.value
+    }
+
+    private static func loadAndMigrate(
+        libraryStore: LibraryStore,
+        bottlesDirectory: URL
+    ) throws -> LibraryLoadOutcome {
+        let loadStart = now()
+        let loadedGames = try libraryStore.load()
+        let loadMilliseconds = milliseconds(since: loadStart)
+
+        let migrationStart = now()
+        let migratedGames = RuntimeProfileMigration.migrate(
+            games: loadedGames,
+            bottlesDirectory: bottlesDirectory
+        )
+        let migrationMilliseconds = milliseconds(since: migrationStart)
+
+        let didMigrate = RuntimeProfileMigration.didChangeRuntimeProfile(
+            from: loadedGames,
+            to: migratedGames
+        )
+        let saveStart = now()
+        if didMigrate {
+            _ = try? libraryStore.saveMigrated(migratedGames, reason: "runtime-profile-migration")
+        }
+        let saveMilliseconds = milliseconds(since: saveStart)
+
+        return LibraryLoadOutcome(
+            games: migratedGames,
+            loadMilliseconds: loadMilliseconds,
+            migrationMilliseconds: migrationMilliseconds,
+            saveMilliseconds: saveMilliseconds,
+            didMigrate: didMigrate
+        )
     }
 
     private func deleteRuntimeConfigurationIfLastUser(for game: Game) {

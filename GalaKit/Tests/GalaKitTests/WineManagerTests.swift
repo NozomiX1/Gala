@@ -293,11 +293,9 @@ import Foundation
     defer { try? FileManager.default.removeItem(at: tempDir) }
 
     let bottlesDir = tempDir.appendingPathComponent("Bottles")
-    let bottleManager = BottleManager(bottlesDirectory: bottlesDir)
-    let gameId = UUID()
-    let prefixPath = bottleManager.prefixPath(for: gameId)
+    _ = BottleManager(bottlesDirectory: bottlesDir)
 
-    #expect(prefixPath.contains(gameId.uuidString))
+    #expect(FileManager.default.fileExists(atPath: bottlesDir.path))
 }
 
 @Test func bottleManagerUsesSharedPrefixForEquivalentRuntimeProfiles() throws {

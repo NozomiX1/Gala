@@ -320,6 +320,5 @@ import Foundation
 @Test func bottleConfigDefaults() {
     let config = BottleConfig(prefixPath: "/tmp/test")
     #expect(config.locale == "zh_CN.UTF-8")
-    #expect(config.windowsVersion == .win10)
     #expect(config.dllOverrides.isEmpty)
 }

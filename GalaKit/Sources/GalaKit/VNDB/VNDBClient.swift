@@ -13,12 +13,6 @@ public final class VNDBClient: Sendable {
         return try await post(endpoint: "vn", body: body)
     }
 
-    public func getVNDetail(id: String) async throws -> VNDBVn? {
-        let body = Self.detailRequestBody(id: id)
-        let response: VNDBResponse<VNDBVn> = try await post(endpoint: "vn", body: body)
-        return response.results.first
-    }
-
     public func getReleases(vnId: String) async throws -> [VNDBRelease] {
         let body = Self.releasesRequestBody(vnId: vnId)
         let response: VNDBResponse<VNDBRelease> = try await post(endpoint: "release", body: body)
@@ -33,17 +27,9 @@ public final class VNDBClient: Sendable {
     static func searchRequestBody(query: String, results: Int = 25) -> Data {
         let body: [String: Any] = [
             "filters": ["search", "=", query],
-            "fields": "id, title, alttitle, released, rating, image{url,dims,thumbnail,thumbnail_dims}, developers{id,name}",
+            "fields": "id, title, alttitle, released, rating, description, image{url,dims,thumbnail,thumbnail_dims}, developers{id,name}",
             "sort": "searchrank",
             "results": results
-        ]
-        return try! JSONSerialization.data(withJSONObject: body)
-    }
-
-    static func detailRequestBody(id: String) -> Data {
-        let body: [String: Any] = [
-            "filters": ["id", "=", id],
-            "fields": "id, title, alttitle, released, rating, votecount, length_minutes, description, image{url,dims,thumbnail,thumbnail_dims}, developers{id,name}, tags{id,name,rating}"
         ]
         return try! JSONSerialization.data(withJSONObject: body)
     }

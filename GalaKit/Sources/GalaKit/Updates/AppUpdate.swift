@@ -196,26 +196,15 @@ public final class GitHubReleaseClient: Sendable {
         }
         return try JSONDecoder().decode([GitHubRelease].self, from: data)
     }
-
-    public func latestRelease(owner: String, repo: String) async throws -> GitHubRelease {
-        let releases = try await releases(owner: owner, repo: repo)
-        guard let release = AppUpdateEvaluator.latestAppRelease(from: releases) else {
-            throw AppUpdateError.noAppRelease
-        }
-        return release
-    }
 }
 
 public enum AppUpdateError: Error, LocalizedError {
     case httpError(statusCode: Int)
-    case noAppRelease
 
     public var errorDescription: String? {
         switch self {
         case .httpError(let code):
             return "GitHub Releases API error (HTTP \(code))"
-        case .noAppRelease:
-            return "No Gala app release found"
         }
     }
 }

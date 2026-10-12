@@ -13,7 +13,7 @@ public enum RuntimeProfileMigration {
 
             var migrated = game
             if let targetEngine = specialRuntimeTarget(for: game, engineDetector: engineDetector) {
-                let targetPrefix = sharedPrefixPath(for: targetEngine, bottlesDirectory: bottlesDirectory)
+                let targetPrefix = BottleManager.prefixPath(for: targetEngine, bottlesDirectory: bottlesDirectory)
 
                 let changedRuntime = migrated.engine != targetEngine ||
                     migrated.bottleConfig.prefixPath != targetPrefix
@@ -76,13 +76,6 @@ public enum RuntimeProfileMigration {
             return .artemisD3D11
         }
         return nil
-    }
-
-    private static func sharedPrefixPath(for engine: Engine, bottlesDirectory: URL) -> String {
-        bottlesDirectory
-            .appendingPathComponent("Profiles")
-            .appendingPathComponent(engine.runtimeProfile.rawValue)
-            .path
     }
 
     private static func shouldMoveToIkuraGDLFamilyProject(

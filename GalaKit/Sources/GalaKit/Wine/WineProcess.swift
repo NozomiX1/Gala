@@ -1,10 +1,10 @@
 import Foundation
 
 public final class WineProcess: ObservableObject, @unchecked Sendable {
+    // Held so the Process outlives launch().
     private var process: Process?
 
     @Published public var isRunning = false
-    @Published public var lastOutput: String = ""
 
     public init() {}
 
@@ -51,11 +51,6 @@ public final class WineProcess: ObservableObject, @unchecked Sendable {
             outputHandle.closeFile()
 
             let tail = Self.logTail(from: outputFile, limit: 500)
-            if !tail.isEmpty {
-                DispatchQueue.main.async {
-                    self?.lastOutput = tail
-                }
-            }
             try? FileManager.default.removeItem(at: outputFile)
             DispatchQueue.main.async {
                 self?.isRunning = false

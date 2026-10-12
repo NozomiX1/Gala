@@ -104,21 +104,6 @@ struct GameDetailView: View {
                         .font(.body)
                         .foregroundStyle(.secondary)
                 }
-
-                if !game.tags.isEmpty {
-                    Text("标签")
-                        .font(.headline)
-                    FlowLayout(spacing: 6) {
-                        ForEach(game.tags, id: \.self) { tag in
-                            Text(tag)
-                                .font(.caption)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .background(.secondary.opacity(0.1))
-                                .clipShape(Capsule())
-                        }
-                    }
-                }
             }
             .padding(24)
         }
@@ -163,58 +148,11 @@ struct GameDetailView: View {
         return game.isRuntimeConfigured ? "play.fill" : "wrench.and.screwdriver"
     }
 
-    private func statusText(_ status: GameStatus) -> String {
-        switch status {
-        case .backlog: return "待玩"
-        case .playing: return "正在游玩"
-        case .completed: return "已通关"
-        case .dropped: return "已搁置"
-        }
-    }
-
     private func formatPlayTime(_ seconds: TimeInterval) -> String {
         let hours = Int(seconds) / 3600
         let minutes = (Int(seconds) % 3600) / 60
         if hours > 0 { return "\(hours)小时\(minutes)分钟" }
         if minutes > 0 { return "\(minutes)分钟" }
         return "未游玩"
-    }
-}
-
-struct FlowLayout: Layout {
-    var spacing: CGFloat = 8
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let result = computeLayout(proposal: proposal, subviews: subviews)
-        return result.size
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let result = computeLayout(proposal: proposal, subviews: subviews)
-        for (index, position) in result.positions.enumerated() {
-            subviews[index].place(at: CGPoint(x: bounds.minX + position.x, y: bounds.minY + position.y), proposal: .unspecified)
-        }
-    }
-
-    private func computeLayout(proposal: ProposedViewSize, subviews: Subviews) -> (size: CGSize, positions: [CGPoint]) {
-        let maxWidth = proposal.width ?? .infinity
-        var positions: [CGPoint] = []
-        var x: CGFloat = 0
-        var y: CGFloat = 0
-        var rowHeight: CGFloat = 0
-
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-            if x + size.width > maxWidth && x > 0 {
-                x = 0
-                y += rowHeight + spacing
-                rowHeight = 0
-            }
-            positions.append(CGPoint(x: x, y: y))
-            rowHeight = max(rowHeight, size.height)
-            x += size.width + spacing
-        }
-
-        return (CGSize(width: maxWidth, height: y + rowHeight), positions)
     }
 }

@@ -89,11 +89,11 @@ public final class BottleManager: @unchecked Sendable {
         try? FileManager.default.createDirectory(at: bottlesDirectory, withIntermediateDirectories: true)
     }
 
-    public func prefixPath(for gameId: UUID) -> String {
-        bottlesDirectory.appendingPathComponent(gameId.uuidString).path
+    public func prefixPath(for engine: Engine?) -> String {
+        Self.prefixPath(for: engine, bottlesDirectory: bottlesDirectory)
     }
 
-    public func prefixPath(for engine: Engine?) -> String {
+    static func prefixPath(for engine: Engine?, bottlesDirectory: URL) -> String {
         let profileName = (engine?.runtimeProfile ?? .common).rawValue
         return bottlesDirectory
             .appendingPathComponent("Profiles")
@@ -555,13 +555,11 @@ public final class BottleManager: @unchecked Sendable {
     // MARK: - Winetricks (optional, for engine presets)
 
     static func findWinetricks(wineManager: WineManager? = nil) -> String? {
-        if let managedPath = wineManager?.winetricksURL.path,
-           FileManager.default.isExecutableFile(atPath: managedPath) {
-            return managedPath
+        guard let managedPath = wineManager?.winetricksURL.path,
+              FileManager.default.isExecutableFile(atPath: managedPath) else {
+            return nil
         }
-
-        return ["/opt/homebrew/bin/winetricks", "/usr/local/bin/winetricks"]
-            .first { FileManager.default.isExecutableFile(atPath: $0) }
+        return managedPath
     }
 
     private func installWinetricks(
@@ -780,8 +778,8 @@ extension BottleManager {
             FontSubstitute(sourceName: "MS PMincho", targetName: fontName),
             FontSubstitute(sourceName: "Microsoft YaHei", targetName: fontName),
             FontSubstitute(sourceName: "Microsoft JhengHei", targetName: fontName),
-            FontSubstitute(sourceName: "\\u5B8B\\u4F53", targetName: fontName),
-            FontSubstitute(sourceName: "\\u9ED1\\u4F53", targetName: fontName),
+            FontSubstitute(sourceName: "宋体", targetName: fontName),
+            FontSubstitute(sourceName: "黑体", targetName: fontName),
 
             // Full-width Japanese names (BGI engine uses these)
             FontSubstitute(sourceName: "\u{FF2D}\u{FF33} \u{660E}\u{671D}", targetName: fontName),

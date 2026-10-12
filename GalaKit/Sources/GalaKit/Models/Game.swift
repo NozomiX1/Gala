@@ -30,7 +30,6 @@ public struct Game: Identifiable, Codable, Sendable {
     public var developer: String?
     public var releasedAt: String?
     public var description: String?
-    public var tags: [String]
     public var status: GameStatus
     public var isFavorite: Bool
     public var isRuntimeConfigured: Bool
@@ -53,7 +52,6 @@ public struct Game: Identifiable, Codable, Sendable {
         developer: String? = nil,
         releasedAt: String? = nil,
         description: String? = nil,
-        tags: [String] = [],
         status: GameStatus = .backlog,
         isFavorite: Bool = false,
         isRuntimeConfigured: Bool = false,
@@ -75,7 +73,6 @@ public struct Game: Identifiable, Codable, Sendable {
         self.developer = developer
         self.releasedAt = releasedAt
         self.description = description
-        self.tags = tags
         self.status = status
         self.isFavorite = isFavorite
         self.isRuntimeConfigured = isRuntimeConfigured
@@ -100,7 +97,6 @@ public struct Game: Identifiable, Codable, Sendable {
         developer = try container.decodeIfPresent(String.self, forKey: .developer)
         releasedAt = try container.decodeIfPresent(String.self, forKey: .releasedAt)
         description = try container.decodeIfPresent(String.self, forKey: .description)
-        tags = try container.decodeIfPresent([String].self, forKey: .tags) ?? []
         status = try container.decodeIfPresent(GameStatus.self, forKey: .status) ?? .backlog
         isFavorite = try container.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
         runtimeProfileMigrationVersion = try container.decodeIfPresent(

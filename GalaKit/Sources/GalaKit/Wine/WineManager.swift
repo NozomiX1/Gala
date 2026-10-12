@@ -25,6 +25,9 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
     public var mediaFoundationCacheDirectory: URL { cacheDirectory.appendingPathComponent("media-foundation") }
     public var mediaOverlaysDirectory: URL { baseURL.appendingPathComponent("MediaOverlays") }
     private var activeLink: URL { wineDirectory.appendingPathComponent("active") }
+    private var managedDirectories: [URL] {
+        [wineDirectory, bottlesDirectory, fontsDirectory, toolsDirectory, cacheDirectory, mediaOverlaysDirectory]
+    }
 
     @Published public var isDownloading = false
     @Published public var downloadProgress: Double = 0
@@ -33,12 +36,9 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
 
     public init(baseURL: URL) {
         self.baseURL = baseURL
-        try? FileManager.default.createDirectory(at: wineDirectory, withIntermediateDirectories: true)
-        try? FileManager.default.createDirectory(at: bottlesDirectory, withIntermediateDirectories: true)
-        try? FileManager.default.createDirectory(at: fontsDirectory, withIntermediateDirectories: true)
-        try? FileManager.default.createDirectory(at: toolsDirectory, withIntermediateDirectories: true)
-        try? FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
-        try? FileManager.default.createDirectory(at: mediaOverlaysDirectory, withIntermediateDirectories: true)
+        for directory in managedDirectories {
+            try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        }
     }
 
     public var isWineInstalled: Bool {
@@ -55,21 +55,8 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
     }
 
     public var wineBinaryURL: URL? {
-        // Check managed Wine installations (prefer wine over wine64 for better WoW64 support)
-        for name in ["wine", "wine64"] {
-            let managedBinary = activeLink
-                .appendingPathComponent("Contents/Resources/wine/bin/\(name)")
-            if FileManager.default.fileExists(atPath: managedBinary.path) {
-                return managedBinary
-            }
-            let flatBinary = activeLink.appendingPathComponent("bin/\(name)")
-            if FileManager.default.fileExists(atPath: flatBinary.path) {
-                return flatBinary
-            }
-        }
-        // Scan managed Wine directory for any installed version
-        if let found = findManagedWineBinary() { return found }
-        return nil
+        // The active version first, then any other installed version.
+        wineBinary(in: activeLink) ?? findManagedWineBinary()
     }
 
     private func findManagedWineBinary() -> URL? {
@@ -87,6 +74,7 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
     }
 
     private func wineBinary(in directory: URL) -> URL? {
+        // Prefer wine over wine64 for better WoW64 support.
         for name in ["wine", "wine64"] {
             let appBundle = directory.appendingPathComponent("Contents/Resources/wine/bin/\(name)")
             if FileManager.default.fileExists(atPath: appBundle.path) { return appBundle }
@@ -114,12 +102,9 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
         if FileManager.default.fileExists(atPath: baseURL.path) {
             try FileManager.default.removeItem(at: baseURL)
         }
-        try FileManager.default.createDirectory(at: wineDirectory, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: bottlesDirectory, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: fontsDirectory, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: toolsDirectory, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: mediaOverlaysDirectory, withIntermediateDirectories: true)
+        for directory in managedDirectories {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        }
     }
 
     public func repairMissingDependencies() async throws {
@@ -161,7 +146,7 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
     public static let mediaFoundationRuntimeDownloadURL = URL(string: "https://github.com/NozomiX1/Gala/releases/download/deps-v3/gala-mf-runtime-1.0-macos.tar.gz")!
     public static let mediaFoundationRuntimeVersionName = "gala-mf-runtime-1.0"
     public static let mediaFoundationRuntimeArchiveName = "gala-mf-runtime-1.0-macos.tar.gz"
-    public static let mediaFoundationRuntimeSHA256: String? = "66596147ba88f694ae2280e780c501f991e0e83a0c08253e39cbea43f8b14da5"
+    public static let mediaFoundationRuntimeSHA256 = "66596147ba88f694ae2280e780c501f991e0e83a0c08253e39cbea43f8b14da5"
 
     public var fontFileURL: URL {
         fontsDirectory.appendingPathComponent(Self.bundledFontName)
@@ -207,18 +192,7 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
     }
 
     public var dxmtWineBinaryURL: URL? {
-        for name in ["wine", "wine64"] {
-            let appBundle = dxmtWineDirectory
-                .appendingPathComponent("Contents/Resources/wine/bin/\(name)")
-            if FileManager.default.fileExists(atPath: appBundle.path) {
-                return appBundle
-            }
-            let flat = dxmtWineDirectory.appendingPathComponent("bin/\(name)")
-            if FileManager.default.fileExists(atPath: flat.path) {
-                return flat
-            }
-        }
-        return nil
+        wineBinary(in: dxmtWineDirectory)
     }
 
     public var mediaFoundationRuntimeArchiveURL: URL {
@@ -304,7 +278,13 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
             throw WineError.wineNotInstalled
         }
 
-        try await downloadDXMT(progressHandler: progressHandler)
+        try await downloadVerifiedArchive(
+            from: Self.dxmtDownloadURL,
+            to: dxmtArchiveURL,
+            sha256: Self.dxmtSHA256,
+            description: "正在下载 DXMT...",
+            progressHandler: progressHandler
+        )
 
         let destinationDir = dxmtWineDirectory
         let sourceDir = wineDirectory.appendingPathComponent(Self.wineVersionName)
@@ -330,7 +310,13 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
     ) async throws {
         if isMediaFoundationRuntimeInstalled { return }
 
-        try await downloadMediaFoundationRuntime(progressHandler: progressHandler)
+        try await downloadVerifiedArchive(
+            from: Self.mediaFoundationRuntimeDownloadURL,
+            to: mediaFoundationRuntimeArchiveURL,
+            sha256: Self.mediaFoundationRuntimeSHA256,
+            description: "正在下载 Media Foundation 媒体运行时...",
+            progressHandler: progressHandler
+        )
 
         let destinationDir = mediaFoundationRuntimeDirectory
         let extractDir = FileManager.default.temporaryDirectory
@@ -359,99 +345,38 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
         }
     }
 
-    public func installedVersions() -> [String] {
-        guard let contents = try? FileManager.default.contentsOfDirectory(
-            at: wineDirectory, includingPropertiesForKeys: nil
-        ) else { return [] }
-        return contents
-            .filter { $0.lastPathComponent != "active" }
-            .filter { $0.hasDirectoryPath }
-            .map { $0.lastPathComponent }
-            .sorted()
-    }
-
-    private func downloadDXMT(progressHandler: (@Sendable (Double?) -> Void)? = nil) async throws {
-        var shouldDownload = !FileManager.default.fileExists(atPath: dxmtArchiveURL.path)
-        if !shouldDownload {
-            do {
-                try verifySHA256(fileURL: dxmtArchiveURL, expected: Self.dxmtSHA256)
-            } catch {
-                try? FileManager.default.removeItem(at: dxmtArchiveURL)
-                shouldDownload = true
-            }
-        }
-
-        if shouldDownload {
-            await MainActor.run {
-                isDownloading = true
-                currentDownloadDescription = "正在下载 DXMT..."
-                downloadProgress = 0
-                isDownloadProgressIndeterminate = false
-            }
-            do {
-                try FileManager.default.createDirectory(
-                    at: dxmtArchiveURL.deletingLastPathComponent(),
-                    withIntermediateDirectories: true
-                )
-                try await Self.downloadFile(from: Self.dxmtDownloadURL, to: dxmtArchiveURL) { progress in
-                    progressHandler?(progress)
-                    Task { @MainActor in
-                        self.downloadProgress = progress
-                    }
-                }
-                try verifySHA256(fileURL: dxmtArchiveURL, expected: Self.dxmtSHA256)
-                await MainActor.run {
-                    downloadProgress = 1.0
-                    finishDownloadState()
-                }
-            } catch {
-                await MainActor.run {
-                    finishDownloadState()
-                }
-                throw error
-            }
-        }
-    }
-
-    private func downloadMediaFoundationRuntime(
-        progressHandler: (@Sendable (Double?) -> Void)? = nil
+    /// Reuses a cached archive when its checksum matches, otherwise downloads and verifies it.
+    private func downloadVerifiedArchive(
+        from url: URL,
+        to archiveURL: URL,
+        sha256: String,
+        description: String,
+        progressHandler: (@Sendable (Double?) -> Void)?
     ) async throws {
-        var shouldDownload = !FileManager.default.fileExists(atPath: mediaFoundationRuntimeArchiveURL.path)
-        if let expectedSHA = Self.mediaFoundationRuntimeSHA256, !shouldDownload {
-            do {
-                try verifySHA256(fileURL: mediaFoundationRuntimeArchiveURL, expected: expectedSHA)
-            } catch {
-                try? FileManager.default.removeItem(at: mediaFoundationRuntimeArchiveURL)
-                shouldDownload = true
-            }
+        if FileManager.default.fileExists(atPath: archiveURL.path) {
+            if (try? verifySHA256(fileURL: archiveURL, expected: sha256)) != nil { return }
+            try? FileManager.default.removeItem(at: archiveURL)
         }
-
-        guard shouldDownload else { return }
 
         await MainActor.run {
             isDownloading = true
-            currentDownloadDescription = "正在下载 Media Foundation 媒体运行时..."
+            currentDownloadDescription = description
             downloadProgress = 0
             isDownloadProgressIndeterminate = false
         }
 
         do {
             try FileManager.default.createDirectory(
-                at: mediaFoundationRuntimeArchiveURL.deletingLastPathComponent(),
+                at: archiveURL.deletingLastPathComponent(),
                 withIntermediateDirectories: true
             )
-            try await Self.downloadFile(
-                from: Self.mediaFoundationRuntimeDownloadURL,
-                to: mediaFoundationRuntimeArchiveURL
-            ) { progress in
+            try await Self.downloadFile(from: url, to: archiveURL) { progress in
                 progressHandler?(progress)
                 Task { @MainActor in
                     self.downloadProgress = progress
                 }
             }
-            if let expectedSHA = Self.mediaFoundationRuntimeSHA256 {
-                try verifySHA256(fileURL: mediaFoundationRuntimeArchiveURL, expected: expectedSHA)
-            }
+            try verifySHA256(fileURL: archiveURL, expected: sha256)
             await MainActor.run {
                 downloadProgress = 1.0
                 finishDownloadState()

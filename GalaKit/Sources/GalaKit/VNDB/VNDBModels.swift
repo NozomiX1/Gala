@@ -11,18 +11,9 @@ public struct VNDBVn: Decodable, Sendable {
     public let alttitle: String?
     public let released: String?
     public let rating: Double?
-    public let votecount: Int?
-    public let lengthMinutes: Int?
     public let description: String?
     public let image: VNDBImage?
     public let developers: [VNDBProducer]?
-    public let tags: [VNDBTag]?
-
-    enum CodingKeys: String, CodingKey {
-        case id, title, alttitle, released, rating, votecount
-        case lengthMinutes = "length_minutes"
-        case description, image, developers, tags
-    }
 }
 
 public struct VNDBImage: Decodable, Sendable {
@@ -40,12 +31,6 @@ public struct VNDBImage: Decodable, Sendable {
 public struct VNDBProducer: Decodable, Sendable {
     public let id: String?
     public let name: String
-}
-
-public struct VNDBTag: Decodable, Sendable {
-    public let id: String?
-    public let name: String
-    public let rating: Double?
 }
 
 public struct VNDBRelease: Decodable, Sendable {
