@@ -62,7 +62,7 @@ extension Game {
     public func exportedProfile(base recipe: RuntimeRecipe) -> ProfileFile {
         var extras: [String] = []
         if !bottleConfig.environment.isEmpty {
-            extras.append("环境变量：" + BottleConfig.lines(from: bottleConfig.environment).replacingOccurrences(of: "\n", with: "；"))
+            extras.append("环境变量：" + BottleConfig.text(from: bottleConfig.environment))
         }
         if !bottleConfig.launchArguments.isEmpty {
             extras.append("启动参数：" + bottleConfig.launchArguments.joined(separator: " "))
@@ -80,10 +80,10 @@ extension Game {
 }
 
 extension BottleConfig {
-    /// Reads `名字=取值` pairs, one per line; lines without a name or an `=` are dropped.
-    public static func pairs(fromLines text: String) -> [String: String] {
+    /// Reads `名字=取值` pairs separated by semicolons or line breaks; pieces without a name or an `=` are dropped.
+    public static func pairs(from text: String) -> [String: String] {
         var pairs: [String: String] = [:]
-        for line in text.split(whereSeparator: \.isNewline) {
+        for line in text.split(whereSeparator: { $0.isNewline || $0 == ";" || $0 == "；" }) {
             let parts = line.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
             let name = parts[0].trimmingCharacters(in: .whitespaces)
             guard parts.count == 2, !name.isEmpty else { continue }
@@ -92,7 +92,7 @@ extension BottleConfig {
         return pairs
     }
 
-    public static func lines(from pairs: [String: String]) -> String {
-        pairs.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: "\n")
+    public static func text(from pairs: [String: String]) -> String {
+        pairs.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: "; ")
     }
 }

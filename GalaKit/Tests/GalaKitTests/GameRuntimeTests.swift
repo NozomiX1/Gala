@@ -173,7 +173,8 @@ private final class Messages: @unchecked Sendable {
     #expect(decoded == file)
 }
 
-@Test func keyValueLinesSkipWhatIsNotAPair() {
-    #expect(BottleConfig.pairs(fromLines: "quartz = builtin\n\nnonsense\n=x\nA=b=c") == ["quartz": "builtin", "A": "b=c"])
-    #expect(BottleConfig.lines(from: ["b": "2", "a": "1"]) == "a=1\nb=2")
+@Test func keyValueTextTakesSeveralPairsAndSkipsWhatIsNotOne() {
+    #expect(BottleConfig.pairs(from: "quartz = builtin; nonsense;=x\nA=b=c；d3d9=native") == ["quartz": "builtin", "A": "b=c", "d3d9": "native"])
+    #expect(BottleConfig.text(from: ["b": "2", "a": "1"]) == "a=1; b=2")
+    #expect(BottleConfig.pairs(from: BottleConfig.text(from: ["b": "2", "a": "1"])) == ["b": "2", "a": "1"])
 }

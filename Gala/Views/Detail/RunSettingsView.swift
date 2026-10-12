@@ -26,8 +26,8 @@ struct RunSettingsView: View {
         let known = game.profileID.flatMap { library.wineManagerInstance.profiles.recipe(id: $0) }
         _profileID = State(initialValue: known?.id)
         _switches = State(initialValue: game.launchSwitches)
-        _dllText = State(initialValue: BottleConfig.lines(from: config.dllOverrides))
-        _environmentText = State(initialValue: BottleConfig.lines(from: config.environment))
+        _dllText = State(initialValue: BottleConfig.text(from: config.dllOverrides))
+        _environmentText = State(initialValue: BottleConfig.text(from: config.environment))
         _argumentsText = State(initialValue: config.launchArguments.joined(separator: " "))
         let hasAdvanced = !config.dllOverrides.isEmpty || !config.environment.isEmpty || !config.launchArguments.isEmpty
         _showsAdvanced = State(initialValue: showsAdvanced || hasAdvanced)
@@ -81,16 +81,20 @@ struct RunSettingsView: View {
                 }
 
                 Section {
-                    DisclosureGroup("高级", isExpanded: $showsAdvanced) {
-                        TextField("自定义 DLL 设置", text: $dllText, prompt: Text("quartz=builtin"), axis: .vertical)
-                            .lineLimit(1...4)
-                        TextField("环境变量", text: $environmentText, prompt: Text("NAME=value"), axis: .vertical)
-                            .lineLimit(1...4)
-                        TextField("启动参数", text: $argumentsText, prompt: Text("-windowed"))
+                    DisclosureGroup(isExpanded: $showsAdvanced) {
+                        TextField("自定义 DLL 设置", text: $dllText, prompt: Text("quartz=builtin; d3dx9_43=native"))
+                        TextField("环境变量", text: $environmentText, prompt: Text("NAME=value; OTHER=value"))
+                        TextField("启动参数", text: $argumentsText, prompt: Text("-windowed -nosound"))
+                    } label: {
+                        // The whole row unfolds it, not only the arrow.
+                        Text("高级")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
+                            .onTapGesture { withAnimation { showsAdvanced.toggle() } }
                     }
                 } footer: {
                     if showsAdvanced {
-                        Text("DLL 设置和环境变量每行写一条。这里写的 DLL 设置会盖过上面的开关。")
+                        Text("DLL 设置和环境变量可以写多条，用分号隔开；启动参数用空格隔开。这里写的 DLL 设置会盖过上面的开关。")
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
@@ -142,8 +146,8 @@ struct RunSettingsView: View {
             updated.useProfile(profileID, bottlesDirectory: library.wineManagerInstance.bottlesDirectory)
         }
         updated.launchSwitches = switches
-        updated.bottleConfig.dllOverrides = BottleConfig.pairs(fromLines: dllText)
-        updated.bottleConfig.environment = BottleConfig.pairs(fromLines: environmentText)
+        updated.bottleConfig.dllOverrides = BottleConfig.pairs(from: dllText)
+        updated.bottleConfig.environment = BottleConfig.pairs(from: environmentText)
         updated.bottleConfig.launchArguments = argumentsText.split(separator: " ").map(String.init)
         return updated
     }
