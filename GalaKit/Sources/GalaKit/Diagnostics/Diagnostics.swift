@@ -15,6 +15,8 @@ public struct Diagnostics: Codable, Equatable, Sendable {
     public var executablePath: String
     public var engine: String?
     public var runtimeProfile: String?
+    public var isProfileChosenByHand: Bool
+    public var profileProblems: [String]
     public var prefixPath: String
     public var isRuntimeConfigured: Bool
     public var isBottleReady: Bool
@@ -42,7 +44,8 @@ public struct Diagnostics: Codable, Equatable, Sendable {
         let scrub: (String) -> String = { $0.replacingOccurrences(of: home, with: "~") }
         let gameDirectory = URL(fileURLWithPath: game.executablePath).deletingLastPathComponent()
         let bottleManager = BottleManager(bottlesDirectory: wineManager.bottlesDirectory, wineManager: wineManager)
-        let usesDXMT = game.engine?.usesDXMTWineVariant == true
+        let recipe = wineManager.profiles.recipe(for: game)
+        let usesDXMT = recipe?.usesDXMTWine == true
 
         let entries = (try? FileManager.default.contentsOfDirectory(
             at: gameDirectory,
@@ -70,7 +73,10 @@ public struct Diagnostics: Codable, Equatable, Sendable {
             title: game.title,
             executablePath: scrub(game.executablePath),
             engine: game.engine?.displayName,
-            runtimeProfile: game.engine?.runtimeProfile.rawValue,
+            runtimeProfile: recipe?.id,
+            isProfileChosenByHand: game.profileID != nil && recipe?.id == game.profileID,
+            profileProblems: wineManager.profileProblems.map(\.localizedDescription)
+                + (game.profileID != nil && recipe?.id != game.profileID ? ["这个游戏选的运行环境 \(game.profileID!) 已经不存在，改用了引擎的默认环境。"] : []),
             prefixPath: scrub(game.bottleConfig.prefixPath),
             isRuntimeConfigured: game.isRuntimeConfigured,
             isBottleReady: bottleManager.isBottleReady(for: game),
@@ -101,7 +107,7 @@ public struct Diagnostics: Codable, Equatable, Sendable {
             "【启动文件】\(executablePath)",
             "【版本】Gala \(appVersion) · \(system) · \(wineVersion)",
             "【引擎】\(engine ?? "未识别")",
-            "【运行环境】\(runtimeProfile ?? "无") · \(prefixPath.isEmpty ? "未指定位置" : prefixPath)",
+            "【运行环境】\(runtimeProfile ?? "无")\(isProfileChosenByHand ? "（手动选择）" : "") · \(prefixPath.isEmpty ? "未指定位置" : prefixPath)",
             "【环境状态】已配置=\(isRuntimeConfigured ? "是" : "否") · bottle 就绪=\(isBottleReady ? "是" : "否") · 配置标记=\(runtimeMarker)",
             "【区域】\(locale)",
             "【DLL 设置】\(pairs(dllOverrides))",
@@ -113,6 +119,9 @@ public struct Diagnostics: Codable, Equatable, Sendable {
         lines += candidates.isEmpty
             ? ["  没有匹配到任何已知特征"]
             : candidates.map { "  \($0.engine)：\($0.score) 分（\($0.reasons.joined(separator: "；"))）" }
+        if !profileProblems.isEmpty {
+            lines += ["", "【运行环境文件的问题】"] + profileProblems.map { "  \($0)" }
+        }
         lines += ["", "【游戏目录】共 \(fileCount) 项" + (fileCount > files.count ? "，只列出前 \(files.count) 项" : "")]
         lines += files.map { "  \($0)" }
         lines += ["", "【最近一次启动的日志】\(logPath ?? "没有日志")"]

@@ -7,7 +7,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Added
-- `gala-cli`, a command-line tool inside the app bundle (`Gala.app/Contents/MacOS/gala-cli`): `list`, `diagnose`, `configure`, `launch`, and `guide`, with `--json` output. `configure` and `launch` accept one-off `--engine`, `--dll`, `--env`, and `--locale` options for trying a change without saving it.
+- User runtime profiles: a JSON file dropped into `Profiles/` in Gala's data directory becomes a selectable runtime environment, building on a bundled one through `base`. A broken file is skipped and reported instead of stopping the app.
+- A game can be pointed at any profile by hand. `gala-cli profiles` lists them, `gala-cli use <game> <profile>` switches and saves, and `--profile` tries one for a single run.
+- `gala-cli`, a command-line tool inside the app bundle (`Gala.app/Contents/MacOS/gala-cli`): `list`, `diagnose`, `configure`, `launch`, and `guide`, with `--json` output. `configure` and `launch` accept one-off `--profile`, `--dll`, `--env`, and `--locale` options for trying a change without saving it.
 - Diagnostics report for a game: versions, engine detection candidates with scores and reasons, runtime profile and state, launch settings, the game directory listing, and an excerpt of the last Wine log. Paths under the home directory are shortened to `~`.
 - Wine output of the last three launches of each game is kept under `Logs/` in Gala's data directory.
 - In-app updates through Sparkle: Gala checks for new versions, shows the release notes, and downloads and installs the update. Updates are verified against Gala's own signing key.

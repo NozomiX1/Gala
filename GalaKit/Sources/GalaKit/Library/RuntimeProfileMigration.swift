@@ -12,6 +12,11 @@ public enum RuntimeProfileMigration {
             guard !isCurrent(game) else { return game }
 
             var migrated = game
+            // A profile picked by hand is the user's decision; the automatic rules leave it alone.
+            if game.profileID != nil {
+                markCurrent(&migrated)
+                return migrated
+            }
             if let targetEngine = specialRuntimeTarget(for: game, engineDetector: engineDetector) {
                 let targetPrefix = BottleManager.prefixPath(for: targetEngine, bottlesDirectory: bottlesDirectory)
 

@@ -25,9 +25,11 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
     public var mediaFoundationCacheDirectory: URL { cacheDirectory.appendingPathComponent("media-foundation") }
     public var mediaOverlaysDirectory: URL { baseURL.appendingPathComponent("MediaOverlays") }
     public var logsDirectory: URL { baseURL.appendingPathComponent("Logs") }
+    /// Where users put their own profile files.
+    public var profilesDirectory: URL { baseURL.appendingPathComponent("Profiles") }
     private var activeLink: URL { wineDirectory.appendingPathComponent("active") }
     private var managedDirectories: [URL] {
-        [wineDirectory, bottlesDirectory, fontsDirectory, toolsDirectory, cacheDirectory, mediaOverlaysDirectory]
+        [wineDirectory, bottlesDirectory, fontsDirectory, toolsDirectory, cacheDirectory, mediaOverlaysDirectory, profilesDirectory]
     }
 
     @Published public var isDownloading = false
@@ -40,6 +42,15 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
         for directory in managedDirectories {
             try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         }
+        reloadProfiles()
+    }
+
+    /// Bundled profiles plus the user's, and what was wrong with any user file that had to be left out.
+    public private(set) var profiles = ProfileStore.bundled
+    public private(set) var profileProblems: [ProfileError] = []
+
+    public func reloadProfiles() {
+        (profiles, profileProblems) = ProfileStore.loading(userDirectory: profilesDirectory)
     }
 
     public var isWineInstalled: Bool {
@@ -233,7 +244,7 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
     }
 
     public func isManagedRuntimeReady(for game: Game) -> Bool {
-        guard let components = game.engine?.preset.managedComponents,
+        guard let components = profiles.recipe(for: game)?.preset.managedComponents,
               !components.isEmpty else {
             return true
         }
@@ -250,7 +261,7 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
     }
 
     public func wineBinaryURL(for game: Game) -> URL? {
-        guard game.engine?.usesDXMTWineVariant == true else {
+        guard profiles.recipe(for: game)?.usesDXMTWine == true else {
             return wineBinaryURL
         }
         return dxmtWineBinaryURL

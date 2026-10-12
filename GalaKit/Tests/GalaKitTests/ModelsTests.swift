@@ -241,15 +241,12 @@ import Foundation
 }
 
 @Test func ikuraGDLFamilyProjectRegistryValuesUseMappedGameDrive() {
-    let game = Game(
-        title: "Family Project",
-        executablePath: "/Games/Kizunar/kzn_sc.exe",
-        engine: .ikuraGDLFamilyProject,
-        bottleConfig: BottleConfig(prefixPath: "/tmp/Gala/Bottles/Profiles/do-kizunar")
-    )
-
-    let values = Dictionary(uniqueKeysWithValues: Engine.ikuraGDLFamilyProject.gameSpecificRegistryValues(for: game)
+    let recipe = Engine.ikuraGDLFamilyProject.recipe
+    let values = Dictionary(uniqueKeysWithValues: recipe.preset.registryValues
+        .filter { $0.key == "HKCU\\Software\\DO\\KIZUNAR" }
         .map { ($0.valueName, $0.data) })
+
+    #expect(recipe.features == [.gameDriveG])
 
     #expect(values["InstallDir"] == "G:\\")
     #expect(values["SaveDir"] == "G:\\")

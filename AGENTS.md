@@ -13,7 +13,7 @@
 - Local engine signatures outrank VNDB. VNDB release metadata is only a conservative fallback and must not force a special profile without local evidence.
 - Never modify, patch, or delete files inside the user's game directories. Use Gala-owned caches, overlays, or symlinks.
 - Do not introduce or require GPTK, Whisky, CrossOver, Homebrew Wine, or Homebrew winetricks.
-- Runtime profiles are JSON files in `GalaKit/Sources/GalaKit/Resources/Profiles/`, one per profile; `ProfileStore` folds each file's `base` chain into a recipe. Do not make `common` absorb special-profile DLL overrides: add a file with `"base": "common"` instead.
+- Runtime profiles are JSON files in `GalaKit/Sources/GalaKit/Resources/Profiles/`, one per profile; `ProfileStore` folds each file's `base` chain into a recipe. Users add their own in `Profiles/` under the data directory, and a game can be pointed at any profile by hand (`Game.profileID`). Always ask `ProfileStore.recipe(for: game)` (through `WineManager.profiles` or `GameRuntime.recipe(for:)`) what a game runs with; never decide from `game.engine` alone, or a hand-picked profile is ignored. Do not make `common` absorb special-profile DLL overrides: add a file with `"base": "common"` instead.
 - Editing a profile file changes its fingerprint, which makes existing prefixes of that profile reconfigure; raise `version` only to force that when the recipe itself reads the same. If a change moves games to a different profile, add a migration with tests for existing library entries.
 - Do not read or write the real `~/Library/Application Support/Gala` in tests or experiments. Use temporary directories and remove them afterward, including temporary prefixes and copied game assets.
 

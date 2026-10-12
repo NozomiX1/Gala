@@ -41,7 +41,7 @@ public struct EnginePresetProgress: Equatable, Sendable {
 }
 
 public struct RuntimeProfileMarker: Codable, Equatable, Sendable {
-    public let profile: RuntimeProfile
+    public let profile: String
     public let configVersion: Int
     public let configuredAt: Date
     public let wineVersionName: String
@@ -50,7 +50,7 @@ public struct RuntimeProfileMarker: Codable, Equatable, Sendable {
     public let recipeFingerprint: String?
 
     public init(
-        profile: RuntimeProfile,
+        profile: String,
         configVersion: Int,
         configuredAt: Date,
         wineVersionName: String,
@@ -65,15 +65,14 @@ public struct RuntimeProfileMarker: Codable, Equatable, Sendable {
         self.recipeFingerprint = recipeFingerprint
     }
 
-    static func current(for game: Game, configuredAt: Date) -> RuntimeProfileMarker? {
-        guard let engine = game.engine else { return nil }
-        return RuntimeProfileMarker(
-            profile: engine.runtimeProfile,
-            configVersion: engine.runtimeConfigVersion,
+    static func current(for recipe: RuntimeRecipe, configuredAt: Date) -> RuntimeProfileMarker {
+        RuntimeProfileMarker(
+            profile: recipe.id,
+            configVersion: recipe.version,
             configuredAt: configuredAt,
-            wineVersionName: engine.usesDXMTWineVariant ? WineManager.dxmtWineVersionName : WineManager.wineVersionName,
-            managedComponents: engine.preset.managedComponents.map(\.runtimeMarkerName),
-            recipeFingerprint: engine.recipe.fingerprint
+            wineVersionName: recipe.usesDXMTWine ? WineManager.dxmtWineVersionName : WineManager.wineVersionName,
+            managedComponents: recipe.preset.managedComponents.map(\.runtimeMarkerName),
+            recipeFingerprint: recipe.fingerprint
         )
     }
 }
@@ -94,15 +93,25 @@ public final class BottleManager: @unchecked Sendable {
         try? FileManager.default.createDirectory(at: bottlesDirectory, withIntermediateDirectories: true)
     }
 
+    private var profiles: ProfileStore { wineManager?.profiles ?? .bundled }
+
     public func prefixPath(for engine: Engine?) -> String {
         Self.prefixPath(for: engine, bottlesDirectory: bottlesDirectory)
     }
 
     static func prefixPath(for engine: Engine?, bottlesDirectory: URL) -> String {
-        let profileName = (engine?.runtimeProfile ?? .common).rawValue
-        return bottlesDirectory
+        prefixPath(forProfile: (engine?.runtimeProfile ?? .common).rawValue, bottlesDirectory: bottlesDirectory)
+    }
+
+    /// One prefix per profile id, shared by every game using that profile.
+    public func prefixPath(forProfile id: String) -> String {
+        Self.prefixPath(forProfile: id, bottlesDirectory: bottlesDirectory)
+    }
+
+    static func prefixPath(forProfile id: String, bottlesDirectory: URL) -> String {
+        bottlesDirectory
             .appendingPathComponent("Profiles")
-            .appendingPathComponent(profileName)
+            .appendingPathComponent(id)
             .path
     }
 
@@ -171,9 +180,8 @@ public final class BottleManager: @unchecked Sendable {
         for game: Game,
         progressHandler: (@Sendable (EnginePresetProgress) -> Void)? = nil
     ) async throws {
-        guard let engine = game.engine else { return }
-        let preset = engine.preset
-        let registryValues = preset.registryValues + engine.gameSpecificRegistryValues(for: game)
+        guard let preset = profiles.recipe(for: game)?.preset else { return }
+        let registryValues = preset.registryValues
         let registryKeysToDelete = preset.registryKeysToDelete
         guard !preset.components.isEmpty ||
             !preset.managedComponents.isEmpty ||
@@ -334,7 +342,8 @@ public final class BottleManager: @unchecked Sendable {
     }
 
     public func writeRuntimeMarker(for game: Game, configuredAt: Date = Date()) throws {
-        guard let marker = RuntimeProfileMarker.current(for: game, configuredAt: configuredAt) else { return }
+        guard let recipe = profiles.recipe(for: game) else { return }
+        let marker = RuntimeProfileMarker.current(for: recipe, configuredAt: configuredAt)
         let markerURL = Self.runtimeMarkerURL(prefix: game.bottleConfig.prefixPath)
         try FileManager.default.createDirectory(
             at: markerURL.deletingLastPathComponent(),
@@ -348,9 +357,10 @@ public final class BottleManager: @unchecked Sendable {
     }
 
     public func runtimeMarkerStatus(for game: Game) throws -> RuntimeMarkerStatus {
-        guard let current = RuntimeProfileMarker.current(for: game, configuredAt: Date()) else {
+        guard let recipe = profiles.recipe(for: game) else {
             return .missing
         }
+        let current = RuntimeProfileMarker.current(for: recipe, configuredAt: Date())
 
         let markerURL = Self.runtimeMarkerURL(prefix: game.bottleConfig.prefixPath)
         guard FileManager.default.fileExists(atPath: markerURL.path) else {

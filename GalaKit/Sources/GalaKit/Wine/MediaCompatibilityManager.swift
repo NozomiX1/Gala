@@ -22,9 +22,10 @@ public final class MediaCompatibilityManager: @unchecked Sendable {
 
     public func prepareLaunchGame(
         for game: Game,
+        recipe: RuntimeRecipe? = nil,
         progressHandler: (@Sendable (MediaCompatibilityProgress) -> Void)? = nil
     ) async throws -> Game {
-        guard game.engine == .artemisMFD3D11 else { return game }
+        guard (recipe ?? ProfileStore.bundled.recipe(for: game))?.usesMediaFoundation == true else { return game }
 
         let sourceExecutable = URL(fileURLWithPath: game.executablePath)
         let sourceRoot = sourceExecutable.deletingLastPathComponent()

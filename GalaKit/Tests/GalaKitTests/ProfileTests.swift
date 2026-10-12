@@ -92,3 +92,123 @@ private func file(_ id: String, base: String? = nil, version: Int? = nil, compon
     #expect(decoded.dllOverrides?["quartz"] == .some("builtin"))
     #expect(decoded.dllOverrides?["amstream"] == .some(nil))
 }
+
+// MARK: - User profiles and per-game choice
+
+private func userDirectory(_ files: [String: String]) throws -> URL {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    for (name, content) in files {
+        try Data(content.utf8).write(to: dir.appendingPathComponent(name))
+    }
+    return dir
+}
+
+@Test func userProfileBuildsOnABundledOneAndIsMarkedAsTheUsers() throws {
+    let dir = try userDirectory(["mine.json": #"{"id":"my-noraneko","name":"我的修改","base":"kirikiri","dllOverrides":{"quartz":"builtin"}}"#])
+    defer { try? FileManager.default.removeItem(at: dir) }
+
+    let (store, problems) = ProfileStore.loading(userDirectory: dir)
+    let mine = try #require(store.recipe(id: "my-noraneko"))
+
+    #expect(problems.isEmpty)
+    #expect(mine.isUserProvided)
+    #expect(mine.preset.dllOverrides["quartz"] == "builtin")
+    #expect(mine.preset.components == ["quartz", "amstream", "lavfilters"])
+    #expect(store.recipe(id: "kirikiri")?.isUserProvided == false)
+    #expect(mine.fingerprint != store.recipe(id: "kirikiri")?.fingerprint)
+}
+
+@Test func userFileWithABundledIdReplacesItForEveryProfileBuiltOnIt() throws {
+    let dir = try userDirectory(["common.json": #"{"id":"common","name":"我的通用","components":["quartz"]}"#])
+    defer { try? FileManager.default.removeItem(at: dir) }
+
+    let store = ProfileStore.loading(userDirectory: dir).store
+
+    #expect(store.recipe(id: "common")?.isUserProvided == true)
+    #expect(store.recipe(id: "kirikiri")?.preset.components == ["quartz"])
+    #expect(ProfileStore.bundled.recipe(id: "kirikiri")?.preset.components == ["quartz", "amstream", "lavfilters"])
+}
+
+@Test func brokenUserFilesAreLeftOutAndReportedWithoutLosingTheRest() throws {
+    let dir = try userDirectory([
+        "a-not-json.json": "{ this is not json",
+        "b-bad-base.json": #"{"id":"orphan","name":"x","base":"no-such-profile"}"#,
+        "c-good.json": #"{"id":"good","name":"好的","base":"common"}"#,
+        "notes.txt": "ignored",
+    ])
+    defer { try? FileManager.default.removeItem(at: dir) }
+
+    let (store, problems) = ProfileStore.loading(userDirectory: dir)
+
+    #expect(store.recipe(id: "good") != nil)
+    #expect(store.recipe(id: "orphan") == nil)
+    #expect(store.recipes.count == ProfileStore.bundled.recipes.count + 1)
+    #expect(problems.count == 2)
+    #expect(problems.contains(.unknownBase(id: "orphan", base: "no-such-profile")))
+}
+
+@Test func aGameUsesItsChosenProfileAndFallsBackWhenThatProfileIsGone() throws {
+    let dir = try userDirectory(["mine.json": #"{"id":"mine","name":"我的","base":"common"}"#])
+    defer { try? FileManager.default.removeItem(at: dir) }
+    let store = ProfileStore.loading(userDirectory: dir).store
+    var game = Game(title: "T", executablePath: "/g/a.exe", engine: .kirikiri)
+
+    #expect(store.recipe(for: game)?.id == "kirikiri")
+
+    game.profileID = "mine"
+    #expect(store.recipe(for: game)?.id == "mine")
+
+    game.profileID = "deleted-since"
+    #expect(store.recipe(for: game)?.id == "kirikiri")
+
+    #expect(try JSONDecoder().decode(Game.self, from: JSONEncoder().encode(game)).profileID == "deleted-since")
+}
+
+@Test func chosenProfileDecidesTheWineVariantTheGameDriveAndTheMarker() throws {
+    let home = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: home) }
+    let wineManager = WineManager(baseURL: home)
+    try Data(#"{"id":"mine","name":"我的","base":"do-kizunar","wine":"dxmt"}"#.utf8)
+        .write(to: wineManager.profilesDirectory.appendingPathComponent("mine.json"))
+    wineManager.reloadProfiles()
+    let dxmtWine = wineManager.dxmtWineDirectory.appendingPathComponent("Contents/Resources/wine/bin/wine")
+    try FileManager.default.createDirectory(at: dxmtWine.deletingLastPathComponent(), withIntermediateDirectories: true)
+    FileManager.default.createFile(atPath: dxmtWine.path, contents: Data("x".utf8))
+
+    let bottleManager = BottleManager(bottlesDirectory: wineManager.bottlesDirectory, wineManager: wineManager)
+    var game = Game(title: "T", executablePath: "/games/t/a.exe", engine: .bgi, profileID: nil,
+                    bottleConfig: BottleConfig(prefixPath: bottleManager.prefixPath(forProfile: "mine")))
+    game.profileID = "mine"
+    let recipe = try #require(wineManager.profiles.recipe(for: game))
+
+    #expect(wineManager.wineBinaryURL(for: game)?.path == dxmtWine.path)
+    #expect(try WineLaunchConfig.resolve(game: game, recipe: recipe).driveMapping?.driveLetter == "g:")
+    #expect(try WineLaunchConfig.resolve(game: Game(title: "T", executablePath: "/games/t/a.exe", engine: .bgi,
+                                                    bottleConfig: BottleConfig(prefixPath: game.bottleConfig.prefixPath))).driveMapping == nil)
+
+    try bottleManager.writeRuntimeMarker(for: game)
+    #expect(try bottleManager.runtimeMarkerStatus(for: game) == .current)
+    let marker = try String(contentsOf: URL(fileURLWithPath: game.bottleConfig.prefixPath).appendingPathComponent(".gala-runtime.json"), encoding: .utf8)
+    #expect(marker.contains(#""profile" : "mine""#))
+
+    // Editing the file makes the prefix stale without anyone touching a version number.
+    try Data(#"{"id":"mine","name":"我的","base":"do-kizunar","wine":"dxmt","dllOverrides":{"quartz":"native"}}"#.utf8)
+        .write(to: wineManager.profilesDirectory.appendingPathComponent("mine.json"))
+    wineManager.reloadProfiles()
+    #expect(try bottleManager.runtimeMarkerStatus(for: game) == .outdated)
+}
+
+@Test func migrationLeavesAHandPickedProfileAlone() {
+    let bottles = URL(fileURLWithPath: "/tmp/Gala/Bottles")
+    var game = Game(title: "T", executablePath: "/games/unity/game.exe", engine: .unity, isRuntimeConfigured: true,
+                    runtimeProfileMigrationVersion: 1,
+                    bottleConfig: BottleConfig(prefixPath: bottles.appendingPathComponent("Profiles/mine").path))
+    game.profileID = "mine"
+
+    let migrated = RuntimeProfileMigration.migrate(games: [game], bottlesDirectory: bottles) { _ in .artemisD3D11 }
+
+    #expect(migrated[0].bottleConfig.prefixPath == game.bottleConfig.prefixPath)
+    #expect(migrated[0].isRuntimeConfigured)
+    #expect(migrated[0].engine == .unity)
+}

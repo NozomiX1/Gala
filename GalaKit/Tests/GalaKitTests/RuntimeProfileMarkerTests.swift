@@ -26,7 +26,7 @@ import Foundation
     decoder.dateDecodingStrategy = .iso8601
     let marker = try decoder.decode(RuntimeProfileMarker.self, from: data)
 
-    #expect(marker.profile == .artemisD3D11)
+    #expect(marker.profile == "artemis-d3d11")
     #expect(marker.configVersion == Engine.artemisD3D11.runtimeConfigVersion)
     #expect(marker.wineVersionName == WineManager.dxmtWineVersionName)
     #expect(marker.managedComponents == ["dxmt@v0.80"])
@@ -57,7 +57,7 @@ import Foundation
     decoder.dateDecodingStrategy = .iso8601
     let marker = try decoder.decode(RuntimeProfileMarker.self, from: data)
 
-    #expect(marker.profile == .artemisMFD3D11)
+    #expect(marker.profile == "artemis-mf-d3d11")
     #expect(marker.configVersion == Engine.artemisMFD3D11.runtimeConfigVersion)
     #expect(marker.wineVersionName == WineManager.dxmtWineVersionName)
     #expect(marker.managedComponents == ["dxmt@v0.80", "gala-mf-runtime@1.0"])
@@ -77,7 +77,7 @@ import Foundation
         bottleConfig: BottleConfig(prefixPath: prefix.path)
     )
     let marker = RuntimeProfileMarker(
-        profile: .common,
+        profile: "common",
         configVersion: 0,
         configuredAt: Date(timeIntervalSince1970: 1_700_000_000),
         wineVersionName: WineManager.wineVersionName,

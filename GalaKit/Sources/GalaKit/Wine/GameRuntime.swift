@@ -41,6 +41,11 @@ public struct GameRuntime: Sendable {
         BottleManager(bottlesDirectory: wineManager.bottlesDirectory, wineManager: wineManager)
     }
 
+    /// The recipe this game runs with; pass it to `WineProcess.launch` so a hand-picked profile is honoured.
+    public func recipe(for game: Game) -> RuntimeRecipe? {
+        wineManager.profiles.recipe(for: game)
+    }
+
     /// Creates the bottle and applies the engine preset, skipping whatever an existing bottle already has.
     public func configure(
         _ game: Game,
@@ -80,7 +85,7 @@ public struct GameRuntime: Sendable {
     public func wineBinaryForLaunch(_ game: Game) throws -> URL {
         guard game.isRuntimeConfigured else { throw LaunchBlocker.notConfigured }
         guard let wineBinary = wineManager.wineBinaryURL(for: game) else {
-            throw game.engine?.usesDXMTWineVariant == true ? LaunchBlocker.dxmtMissing : LaunchBlocker.wineMissing
+            throw recipe(for: game)?.usesDXMTWine == true ? LaunchBlocker.dxmtMissing : LaunchBlocker.wineMissing
         }
 
         let bottleManager = bottleManager
@@ -108,11 +113,22 @@ public struct GameRuntime: Sendable {
         for game: Game,
         progress: @escaping @Sendable (MediaCompatibilityProgress) -> Void
     ) async throws -> Game {
-        guard game.engine == .artemisMFD3D11 else { return game }
+        guard let recipe = recipe(for: game), recipe.usesMediaFoundation else { return game }
         let manager = MediaCompatibilityManager(
             overlaysDirectory: wineManager.mediaOverlaysDirectory,
             ffmpegURL: wineManager.mediaFoundationFFmpegURL
         )
-        return try await manager.prepareLaunchGame(for: game, progressHandler: progress)
+        return try await manager.prepareLaunchGame(for: game, recipe: recipe, progressHandler: progress)
+    }
+}
+
+extension Game {
+    /// Moves the game to another profile's prefix; nil goes back to its engine's default.
+    /// The game then needs configuring, which is instant when that prefix already exists and is current.
+    public mutating func useProfile(_ id: String?, bottlesDirectory: URL) {
+        profileID = id
+        bottleConfig.prefixPath = id.map { BottleManager.prefixPath(forProfile: $0, bottlesDirectory: bottlesDirectory) }
+            ?? BottleManager.prefixPath(for: engine, bottlesDirectory: bottlesDirectory)
+        isRuntimeConfigured = false
     }
 }

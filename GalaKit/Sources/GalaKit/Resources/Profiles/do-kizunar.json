@@ -1,7 +1,7 @@
 {
   "id": "do-kizunar",
   "name": "家族計画",
-  "notes": "只用于家族計画 ～追憶～。quartz 用 Wine 自带的，并去掉通用环境对 amstream 的设置（null 表示去掉继承来的那一项）。",
+  "notes": "只用于家族計画 ～追憶～。quartz 用 Wine 自带的，并去掉通用环境对 amstream 的设置（null 表示去掉继承来的那一项）。游戏目录固定映射为 G: 盘，安装路径的注册表项都指向它。",
   "base": "common",
   "version": 1,
   "dllOverrides": {
@@ -10,6 +10,53 @@
     "amstream": null,
     "*amstream": null
   },
+  "registry": [
+    {
+      "key": "HKCU\\Software\\DO\\KIZUNAR",
+      "name": "InstallDir",
+      "type": "REG_SZ",
+      "data": "G:\\"
+    },
+    {
+      "key": "HKCU\\Software\\DO\\KIZUNAR",
+      "name": "SaveDir",
+      "type": "REG_SZ",
+      "data": "G:\\"
+    },
+    {
+      "key": "HKCU\\Software\\DO\\KIZUNAR",
+      "name": "DataDir",
+      "type": "REG_SZ",
+      "data": "G:\\"
+    },
+    {
+      "key": "HKCU\\Software\\DO\\KIZUNAR",
+      "name": "MusicDir",
+      "type": "REG_SZ",
+      "data": "G:\\"
+    },
+    {
+      "key": "HKCU\\Software\\DO\\KIZUNAR",
+      "name": "VoiceDir",
+      "type": "REG_SZ",
+      "data": "G:\\"
+    },
+    {
+      "key": "HKCU\\Software\\DO\\KIZUNAR",
+      "name": "VideoDir",
+      "type": "REG_SZ",
+      "data": "G:\\"
+    },
+    {
+      "key": "HKCU\\Software\\DO\\KIZUNAR",
+      "name": "InstallType",
+      "type": "REG_DWORD",
+      "data": "2"
+    }
+  ],
+  "features": [
+    "gameDriveG"
+  ],
   "verifiedGames": [
     "家族計画 ～追憶～"
   ]

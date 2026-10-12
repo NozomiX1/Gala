@@ -57,6 +57,8 @@ public struct Game: Identifiable, Codable, Sendable {
     public var executablePath: String
     public var coverImagePath: String?
     public var engine: Engine?
+    /// The runtime profile picked by hand. Nil means the engine's default profile.
+    public var profileID: String?
     public var totalPlayTime: TimeInterval
     public var lastPlayedAt: Date?
     public var addedAt: Date
@@ -84,6 +86,7 @@ public struct Game: Identifiable, Codable, Sendable {
         executablePath: String,
         coverImagePath: String? = nil,
         engine: Engine? = nil,
+        profileID: String? = nil,
         totalPlayTime: TimeInterval = 0,
         lastPlayedAt: Date? = nil,
         addedAt: Date = Date(),
@@ -105,6 +108,7 @@ public struct Game: Identifiable, Codable, Sendable {
         self.executablePath = executablePath
         self.coverImagePath = coverImagePath
         self.engine = engine
+        self.profileID = profileID
         self.totalPlayTime = totalPlayTime
         self.lastPlayedAt = lastPlayedAt
         self.addedAt = addedAt
@@ -129,6 +133,7 @@ public struct Game: Identifiable, Codable, Sendable {
         executablePath = try container.decode(String.self, forKey: .executablePath)
         coverImagePath = try container.decodeIfPresent(String.self, forKey: .coverImagePath)
         engine = try container.decodeIfPresent(Engine.self, forKey: .engine)
+        profileID = try container.decodeIfPresent(String.self, forKey: .profileID)
         totalPlayTime = try container.decodeIfPresent(TimeInterval.self, forKey: .totalPlayTime) ?? 0
         lastPlayedAt = try container.decodeIfPresent(Date.self, forKey: .lastPlayedAt)
         addedAt = try container.decodeIfPresent(Date.self, forKey: .addedAt) ?? Date()

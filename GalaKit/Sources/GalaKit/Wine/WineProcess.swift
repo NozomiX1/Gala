@@ -14,11 +14,12 @@ public final class WineProcess: ObservableObject, @unchecked Sendable {
         mediaFoundationRuntime: MediaFoundationRuntime? = nil,
         debug: Bool = false,
         logFile: URL? = nil,
+        recipe: RuntimeRecipe? = nil,
         onTermination: @escaping @Sendable (TimeInterval, Int32, String) -> Void
     ) throws {
         guard !isRunning else { return }
 
-        let launchConfig = try WineLaunchConfig.resolve(game: game)
+        let launchConfig = try WineLaunchConfig.resolve(game: game, recipe: recipe)
 
         let process = Process()
         process.executableURL = wineBinary
@@ -31,7 +32,8 @@ public final class WineProcess: ObservableObject, @unchecked Sendable {
             game: game,
             wineBinary: wineBinary,
             mediaFoundationRuntime: mediaFoundationRuntime,
-            debug: debug
+            debug: debug,
+            recipe: recipe
         )
 
         // Write process output to a file instead of inheriting stdout/stderr

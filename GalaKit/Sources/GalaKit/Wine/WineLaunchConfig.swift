@@ -24,8 +24,10 @@ public struct WineLaunchConfig: Sendable {
         game: Game,
         wineBinary: URL,
         mediaFoundationRuntime: MediaFoundationRuntime? = nil,
-        debug: Bool = false
+        debug: Bool = false,
+        recipe: RuntimeRecipe? = nil
     ) -> [String: String] {
+        let recipe = recipe ?? ProfileStore.bundled.recipe(for: game)
         var env = ProcessInfo.processInfo.environment
 
         env["WINEPREFIX"] = game.bottleConfig.prefixPath
@@ -48,7 +50,7 @@ public struct WineLaunchConfig: Sendable {
             prependLibraryPaths(existingLibPaths, to: &env)
         }
 
-        if game.engine == .artemisMFD3D11, let mediaFoundationRuntime {
+        if recipe?.usesMediaFoundation == true, let mediaFoundationRuntime {
             applyMediaFoundationRuntime(mediaFoundationRuntime, to: &env)
         }
 
@@ -94,11 +96,12 @@ public struct WineLaunchConfig: Sendable {
         env["DYLD_FALLBACK_LIBRARY_PATH"] = all.joined(separator: ":")
     }
 
-    public static func resolve(game: Game) throws -> WineLaunchConfig {
+    public static func resolve(game: Game, recipe: RuntimeRecipe? = nil) throws -> WineLaunchConfig {
+        let recipe = recipe ?? ProfileStore.bundled.recipe(for: game)
         let exeURL = URL(fileURLWithPath: game.executablePath)
         let gameDir = exeURL.deletingLastPathComponent()
         let exeName = exeURL.lastPathComponent
-        let shouldMapGameDirectory = game.engine == .ikuraGDLFamilyProject ||
+        let shouldMapGameDirectory = recipe?.features.contains(.gameDriveG) == true ||
             !gameDir.path.canBeConverted(to: .ascii)
 
         if !shouldMapGameDirectory {

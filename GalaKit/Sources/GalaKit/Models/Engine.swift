@@ -86,22 +86,6 @@ extension Engine {
 
     public var runtimeConfigVersion: Int { recipe.version }
 
-    func gameSpecificRegistryValues(for game: Game) -> [RegistryValue] {
-        guard self == .ikuraGDLFamilyProject else { return [] }
-
-        let key = "HKCU\\Software\\DO\\KIZUNAR"
-        let gameDrive = "G:\\"
-        return [
-            RegistryValue(key: key, valueName: "InstallDir", type: "REG_SZ", data: gameDrive),
-            RegistryValue(key: key, valueName: "SaveDir", type: "REG_SZ", data: gameDrive),
-            RegistryValue(key: key, valueName: "DataDir", type: "REG_SZ", data: gameDrive),
-            RegistryValue(key: key, valueName: "MusicDir", type: "REG_SZ", data: gameDrive),
-            RegistryValue(key: key, valueName: "VoiceDir", type: "REG_SZ", data: gameDrive),
-            RegistryValue(key: key, valueName: "VideoDir", type: "REG_SZ", data: gameDrive),
-            RegistryValue(key: key, valueName: "InstallType", type: "REG_DWORD", data: "2"),
-        ]
-    }
-
     public var runtimeProfile: RuntimeProfile {
         switch self {
         case .bgi, .artemis, .nscripter, .yuris, .realLive, .renpy, .rpgMaker, .unity,

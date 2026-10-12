@@ -11,7 +11,7 @@ public enum RuntimeConfigurationPolicy {
         runtimeMarkerStatus: RuntimeMarkerStatus,
         managedRuntimeReady: Bool
     ) -> Bool {
-        guard game.engine != nil else { return false }
+        guard game.engine != nil || game.profileID != nil else { return false }
 
         if !managedRuntimeReady { return true }
         if runtimeMarkerStatus == .outdated { return true }
