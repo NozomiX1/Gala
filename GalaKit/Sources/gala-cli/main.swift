@@ -10,13 +10,23 @@ let usage = """
 命令：
   list                 列出游戏库里的游戏
   diagnose <游戏>      输出一个游戏的诊断信息
+  configure <游戏>     创建运行环境并安装需要的组件
+  launch <游戏>        启动游戏，等它退出，然后报告退出状态和日志位置
   guide                输出排查游戏无法运行时的指南
 
 <游戏> 可以是标题的一部分，也可以是 list 显示的编号开头。
+运行 configure 和 launch 之前请先退出 Gala，两边同时写游戏库会互相覆盖。
 
 选项：
-  --json               用 JSON 输出（list、diagnose）
+  --json               用 JSON 输出（list、diagnose、launch）
   --home <目录>        使用这个数据目录，默认是 ~/Library/Application Support/Gala
+
+只对这一次 configure 或 launch 生效、不会保存的选项：
+  --engine <引擎>      当作另一种引擎来处理，也就是换用它的运行环境
+  --dll <名字=模式>    追加一条 DLL 设置，例如 --dll quartz=builtin。可以写多次
+  --env <名字=取值>    追加一个环境变量。可以写多次
+  --locale <区域>      例如 ja_JP.UTF-8
+  --no-debug           launch 默认记录 Wine 的报错和 DLL 加载情况，加上它就不记录
 """
 
 let guide = """
@@ -30,6 +40,7 @@ Gala 排查指南（给人和 AI 助手）
 先做
   gala-cli list
   gala-cli diagnose <游戏>
+  gala-cli launch <游戏>        启动一次，结束后再 diagnose 就能看到日志
   诊断信息里依次是：版本、识别出的引擎和依据、当前运行环境和设置、游戏目录的文件名、最近一次启动的日志。
 
 按症状判断
@@ -40,7 +51,13 @@ Gala 排查指南（给人和 AI 助手）
   文字是乱码、或因此报错  区域的问题。日文原版游戏需要日文区域。
 
 日志是空的
-  普通启动不记录 Wine 的输出。让用户用调试启动再运行一次。
+  从 Gala 界面启动时不记录 Wine 的输出。用 gala-cli launch 再运行一次。
+
+试一个改动
+  gala-cli launch <游戏> --dll quartz=builtin
+  gala-cli launch <游戏> --locale ja_JP.UTF-8
+  gala-cli configure <游戏> --engine kirikiri ，然后 gala-cli launch <游戏> --engine kirikiri
+  这些选项只对这一次生效，不会改动游戏库。
 
 引擎识别错了
   看诊断信息里各候选的分数和依据。本地文件特征优先于 VNDB 的标注。
@@ -62,6 +79,23 @@ func takeValue(_ name: String) throws -> String? {
     let value = arguments[index + 1]
     arguments.removeSubrange(index...index + 1)
     return value
+}
+
+func takeValues(_ name: String) throws -> [String] {
+    var values: [String] = []
+    while let value = try takeValue(name) { values.append(value) }
+    return values
+}
+
+func keyValue(_ text: String, flag: String) throws -> (String, String) {
+    guard let equals = text.firstIndex(of: "="), equals != text.startIndex else {
+        throw Failure(message: "\(flag) 要写成 名字=取值，收到的是「\(text)」")
+    }
+    return (String(text[..<equals]), String(text[text.index(after: equals)...]))
+}
+
+func note(_ message: String) {
+    FileHandle.standardError.write(Data((message + "\n").utf8))
 }
 
 func printJSON(_ value: some Encodable) throws {
@@ -86,6 +120,37 @@ func findGame(_ query: String, in games: [Game]) throws -> Game {
     }
 }
 
+struct LaunchResult: Encodable {
+    let exitStatus: Int32
+    let seconds: Double
+    let logPath: String
+}
+
+/// Applies the one-off options to a copy of the game; nothing here is saved.
+func applyOverrides(to game: inout Game, wineManager: WineManager) throws {
+    if let raw = try takeValue("--engine") {
+        guard let engine = Engine(rawValue: raw) else {
+            let known = Engine.allCases.map(\.rawValue).joined(separator: " ")
+            throw Failure(message: "不认识的引擎「\(raw)」。可用的有：\(known)")
+        }
+        game.engine = engine
+        game.bottleConfig.prefixPath = BottleManager(bottlesDirectory: wineManager.bottlesDirectory).prefixPath(for: engine)
+        // The saved flag describes the game's own runtime, not the one being tried.
+        game.isRuntimeConfigured = true
+    }
+    for item in try takeValues("--dll") {
+        let (name, mode) = try keyValue(item, flag: "--dll")
+        game.bottleConfig.dllOverrides[name] = mode
+    }
+    for item in try takeValues("--env") {
+        let (name, value) = try keyValue(item, flag: "--env")
+        game.bottleConfig.environment[name] = value
+    }
+    if let locale = try takeValue("--locale") {
+        game.bottleConfig.locale = locale
+    }
+}
+
 struct ListEntry: Encodable {
     let id: String
     let title: String
@@ -95,7 +160,7 @@ struct ListEntry: Encodable {
     let executablePath: String
 }
 
-func run() throws {
+func run() async throws {
     let json = takeFlag("--json")
     let home = try takeValue("--home").map { URL(fileURLWithPath: $0) }
         ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Gala")
@@ -134,13 +199,65 @@ func run() throws {
         let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "开发版"
         let report = Diagnostics.collect(game: game, appVersion: appVersion, wineManager: WineManager(baseURL: home))
         if json { try printJSON(report) } else { print(report.text) }
+    case "configure":
+        guard let query = arguments.first else { throw Failure(message: "configure 需要指定游戏。\n\n\(usage)") }
+        arguments.removeFirst()
+        let store = LibraryStore(baseURL: home)
+        var games = try store.load()
+        let saved = try findGame(query, in: games)
+        let wineManager = WineManager(baseURL: home)
+        var game = saved
+        try applyOverrides(to: &game, wineManager: wineManager)
+
+        try await GameRuntime(wineManager: wineManager).configure(game) { message, fraction in
+            note(fraction.map { "\(message) \(Int($0 * 100))%" } ?? message)
+        }
+        if game.engine == saved.engine, let index = games.firstIndex(where: { $0.id == saved.id }) {
+            games[index].isRuntimeConfigured = true
+            try store.save(games)
+        }
+        print("运行环境已就绪：\(game.bottleConfig.prefixPath)")
+    case "launch":
+        guard let query = arguments.first else { throw Failure(message: "launch 需要指定游戏。\n\n\(usage)") }
+        arguments.removeFirst()
+        let debug = !takeFlag("--no-debug")
+        let wineManager = WineManager(baseURL: home)
+        var game = try findGame(query, in: try LibraryStore(baseURL: home).load())
+        try applyOverrides(to: &game, wineManager: wineManager)
+
+        let runtime = GameRuntime(wineManager: wineManager)
+        let wineBinary = try runtime.wineBinaryForLaunch(game)
+        let launchGame = try await runtime.prepareMedia(for: game) { note($0.message) }
+        let logFile = try LaunchLog.newURL(gameID: game.id, logsDirectory: wineManager.logsDirectory)
+        let process = WineProcess()
+        note("已启动，等待游戏退出...")
+        let (seconds, status): (TimeInterval, Int32) = try await withCheckedThrowingContinuation { continuation in
+            do {
+                try process.launch(
+                    game: launchGame,
+                    wineBinary: wineBinary,
+                    mediaFoundationRuntime: wineManager.mediaFoundationRuntime,
+                    debug: debug,
+                    logFile: logFile
+                ) { duration, status, _ in
+                    continuation.resume(returning: (duration, status))
+                }
+            } catch {
+                continuation.resume(throwing: error)
+            }
+        }
+        if json {
+            try printJSON(LaunchResult(exitStatus: status, seconds: seconds, logPath: logFile.path))
+        } else {
+            print("退出状态 \(status)，运行了 \(Int(seconds)) 秒。日志：\(logFile.path)")
+        }
     default:
         throw Failure(message: "不认识的命令：\(command)\n\n\(usage)")
     }
 }
 
 do {
-    try run()
+    try await run()
 } catch let failure as Failure {
     FileHandle.standardError.write(Data((failure.message + "\n").utf8))
     exit(1)

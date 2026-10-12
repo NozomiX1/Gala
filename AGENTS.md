@@ -9,7 +9,7 @@
 
 ## Rules
 - Keep SwiftUI app code in `Gala/`; keep Wine, engine detection, VNDB, library, and model logic in `GalaKit/`.
-- Route Wine work through `WineManager`, `BottleManager`, `WineProcess`, and `WineLaunchConfig`.
+- Route Wine work through `WineManager`, `BottleManager`, `WineProcess`, and `WineLaunchConfig`. The steps from a library entry to a running game (configure, launch checks, media overlay) live in `GameRuntime`; the app and `gala-cli` both call it, so do not reimplement them in either.
 - Local engine signatures outrank VNDB. VNDB release metadata is only a conservative fallback and must not force a special profile without local evidence.
 - Never modify, patch, or delete files inside the user's game directories. Use Gala-owned caches, overlays, or symlinks.
 - Do not introduce or require GPTK, Whisky, CrossOver, Homebrew Wine, or Homebrew winetricks.
