@@ -64,7 +64,8 @@ private struct RuntimeSettings: View {
     @State private var isWorking = false
     @State private var message: String?
     @State private var errorMessage: String?
-    @State private var fontStatus: OptionalFontStatus
+    /// Nil until the first check comes back; it reads every prefix's registry file, so it runs off the main thread.
+    @State private var fontStatus: OptionalFontStatus?
     @State private var isInstallingFonts = false
     @State private var fontError: String?
 
@@ -72,7 +73,6 @@ private struct RuntimeSettings: View {
         self.library = library
         self.wineManager = wineManager
         _status = State(initialValue: wineManager.runtimeEnvironmentStatus())
-        _fontStatus = State(initialValue: library.bottleManager.optionalFontStatus())
     }
 
     var body: some View {
@@ -109,10 +109,8 @@ private struct RuntimeSettings: View {
             }
         }
         .formStyle(.grouped)
-        .onAppear {
-            status = wineManager.runtimeEnvironmentStatus()
-            fontStatus = library.bottleManager.optionalFontStatus()
-        }
+        .onAppear { status = wineManager.runtimeEnvironmentStatus() }
+        .task { fontStatus = await checkFonts() }
     }
 
     /// Kept apart from the rows above: games run without these fonts, they only decide how one kind of game draws its text.
@@ -121,10 +119,10 @@ private struct RuntimeSettings: View {
             if isInstallingFonts {
                 ProgressView()
                     .controlSize(.small)
-            } else if fontStatus.isSettled {
+            } else if let fontStatus, fontStatus.isSettled {
                 Text("已安装")
                     .foregroundStyle(.secondary)
-            } else {
+            } else if let fontStatus {
                 Button(fontStatus.areFontsInstalled ? "应用到现有环境" : "下载", action: installFonts)
                     .disabled(isWorking || !status.isWineInstalled)
             }
@@ -134,8 +132,8 @@ private struct RuntimeSettings: View {
                 Text(fontDetail)
                     .foregroundStyle(fontError == nil ? Color.secondary : Color.red)
             } icon: {
-                Image(systemName: fontStatus.isSettled ? "checkmark.circle.fill" : "arrow.down.circle")
-                    .foregroundStyle(fontStatus.isSettled ? Color.green : Color.secondary)
+                Image(systemName: fontStatus?.isSettled == true ? "checkmark.circle.fill" : "arrow.down.circle")
+                    .foregroundStyle(fontStatus?.isSettled == true ? Color.green : Color.secondary)
             }
         }
     }
@@ -143,24 +141,35 @@ private struct RuntimeSettings: View {
     private var fontDetail: String {
         if let fontError { return fontError }
         let about = "简宋、华文黑体。日本引擎游戏的宋体和黑体用它们显示，由 macOS 下载。"
-        if fontStatus.areFontsInstalled, fontStatus.outdatedPrefixCount > 0 {
+        if let fontStatus, fontStatus.areFontsInstalled, fontStatus.outdatedPrefixCount > 0 {
             return about + "有 \(fontStatus.outdatedPrefixCount) 个运行环境还没有用上。"
         }
         return about
     }
 
+    private func checkFonts() async -> OptionalFontStatus {
+        let wineManager = wineManager
+        return await Task.detached {
+            BottleManager(bottlesDirectory: wineManager.bottlesDirectory, wineManager: wineManager).optionalFontStatus()
+        }.value
+    }
+
     private func installFonts() {
         isInstallingFonts = true
         fontError = nil
-        let bottleManager = library.bottleManager
+        let wineManager = wineManager
         Task { @MainActor in
             do {
-                try await bottleManager.installOptionalFonts()
+                // Off the main thread: it runs Wine once per prefix and waits for each.
+                try await Task.detached {
+                    try await BottleManager(bottlesDirectory: wineManager.bottlesDirectory, wineManager: wineManager).installOptionalFonts()
+                }.value
             } catch {
                 fontError = "没能完成：\(error.localizedDescription)"
             }
-            fontStatus = bottleManager.optionalFontStatus()
-            if fontError == nil, !fontStatus.areFontsInstalled {
+            let now = await checkFonts()
+            fontStatus = now
+            if fontError == nil, !now.areFontsInstalled {
                 fontError = "macOS 没能下载这两个字体，请检查网络后再试。游戏仍然可以运行。"
             }
             isInstallingFonts = false

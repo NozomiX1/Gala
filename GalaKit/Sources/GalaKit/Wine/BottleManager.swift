@@ -838,12 +838,13 @@ extension BottleManager {
     /// Whether a prefix's registry file already holds these substitutes, read the way Wine writes them:
     /// `"name"="target"` with every non-ASCII character of the name as `\xNNNN`.
     static func prefix(_ prefix: URL, has substitutes: [FontSubstitute]) -> Bool {
-        guard let registry = try? String(contentsOf: prefix.appendingPathComponent("system.reg"), encoding: .utf8) else {
+        // Searched as bytes: the file is several megabytes, and a String search of it takes long enough to stall the UI.
+        guard let registry = try? Data(contentsOf: prefix.appendingPathComponent("system.reg"), options: .mappedIfSafe) else {
             return false
         }
         return substitutes.allSatisfy { substitute in
             let name = substitute.sourceName.utf16.map { $0 < 0x80 ? String(UnicodeScalar(UInt8($0))) : String(format: "\\x%04x", $0) }.joined()
-            return registry.contains("\"\(name)\"=\"\(substitute.targetName)\"")
+            return registry.range(of: Data("\"\(name)\"=\"\(substitute.targetName)\"".utf8)) != nil
         }
     }
 
