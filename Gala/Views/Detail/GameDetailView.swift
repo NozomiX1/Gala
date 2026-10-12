@@ -7,6 +7,8 @@ struct GameDetailView: View {
     let library: LibraryViewModel
     let gameVM: GameViewModel
 
+    @State private var showsRunSettings = false
+
     private static let coverSize = CGSize(width: 250, height: 353)
 
     private var isActive: Bool { gameVM.activeGameID == game.id }
@@ -41,6 +43,20 @@ struct GameDetailView: View {
         .toolbarColorScheme(.dark, for: .windowToolbar)
         .toolbarBackground(.hidden, for: .windowToolbar)
         .hidingWindowTitle()
+        // Attached after the dark colour scheme above, so the sheet follows the system appearance.
+        .sheet(isPresented: $showsRunSettings) {
+            RunSettingsView(game: game, library: library, showsAdvanced: debugRunSettings == "advanced")
+        }
+        .onAppear { showsRunSettings = debugRunSettings != nil }
+    }
+
+    /// Set to open the run settings right away, for screenshots; "advanced" also unfolds the advanced fields.
+    private var debugRunSettings: String? {
+        #if DEBUG
+        ProcessInfo.processInfo.environment["GALA_DEBUG_RUNSETTINGS"]
+        #else
+        nil
+        #endif
     }
 
     private var info: some View {
@@ -129,6 +145,10 @@ struct GameDetailView: View {
             ) {
                 library.toggleCompleted(game)
             }
+            iconButton("slider.horizontal.3", help: "运行设置") {
+                showsRunSettings = true
+            }
+            .disabled(gameVM.isBusy)
 
             Menu {
                 GameMenuItems(game: game, library: library, gameVM: gameVM, includesToggles: false)
