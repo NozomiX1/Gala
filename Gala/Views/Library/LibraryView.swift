@@ -47,7 +47,8 @@ struct LibraryView: View {
         // A game folder or an .exe can be dropped anywhere on the wall, not only on the add tile.
         .dropDestination(for: URL.self) { urls, _ in
             guard let url = urls.first else { return false }
-            onAdd(url)
+            // Let the drop finish first. Opening the file picker from inside it leaves the dragged icon stuck on screen.
+            Task { @MainActor in onAdd(url) }
             return true
         } isTargeted: { isDropTargeted = $0 }
         .searchable(text: $library.searchText, prompt: "搜索")
