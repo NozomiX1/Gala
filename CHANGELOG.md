@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Games can be added by dropping a game folder or an .exe anywhere on the window, from the dashed tile at the end of the cover wall, or with File → 添加游戏… (⌘N). The toolbar no longer has an add button.
 - Adding a game opens the file picker straight away, then a redesigned sheet for matching it against VNDB.
 - Ren'Py, RPG Maker, and Unity games now run through Wine in the `common` profile. Native launch only worked when a `.app` sat next to the selected exe and otherwise left the game unlaunchable. Existing entries on those engines go back to "配置环境".
+- The two Artemis D3D11 profiles no longer copy DXMT's DLLs into the prefix or install a native `d3dcompiler_47`: neither had any effect, and the copy replaced the native `quartz` and `amstream` the profile had just installed. A profile now only needs `"wine": "dxmt"`. Prefixes configured by earlier versions stay valid.
 - `Gala.xcodeproj` is no longer committed; generate it with `xcodegen generate`.
 - The bundle build number now equals the version number.
 

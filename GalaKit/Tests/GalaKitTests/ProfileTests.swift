@@ -61,6 +61,13 @@ private func file(_ id: String, base: String? = nil, version: Int? = nil, compon
     #expect(child.preset.dllOverrides == ["quartz": "builtin"])
 }
 
+@Test func askingForTheDXMTWineAlsoAsksForItsDownload() throws {
+    let store = try ProfileStore(files: [file("base"), ProfileFile(id: "child", name: "child", base: "base", wine: .dxmt)])
+
+    #expect(store.recipe(id: "child")?.preset.managedComponents == [.dxmt])
+    #expect(store.recipe(id: "base")?.preset.managedComponents == [])
+}
+
 @Test func bumpingABaseVersionRaisesEveryProfileBuiltOnIt() throws {
     let before = try ProfileStore(files: [file("base"), file("child", base: "base", version: 3)])
     let after = try ProfileStore(files: [file("base", version: 2), file("child", base: "base", version: 3)])

@@ -167,14 +167,14 @@
 | --- | --- | --- |
 | 在 `common` 的 bottle 里，启动时带一条 DLL 设置就能达到 `kirikiri` 环境的效果 | **已验证成立，2026-10-13。** 在真实的 bottle 里加载 quartz 并看 Wine 用的是哪一份：启动时的设置盖过了注册表里的设置。千恋万花在 `common` 里启动、画面、声音正常。游戏内的视频播放没有走到 | — |
 | 转区只需要改启动时的语言环境 | 同一个 bottle 分别用中文和日文环境启动日文原版游戏。目前 codepage 是建 bottle 时写进注册表的，而且界面上没有地方选日文，所以现有的 bottle 全是中文 codepage | "文字区域"不能做成开关，改为按区域分开的运行环境 |
-| DXMT 能做成按游戏的开关 | **已验证成立，2026-10-13。** 决定用不用 DXMT 的只有"用哪一套 Wine 启动"：带 DXMT 的 Wine 对着没装过任何 DXMT 东西的 `common` bottle 启动ハミダシ，标题画面正常；普通 Wine 对着 `artemis-d3d11` 的 bottle 启动，黑屏并报 `CreateVertexShader` 错误。千恋万花（D3D9）用带 DXMT 的 Wine 启动不受影响。片头和游戏内视频没有走到。细节见 `docs/runtime-lessons.md` | — |
+| DXMT 能做成按游戏的开关 | **已验证成立，2026-10-13。** 决定用不用 DXMT 的只有"用哪一套 Wine 启动"：带 DXMT 的 Wine 对着没装过任何 DXMT 东西的 `common` bottle 启动ハミダシ，标题画面正常；普通 Wine 对着 `artemis-d3d11` 的 bottle 启动，黑屏并报 `CreateVertexShader` 错误。千恋万花（D3D9）用带 DXMT 的 Wine 启动不受影响。随后用同一组合看了 logo 和视频，播放正常。细节见 `docs/runtime-lessons.md` | — |
 | Sparkle 能给未签名的应用做更新，且更新后不再被系统拦截 | 第 2 项的完成标准本身就是这个测试 | 退回到"下载 DMG 手动替换"，保留更新检查 |
 | GitHub 的构建机器能构建本项目 | 已确认有 `macos-26` 机器；能否构建通过要等第一次推 tag。目前没有 macOS 27 的机器，所以只能用到 macOS 26 的接口 | 发布脚本在本机运行，只自动化上传 |
 | 真实的系统玻璃效果符合预期 | 5a 先做详情页 | 调整材质用法，样稿只能确认布局 |
 
 第三条是写这份方案时才发现的，讨论时把它当成了可以立刻切换的开关。
 
-第三条的实测还带出两件事，留到做开关时处理：`artemis-d3d11` 往 bottle 里复制 DLL 的那一步不起作用，而且会把刚装好的 quartz、amstream、d3dcompiler_47 原版覆盖回 Wine 自带的，所以这个环境实际跑的和文件里写的不一样；用户文件只写 `"wine": "dxmt"` 而不写 `managedComponents` 时，没下载过 DXMT 的机器上不会去下载。
+第三条的实测还带出两件事，已修：`artemis-d3d11` 往 bottle 里复制 DLL 的那一步不起作用，而且会把刚装好的 quartz、amstream、d3dcompiler_47 原版覆盖回 Wine 自带的，所以这个环境实际跑的和文件里写的不一样；用户文件只写 `"wine": "dxmt"` 而不写 `managedComponents` 时，没下载过 DXMT 的机器上不会去下载。现在不再复制，`"wine": "dxmt"` 自带下载；两个 Artemis D3D11 环境去掉了从未生效的 d3dcompiler_47。1.x 配置的 bottle 没有记录指纹，仍被认为是当前的，不需要重新配置；它们停留在旧状态（quartz 是 Wine 自带的），那个状态一直是能用的。
 
 ## 风险
 

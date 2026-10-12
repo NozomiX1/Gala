@@ -404,10 +404,6 @@ public final class BottleManager: @unchecked Sendable {
                     )
                 )
             }
-            try Self.installDXMTPEOverrides(
-                from: wineManager.dxmtWineDirectory,
-                toPrefix: game.bottleConfig.prefixPath
-            )
         case .mediaFoundation:
             guard let wineManager else { throw WineError.wineNotInstalled }
             try await wineManager.ensureMediaFoundationRuntime { progress in
@@ -421,41 +417,6 @@ public final class BottleManager: @unchecked Sendable {
                 )
             }
         }
-    }
-
-    private static func installDXMTPEOverrides(from wineRoot: URL, toPrefix prefix: String) throws {
-        let prefixURL = URL(fileURLWithPath: prefix)
-        let wineLib = dxmtWineLibDirectory(in: wineRoot)
-        let mappings = [
-            ("x86_64-windows", "drive_c/windows/system32"),
-            ("i386-windows", "drive_c/windows/syswow64"),
-        ]
-
-        for (sourceDirectoryName, targetDirectoryName) in mappings {
-            let sourceDirectory = wineLib.appendingPathComponent(sourceDirectoryName)
-            let targetDirectory = prefixURL.appendingPathComponent(targetDirectoryName)
-            guard let sourceFiles = try? FileManager.default.contentsOfDirectory(
-                at: sourceDirectory,
-                includingPropertiesForKeys: nil
-            ) else {
-                throw WineError.extractionFailed
-            }
-
-            try FileManager.default.createDirectory(at: targetDirectory, withIntermediateDirectories: true)
-            for sourceFile in sourceFiles where sourceFile.pathExtension.lowercased() == "dll" {
-                let targetFile = targetDirectory.appendingPathComponent(sourceFile.lastPathComponent)
-                try? FileManager.default.removeItem(at: targetFile)
-                try FileManager.default.copyItem(at: sourceFile, to: targetFile)
-            }
-        }
-    }
-
-    private static func dxmtWineLibDirectory(in wineRoot: URL) -> URL {
-        let appBundle = wineRoot.appendingPathComponent("Contents/Resources/wine/lib/wine")
-        if FileManager.default.fileExists(atPath: appBundle.path) {
-            return appBundle
-        }
-        return wineRoot.appendingPathComponent("lib/wine")
     }
 
     private func configureLocale(wineBinary: URL, prefix: String, locale: String) async throws {

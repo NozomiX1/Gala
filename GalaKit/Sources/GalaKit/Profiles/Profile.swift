@@ -217,6 +217,9 @@ public struct ProfileStore: Sendable {
             wine = link.wine ?? wine
         }
 
+        // Asking for the DXMT Wine is enough to get it downloaded; a file need not also list it as a component.
+        if wine == .dxmt, !managed.contains(.dxmt) { managed.insert(.dxmt, at: 0) }
+
         return RuntimeRecipe(
             id: file.id,
             name: file.name,

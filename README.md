@@ -160,7 +160,7 @@ Gala 会先检查本地文件特征，例如 XP3、BGI 可执行文件、Leaf/WH
 |---------|----------|----------|
 | `common` | BGI、Artemis、NScripter、YU-RIS、RealLive、Majiro、AdvHD、QLIE、Unknown | `quartz` / `amstream` / `lavfilters`，DirectShow `native,builtin`，LAV Audio WMA 开关 |
 | `kirikiri` | KiriKiri | 通用视频组件，`quartz=native` |
-| `artemis-d3d11` | DirectShow 型 Artemis/iarsys D3D11 游戏，例如 ハミダシクリエイティブ凸 | `d3dcompiler_47=native,builtin`，DXMT Wine 变体，DXMT PE DLL 覆盖，DirectShow/LAV 视频链 |
+| `artemis-d3d11` | DirectShow 型 Artemis/iarsys D3D11 游戏，例如 ハミダシクリエイティブ凸 | 和 `common` 相同，只是改用 DXMT Wine 变体启动 |
 | `artemis-mf-d3d11` | Media Foundation 型 Artemis/iarsys D3D11 游戏，例如 甜蜜女友3 / アマカノ3 | 独立 DXMT profile，不安装 DirectShow/LAV 预设；启用 Wine MF FFmpeg backend，并为 `movie/*.wmv` 生成只转换音频轨的兼容缓存 |
 | `leaf` | Leaf/AQUAPLUS、WHITE ALBUM2 | builtin DirectShow、禁用 Wine 自带 WMA/WMV 解码器、LAV RGB 输出和 WMA 音频 |
 | `do-kizunar` | 家族計画 追憶 | builtin `quartz`，`HKCU\Software\DO\KIZUNAR` 指向 `G:\` |
@@ -190,7 +190,7 @@ Gala 自身的启动路径开销很小，主要成本来自 Wine 和游戏引擎
 
 当前旧式视频预设会自动安装 `quartz`、`amstream`、`lavfilters`，覆盖 BGI、KiriKiri、SiglusEngine、旧式 Artemis、NScripter、YU-RIS、RealLive 等依赖旧式视频播放链路的引擎。`common` 会启用 LAV Audio 的 WMA / WMA Pro / WMA Lossless 开关，减少 OP 只有画面没有声音的情况。Leaf/AQUAPLUS 额外使用更严格的 DirectShow / LAV RGB 输出配置，以修复 WHITE ALBUM2 的 OP/视频播放问题。家族计划独立使用 `do-kizunar`，因为它需要 builtin `quartz` 和 D.O. 的安装路径注册表。
 
-现代 Artemis/iarsys D3D11 游戏的黑屏问题不属于 OP/DirectShow 链路；Gala 会为这类游戏在 Wine Staging 11.6 上叠加 DXMT v0.80，并使用原生 `d3dcompiler_47`。其中 Hamidashi 这类 DirectShow/ASF `.dat` 视频会进入 `artemis-d3d11`，甜蜜女友3这类 Media Foundation/WMV 视频会进入 `artemis-mf-d3d11`，避免两类视频链路共用同一个 bottle。
+现代 Artemis/iarsys D3D11 游戏的黑屏问题不属于 OP/DirectShow 链路；Gala 会为这类游戏在 Wine Staging 11.6 上叠加 DXMT v0.80，其中 Hamidashi 这类 DirectShow/ASF `.dat` 视频会进入 `artemis-d3d11`，甜蜜女友3这类 Media Foundation/WMV 视频会进入 `artemis-mf-d3d11`，避免两类视频链路共用同一个 bottle。
 
 `artemis-mf-d3d11` 额外使用 Gala MF Runtime。启动前，Gala 会在 `~/Library/Application Support/Gala/MediaOverlays/<game-id>` 生成 per-game overlay：非视频资源用符号链接指回原游戏目录，`movie/*.wmv` 保留 WMV3 视频流并只把 WMA/WMA Lossless 音频轨转换为 PCM。原始游戏文件不会被修改；缓存会在源视频文件或 runtime 版本变化后重建。
 
