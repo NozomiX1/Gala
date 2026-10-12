@@ -46,35 +46,37 @@ struct GameDetailView: View {
     private var info: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(game.title)
-                .font(.system(size: 34, weight: .semibold))
+                .font(.system(size: 38, weight: .semibold))
                 .fixedSize(horizontal: false, vertical: true)
             if let chineseTitle = game.chineseTitle, chineseTitle != game.title {
                 Text(chineseTitle)
-                    .font(.title3)
-                    .padding(.top, 4)
+                    .font(.system(size: 17))
+                    .padding(.top, 6)
             }
             if !byline.isEmpty {
                 Text(byline)
                     .font(.title3)
                     .foregroundStyle(.secondary)
-                    .padding(.top, 4)
+                    .padding(.top, 5)
             }
 
             statusLine
-                .padding(.top, 14)
+                .padding(.top, 18)
 
-            actions
-                .padding(.top, 16)
+            // Equal spacers keep the actions midway between the status line and the facts.
+            Spacer(minLength: 16)
 
             if isSettingUp {
                 progressPanel
-                    .padding(.top, 16)
+                    .padding(.bottom, 16)
             } else if let errorMessage {
                 errorPanel(errorMessage)
-                    .padding(.top, 16)
+                    .padding(.bottom, 16)
             }
 
-            Spacer(minLength: 18)
+            actions
+
+            Spacer(minLength: 16)
 
             facts
         }
@@ -137,7 +139,7 @@ struct GameDetailView: View {
             .fixedSize()
             .help("更多")
         }
-        .controlSize(.large)
+        .controlSize(.extraLarge)
     }
 
     private func iconButton(_ symbol: String, help: String, action: @escaping () -> Void) -> some View {
@@ -168,7 +170,7 @@ struct GameDetailView: View {
 
     /// Two rows of three: the player's own numbers, then facts about the game.
     private var facts: some View {
-        Grid(alignment: .leading, horizontalSpacing: 26, verticalSpacing: 14) {
+        Grid(alignment: .leading, horizontalSpacing: 26, verticalSpacing: 18) {
             GridRow {
                 fact("游玩时间", PlayTime.text(game.totalPlayTime))
                 fact("上次游玩", game.lastPlayedAt?.formatted(.relative(presentation: .named).locale(Locale(identifier: "zh_CN"))) ?? "—")
@@ -181,7 +183,7 @@ struct GameDetailView: View {
             }
         }
         .padding(.horizontal, 18)
-        .padding(.vertical, 14)
+        .padding(.vertical, 18)
         .frame(maxWidth: .infinity, alignment: .leading)
         .galaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
@@ -204,10 +206,10 @@ struct GameDetailView: View {
     private func fact(_ label: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label)
-                .font(.caption2)
+                .font(.system(size: 11))
                 .foregroundStyle(.secondary)
             Text(value)
-                .font(.callout.weight(.medium))
+                .font(.system(size: 14, weight: .medium))
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
         }
