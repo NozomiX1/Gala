@@ -45,12 +45,16 @@ struct GameDetailView: View {
 
     private var info: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // One line always: a long title shrinks instead of wrapping, so every page has the same height.
             Text(game.title)
                 .font(.system(size: 38, weight: .semibold))
-                .fixedSize(horizontal: false, vertical: true)
+                .lineLimit(1)
+                .minimumScaleFactor(0.55)
             if let chineseTitle = game.chineseTitle, chineseTitle != game.title {
                 Text(chineseTitle)
                     .font(.system(size: 17))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                     .padding(.top, 6)
             }
             if !byline.isEmpty {
@@ -62,19 +66,6 @@ struct GameDetailView: View {
 
             statusLine
                 .padding(.top, 18)
-            if isSettingUp {
-                // A thin bar under the status line, so configuring moves nothing else on the page.
-                Group {
-                    if let progress = gameVM.setupProgress {
-                        ProgressView(value: progress)
-                    } else {
-                        ProgressView()
-                            .progressViewStyle(.linear)
-                    }
-                }
-                .controlSize(.small)
-                .padding(.top, 8)
-            }
 
             // Equal spacers keep the actions midway between the status line and the facts.
             Spacer(minLength: 16)
@@ -103,7 +94,7 @@ struct GameDetailView: View {
     private var statusLine: some View {
         let (color, text): (Color, String) = {
             if isRunning { return (.green, "运行中") }
-            if isSettingUp { return (.blue, gameVM.setupStatus.isEmpty ? "正在配置运行环境" : gameVM.setupStatus) }
+            if isSettingUp { return (.blue, setupText) }
             if errorMessage != nil { return (.orange, "上次没能启动") }
             return game.isRuntimeConfigured ? (.green, "就绪") : (.gray, "还没有配置运行环境")
         }()
@@ -162,6 +153,13 @@ struct GameDetailView: View {
         .galaButtonStyle()
         .buttonBorderShape(.circle)
         .help(help)
+    }
+
+    /// The current setup step with its percentage, in the status line so configuring moves nothing on the page.
+    private var setupText: String {
+        let step = gameVM.setupStatus.isEmpty ? "正在配置运行环境" : gameVM.setupStatus
+        guard let progress = gameVM.setupProgress, progress > 0 else { return step }
+        return "\(step) \(Int(progress * 100))%"
     }
 
     private var primaryTitle: String {
