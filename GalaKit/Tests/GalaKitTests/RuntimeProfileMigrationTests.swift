@@ -235,3 +235,41 @@ import Foundation
     #expect(migrated[0].bottleConfig.prefixPath == game.bottleConfig.prefixPath)
     #expect(migrated[0].isRuntimeConfigured)
 }
+
+@Test func runtimeProfileMigrationSendsFormerNativeLaunchGamesToCommonBottle() throws {
+    let bottles = URL(fileURLWithPath: "/tmp/Gala/Bottles")
+    let game = Game(
+        title: "Unity Game",
+        executablePath: "/games/unity/game.exe",
+        engine: .unity,
+        isRuntimeConfigured: true,
+        runtimeProfileMigrationVersion: 1,
+        runtimeProfileMigrationExecutablePath: "/games/unity/game.exe",
+        bottleConfig: BottleConfig(prefixPath: bottles.appendingPathComponent("Profiles/unity").path)
+    )
+
+    let migrated = RuntimeProfileMigration.migrate(games: [game], bottlesDirectory: bottles) { _ in nil }
+
+    #expect(migrated[0].engine == .unity)
+    #expect(migrated[0].bottleConfig.prefixPath == bottles.appendingPathComponent("Profiles/common").path)
+    #expect(!migrated[0].isRuntimeConfigured)
+    #expect(migrated[0].runtimeProfileMigrationVersion == RuntimeProfileMigration.currentRulesVersion)
+}
+
+@Test func runtimeProfileMigrationKeepsWineConfiguredRenPyGameAfterExecutableChange() throws {
+    let bottles = URL(fileURLWithPath: "/tmp/Gala/Bottles")
+    let game = Game(
+        title: "RenPy Game",
+        executablePath: "/games/renpy/new.exe",
+        engine: .renpy,
+        isRuntimeConfigured: true,
+        runtimeProfileMigrationVersion: RuntimeProfileMigration.currentRulesVersion,
+        runtimeProfileMigrationExecutablePath: "/games/renpy/old.exe",
+        bottleConfig: BottleConfig(prefixPath: bottles.appendingPathComponent("Profiles/common").path)
+    )
+
+    let migrated = RuntimeProfileMigration.migrate(games: [game], bottlesDirectory: bottles) { _ in nil }
+
+    #expect(migrated[0].isRuntimeConfigured)
+    #expect(migrated[0].runtimeProfileMigrationExecutablePath == "/games/renpy/new.exe")
+}

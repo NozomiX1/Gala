@@ -66,38 +66,6 @@ public final class WineProcess: ObservableObject, @unchecked Sendable {
         }
     }
 
-    public func launchNative(
-        path: String,
-        onTermination: @escaping @Sendable (TimeInterval, Int32, String) -> Void
-    ) throws {
-        guard !isRunning else { return }
-
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        process.arguments = ["-W", path]
-
-        let startTime = Date()
-
-        process.terminationHandler = { [weak self] proc in
-            let duration = Date().timeIntervalSince(startTime)
-            DispatchQueue.main.async {
-                self?.isRunning = false
-            }
-            onTermination(duration, proc.terminationStatus, "")
-        }
-
-        try process.run()
-        self.process = process
-
-        DispatchQueue.main.async {
-            self.isRunning = true
-        }
-    }
-
-    public func terminate() {
-        process?.terminate()
-    }
-
     public static func wineserverURL(for wineBinary: URL) -> URL? {
         let url = wineBinary
             .deletingLastPathComponent()

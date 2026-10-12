@@ -1,7 +1,7 @@
 import Foundation
 
 public enum RuntimeProfileMigration {
-    public static let currentRulesVersion = 1
+    public static let currentRulesVersion = 2
 
     public static func migrate(
         games: [Game],
@@ -22,6 +22,12 @@ public enum RuntimeProfileMigration {
                 if changedRuntime {
                     migrated.isRuntimeConfigured = false
                 }
+            } else if usedRemovedNativeLaunch(game) {
+                migrated.bottleConfig.prefixPath = BottleManager.prefixPath(
+                    for: game.engine,
+                    bottlesDirectory: bottlesDirectory
+                )
+                migrated.isRuntimeConfigured = false
             }
             markCurrent(&migrated)
             return migrated
@@ -48,6 +54,12 @@ public enum RuntimeProfileMigration {
     private static func markCurrent(_ game: inout Game) {
         game.runtimeProfileMigrationVersion = currentRulesVersion
         game.runtimeProfileMigrationExecutablePath = game.executablePath
+    }
+
+    /// Before rules v2, Ren'Py, RPG Maker, and Unity were marked configured without a Wine bottle.
+    private static func usedRemovedNativeLaunch(_ game: Game) -> Bool {
+        guard (game.runtimeProfileMigrationVersion ?? 0) < 2 else { return false }
+        return game.engine == .renpy || game.engine == .rpgMaker || game.engine == .unity
     }
 
     private static func specialRuntimeTarget(

@@ -29,17 +29,6 @@ import Foundation
     #expect(!RuntimeConfigurationPolicy.shouldDeleteRuntimeConfiguration(for: game, in: [game]))
 }
 
-@Test func runtimePolicyIgnoresNativeEngine() {
-    let game = configuredGame(
-        id: UUID(),
-        title: "RenPy",
-        engine: .renpy,
-        prefix: "/tmp/Gala/Bottles/Profiles/common"
-    )
-
-    #expect(!RuntimeConfigurationPolicy.shouldDeleteRuntimeConfiguration(for: game, in: [game]))
-}
-
 @Test func runtimePolicyIgnoresEmptyPrefix() {
     let game = configuredGame(id: UUID(), title: "Empty", engine: .kirikiri, prefix: "")
 
@@ -68,18 +57,6 @@ import Foundation
     )
 
     #expect(RuntimeConfigurationPolicy.needsRuntimeConfiguration(for: game, bottleReady: false))
-}
-
-@Test func runtimePolicySkipsConfigurationForNativeEngine() {
-    let game = Game(
-        title: "Native Game",
-        executablePath: "/game.exe",
-        engine: .renpy,
-        isRuntimeConfigured: false,
-        bottleConfig: BottleConfig(prefixPath: "")
-    )
-
-    #expect(!RuntimeConfigurationPolicy.needsRuntimeConfiguration(for: game, bottleReady: false))
 }
 
 @Test func runtimePolicySkipsPresetForUnconfiguredGameWhenSharedProfileMarkerIsCurrent() {

@@ -141,7 +141,7 @@ final class LibraryViewModel {
 
     func markWineRuntimesUnconfigured() {
         var didChange = false
-        for index in games.indices where games[index].engine?.supportsNativeLaunch != true && games[index].isRuntimeConfigured {
+        for index in games.indices where games[index].isRuntimeConfigured {
             games[index].isRuntimeConfigured = false
             didChange = true
         }

@@ -16,11 +16,6 @@ final class GameViewModel {
 
         errorMessage = nil
 
-        if game.engine?.supportsNativeLaunch == true {
-            viewModel.markRuntimeConfigured(for: game)
-            return
-        }
-
         guard viewModel.wineManagerInstance.wineBinaryURL != nil else {
             errorMessage = "Wine 未安装，请先安装。"
             return
@@ -88,12 +83,6 @@ final class GameViewModel {
         }
 
         let wineManager = viewModel.wineManagerInstance
-
-        // Native engines skip Wine entirely
-        if game.engine?.supportsNativeLaunch == true {
-            launchNative(game, viewModel: viewModel)
-            return
-        }
 
         guard let wineBinary = wineManager.wineBinaryURL(for: game) else {
             if game.engine?.usesDXMTWineVariant == true {
@@ -169,30 +158,6 @@ final class GameViewModel {
                 isRunning = false
             }
         }
-    }
-
-    private func launchNative(_ game: Game, viewModel: LibraryViewModel) {
-        let gameDir = URL(fileURLWithPath: game.executablePath).deletingLastPathComponent()
-        let fm = FileManager.default
-        if let contents = try? fm.contentsOfDirectory(atPath: gameDir.path) {
-            if let app = contents.first(where: { $0.hasSuffix(".app") }) {
-                let appPath = gameDir.appendingPathComponent(app).path
-                isRunning = true
-                do {
-                    try wineProcess.launchNative(path: appPath) { [weak self] duration, _, _ in
-                        viewModel.recordPlayTime(gameId: game.id, duration: duration)
-                        DispatchQueue.main.async {
-                            self?.isRunning = false
-                        }
-                    }
-                } catch {
-                    errorMessage = error.localizedDescription
-                    isRunning = false
-                }
-                return
-            }
-        }
-        errorMessage = "未找到原生 macOS 程序，将使用 Wine 启动。"
     }
 
     private func prepareMediaCompatibilityIfNeeded(

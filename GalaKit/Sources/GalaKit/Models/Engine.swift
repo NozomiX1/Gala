@@ -30,8 +30,6 @@ public enum RuntimeProfile: String, Codable, Sendable {
     case artemisMFD3D11 = "artemis-mf-d3d11"
     case leaf = "leaf"
     case ikuraGDLFamilyProject = "do-kizunar"
-    case rpgMaker = "rpg-maker"
-    case unity = "unity"
 }
 
 public enum ManagedRuntimeComponent: String, Sendable {
@@ -147,7 +145,8 @@ extension Engine {
         switch self {
         case .kirikiri:
             return Self.commonVideoPreset(dllOverrides: ["quartz": "native"])
-        case .bgi, .artemis, .nscripter, .yuris, .realLive, .renpy, .majiro, .advHD, .qlie, .unknown:
+        case .bgi, .artemis, .nscripter, .yuris, .realLive, .renpy, .rpgMaker, .unity,
+             .majiro, .advHD, .qlie, .unknown:
             return Self.commonVideoPreset()
         case .artemisD3D11:
             return Self.commonVideoPreset(
@@ -207,10 +206,6 @@ extension Engine {
                 ],
                 baseDllOverrides: [:]
             )
-        case .rpgMaker:
-            return EnginePreset(components: ["d3dx9"], dllOverrides: [:])
-        case .unity:
-            return EnginePreset(components: ["dotnet48", "d3dcompiler_47"], dllOverrides: [:])
         }
     }
 
@@ -232,7 +227,8 @@ extension Engine {
 
     public var runtimeProfile: RuntimeProfile {
         switch self {
-        case .bgi, .artemis, .nscripter, .yuris, .realLive, .renpy, .majiro, .advHD, .qlie, .unknown:
+        case .bgi, .artemis, .nscripter, .yuris, .realLive, .renpy, .rpgMaker, .unity,
+             .majiro, .advHD, .qlie, .unknown:
             return .common
         case .artemisD3D11:
             return .artemisD3D11
@@ -248,10 +244,6 @@ extension Engine {
             return .leaf
         case .ikuraGDLFamilyProject:
             return .ikuraGDLFamilyProject
-        case .rpgMaker:
-            return .rpgMaker
-        case .unity:
-            return .unity
         }
     }
 
@@ -296,13 +288,6 @@ extension Engine {
         case .leaf: return "Leaf/AQUAPLUS"
         case .ikuraGDLFamilyProject: return "Ikura GDL / Family Project"
         case .unknown: return "Unknown"
-        }
-    }
-
-    public var supportsNativeLaunch: Bool {
-        switch self {
-        case .renpy, .rpgMaker, .unity: return true
-        default: return false
         }
     }
 }

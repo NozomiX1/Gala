@@ -192,6 +192,8 @@ struct AddGameView: View {
             releasedAt: released,
             description: description,
             isRuntimeConfigured: false,
+            runtimeProfileMigrationVersion: RuntimeProfileMigration.currentRulesVersion,
+            runtimeProfileMigrationExecutablePath: exePath,
             bottleConfig: BottleConfig(prefixPath: prefixPath)
         )
 

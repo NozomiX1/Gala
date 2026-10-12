@@ -62,7 +62,7 @@ public struct RuntimeProfileMarker: Codable, Equatable, Sendable {
     }
 
     static func current(for game: Game, configuredAt: Date) -> RuntimeProfileMarker? {
-        guard let engine = game.engine, engine.supportsNativeLaunch != true else { return nil }
+        guard let engine = game.engine else { return nil }
         return RuntimeProfileMarker(
             profile: engine.runtimeProfile,
             configVersion: engine.runtimeConfigVersion,
