@@ -62,14 +62,24 @@ struct GameDetailView: View {
 
             statusLine
                 .padding(.top, 18)
+            if isSettingUp {
+                // A thin bar under the status line, so configuring moves nothing else on the page.
+                Group {
+                    if let progress = gameVM.setupProgress {
+                        ProgressView(value: progress)
+                    } else {
+                        ProgressView()
+                            .progressViewStyle(.linear)
+                    }
+                }
+                .controlSize(.small)
+                .padding(.top, 8)
+            }
 
             // Equal spacers keep the actions midway between the status line and the facts.
             Spacer(minLength: 16)
 
-            if isSettingUp {
-                progressPanel
-                    .padding(.bottom, 16)
-            } else if let errorMessage {
+            if !isSettingUp, let errorMessage {
                 errorPanel(errorMessage)
                     .padding(.bottom, 16)
             }
@@ -93,7 +103,7 @@ struct GameDetailView: View {
     private var statusLine: some View {
         let (color, text): (Color, String) = {
             if isRunning { return (.green, "运行中") }
-            if isSettingUp { return (.blue, "正在配置运行环境") }
+            if isSettingUp { return (.blue, gameVM.setupStatus.isEmpty ? "正在配置运行环境" : gameVM.setupStatus) }
             if errorMessage != nil { return (.orange, "上次没能启动") }
             return game.isRuntimeConfigured ? (.green, "就绪") : (.gray, "还没有配置运行环境")
         }()
@@ -103,6 +113,8 @@ struct GameDetailView: View {
                 .frame(width: 7, height: 7)
             Text(text)
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
         }
     }
 
@@ -222,23 +234,6 @@ struct GameDetailView: View {
     }
 
     // MARK: - Panels
-
-    private var progressPanel: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if let progress = gameVM.setupProgress {
-                ProgressView(value: progress)
-            } else {
-                ProgressView()
-                    .progressViewStyle(.linear)
-            }
-            Text(gameVM.setupStatus)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .galaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-    }
 
     private func errorPanel(_ message: String) -> some View {
         VStack(alignment: .leading, spacing: 5) {

@@ -155,6 +155,9 @@ struct ContentView: View {
         if let query = environment["GALA_DEBUG_OPEN"],
            let game = library.games.first(where: { $0.title.localizedCaseInsensitiveContains(query) }) {
             path = [game.id]
+            if environment["GALA_DEBUG_CONFIGURE"] != nil {
+                gameVM.configureRuntime(for: game, viewModel: library)
+            }
         }
         if let executable = environment["GALA_DEBUG_ADD"] {
             addGameRequest = AddGameRequest(executable: URL(fileURLWithPath: executable))
