@@ -1,0 +1,44 @@
+name: Release
+
+# Pushing a tag like v2.0.0 builds the DMG and attaches it to the GitHub release.
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check that the tag matches project.yml
+        run: |
+          VERSION=$(sed -n 's/^ *MARKETING_VERSION: *"\(.*\)"$/\1/p' project.yml)
+          if [ "v$VERSION" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match project.yml version $VERSION"
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Test
+        run: swift test --package-path GalaKit
+
+      - name: Build DMG
+        run: |
+          brew install xcodegen
+          scripts/release.sh
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Release notes are this version's section of the changelog.
+          awk -v v="$VERSION" 'index($0, "## [" v "]") == 1 { on = 1; next } /^## \[/ { on = 0 } on' CHANGELOG.md > notes.md
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/Gala.dmg --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/Gala.dmg --title "Gala $VERSION" --notes-file notes.md
+          fi

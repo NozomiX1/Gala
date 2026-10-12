@@ -46,6 +46,12 @@ Read `docs/runtime-lessons.md` before changing a profile or debugging playback, 
 - Record user-visible changes under `## [Unreleased]` in `CHANGELOG.md`.
 - UI strings and `README.md` are Chinese. Code, comments, commit messages, and the other docs are English.
 
+## Releasing
+- Set the version in `project.yml` and move the `[Unreleased]` changelog entries under a `## [X.Y.Z] - date` heading.
+- `scripts/release.sh` builds `dist/Gala.dmg` locally.
+- Pushing a `vX.Y.Z` tag runs `.github/workflows/release.yml`: it tests, builds, and publishes the DMG with that changelog section as the release notes. The tag must match the version in `project.yml`.
+- Keep the `vX.Y.Z` tag format and the `.dmg` asset. The 1.x in-app update check finds new versions through them.
+
 ## Verification
 - `swift test --package-path GalaKit`
 - `xcodegen generate && xcodebuild -project Gala.xcodeproj -scheme Gala -configuration Debug -destination 'platform=macOS' -derivedDataPath /private/tmp/GalaDerivedData build`
