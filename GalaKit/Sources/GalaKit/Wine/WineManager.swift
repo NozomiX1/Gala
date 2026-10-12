@@ -24,6 +24,7 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
     public var dxmtCacheDirectory: URL { cacheDirectory.appendingPathComponent("dxmt") }
     public var mediaFoundationCacheDirectory: URL { cacheDirectory.appendingPathComponent("media-foundation") }
     public var mediaOverlaysDirectory: URL { baseURL.appendingPathComponent("MediaOverlays") }
+    public var logsDirectory: URL { baseURL.appendingPathComponent("Logs") }
     private var activeLink: URL { wineDirectory.appendingPathComponent("active") }
     private var managedDirectories: [URL] {
         [wineDirectory, bottlesDirectory, fontsDirectory, toolsDirectory, cacheDirectory, mediaOverlaysDirectory]

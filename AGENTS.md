@@ -5,6 +5,7 @@
 - Runtime is app-managed Wine Staging 11.6.
 - Wine prefixes (bottles) are shared by runtime profile, not created per game.
 - App data lives in `~/Library/Application Support/Gala`.
+- `gala-cli` (`GalaKit/Sources/gala-cli`) exposes the library and diagnostics on the command line. It is built twice from the same sources: as a SwiftPM product for `swift run gala-cli`, and as an Xcode tool target copied into the app bundle. `--home <dir>` points it at another data directory.
 
 ## Rules
 - Keep SwiftUI app code in `Gala/`; keep Wine, engine detection, VNDB, library, and model logic in `GalaKit/`.

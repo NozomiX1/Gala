@@ -14,6 +14,19 @@ packages:
     exactVersion: 2.10.0
 
 targets:
+  # The same sources as the `gala-cli` SwiftPM product, built here so the app bundle can carry the tool.
+  gala-cli:
+    type: tool
+    platform: macOS
+    sources:
+      - GalaKit/Sources/gala-cli
+    dependencies:
+      - package: GalaKit
+    settings:
+      base:
+        PRODUCT_NAME: gala-cli
+        SWIFT_VERSION: "5.10"
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
   Gala:
     type: application
     platform: macOS
@@ -22,6 +35,10 @@ targets:
     dependencies:
       - package: GalaKit
       - package: Sparkle
+      - target: gala-cli
+        link: false
+        copy:
+          destination: executables
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.nozomi.gala

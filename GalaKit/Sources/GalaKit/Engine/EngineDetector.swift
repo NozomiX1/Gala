@@ -1,8 +1,18 @@
 import Foundation
 
 public enum EngineDetector {
+    /// One engine that matched something in the game directory, with why.
+    public struct Candidate: Equatable, Sendable {
+        public let engine: Engine
+        public let score: Int
+        public let reasons: [String]
+    }
+
+    /// A candidate needs at least this score to be accepted as the detected engine.
+    public static let detectionThreshold = 40
+
     public static func detect(in directory: URL) -> Engine? {
-        detectCandidates(in: directory).first?.engine
+        candidates(in: directory).first { $0.score >= detectionThreshold }?.engine
     }
 
     private struct EngineCandidate: Sendable {
@@ -11,7 +21,8 @@ public enum EngineDetector {
         let reason: String
     }
 
-    private static func detectCandidates(in directory: URL) -> [EngineCandidate] {
+    /// Every engine that matched anything, best first, including ones below the threshold.
+    public static func candidates(in directory: URL) -> [Candidate] {
         let fm = FileManager.default
         var scores: [Engine: (score: Int, reasons: [String])] = [:]
 
@@ -76,9 +87,8 @@ public enum EngineDetector {
 
         return scores
             .map { engine, value in
-                EngineCandidate(engine: engine, score: value.score, reason: value.reasons.joined(separator: ", "))
+                Candidate(engine: engine, score: value.score, reasons: value.reasons)
             }
-            .filter { $0.score >= 40 }
             .sorted {
                 if $0.score == $1.score {
                     return $0.engine.rawValue < $1.engine.rawValue

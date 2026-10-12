@@ -12,6 +12,8 @@ public final class WineProcess: ObservableObject, @unchecked Sendable {
         game: Game,
         wineBinary: URL,
         mediaFoundationRuntime: MediaFoundationRuntime? = nil,
+        debug: Bool = false,
+        logFile: URL? = nil,
         onTermination: @escaping @Sendable (TimeInterval, Int32, String) -> Void
     ) throws {
         guard !isRunning else { return }
@@ -28,13 +30,15 @@ public final class WineProcess: ObservableObject, @unchecked Sendable {
         process.environment = WineLaunchConfig.buildEnvironment(
             game: game,
             wineBinary: wineBinary,
-            mediaFoundationRuntime: mediaFoundationRuntime
+            mediaFoundationRuntime: mediaFoundationRuntime,
+            debug: debug
         )
 
-        // Write process output to a temp file instead of inheriting stdout/stderr
+        // Write process output to a file instead of inheriting stdout/stderr
         // or using a Pipe. Wine and MoltenVK can produce very large logs; inheriting
         // stdout floods the host app console, and pipes can deadlock on full buffers.
-        let outputFile = FileManager.default.temporaryDirectory
+        // Without a logFile the output is only needed for the tail, so it goes to a temp file.
+        let outputFile = logFile ?? FileManager.default.temporaryDirectory
             .appendingPathComponent("gala-wine-\(UUID().uuidString).log")
         FileManager.default.createFile(atPath: outputFile.path, contents: nil)
         let outputHandle = try FileHandle(forWritingTo: outputFile)
@@ -51,7 +55,7 @@ public final class WineProcess: ObservableObject, @unchecked Sendable {
             outputHandle.closeFile()
 
             let tail = Self.logTail(from: outputFile, limit: 500)
-            try? FileManager.default.removeItem(at: outputFile)
+            if logFile == nil { try? FileManager.default.removeItem(at: outputFile) }
             DispatchQueue.main.async {
                 self?.isRunning = false
             }

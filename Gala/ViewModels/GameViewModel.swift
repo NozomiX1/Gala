@@ -139,7 +139,8 @@ final class GameViewModel {
                 try wineProcess.launch(
                     game: launchGame,
                     wineBinary: wineBinary,
-                    mediaFoundationRuntime: wineManager.mediaFoundationRuntime
+                    mediaFoundationRuntime: wineManager.mediaFoundationRuntime,
+                    logFile: try? LaunchLog.newURL(gameID: game.id, logsDirectory: wineManager.logsDirectory)
                 ) { [weak self] duration, terminationStatus, output in
                     viewModel.recordPlayTime(gameId: game.id, duration: duration)
                     DispatchQueue.main.async {

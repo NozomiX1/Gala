@@ -23,14 +23,16 @@ public struct WineLaunchConfig: Sendable {
     public static func buildEnvironment(
         game: Game,
         wineBinary: URL,
-        mediaFoundationRuntime: MediaFoundationRuntime? = nil
+        mediaFoundationRuntime: MediaFoundationRuntime? = nil,
+        debug: Bool = false
     ) -> [String: String] {
         var env = ProcessInfo.processInfo.environment
 
         env["WINEPREFIX"] = game.bottleConfig.prefixPath
         env["LANG"] = game.bottleConfig.locale
         env["LC_ALL"] = game.bottleConfig.locale
-        env["WINEDEBUG"] = "-all"
+        // Debug keeps Wine's default error output and adds which DLLs load as native or builtin.
+        env["WINEDEBUG"] = debug ? "+loaddll" : "-all"
         env["MVK_CONFIG_LOG_LEVEL"] = "0"
 
         // Only set DYLD_FALLBACK_LIBRARY_PATH if the lib directories actually exist.

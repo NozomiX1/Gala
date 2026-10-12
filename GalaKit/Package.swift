@@ -9,6 +9,7 @@ let package = Package(
     ],
     targets: [
         .target(name: "GalaKit"),
+        .executableTarget(name: "gala-cli", dependencies: ["GalaKit"]),
         .testTarget(name: "GalaKitTests", dependencies: ["GalaKit"]),
     ]
 )

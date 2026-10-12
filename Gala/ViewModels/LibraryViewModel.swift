@@ -136,6 +136,7 @@ final class LibraryViewModel {
 
         let cacheKey = game.vndbId ?? game.id.uuidString
         imageCache.delete(forKey: cacheKey)
+        try? FileManager.default.removeItem(at: LaunchLog.directory(gameID: game.id, logsDirectory: wineManager.logsDirectory))
         removeGame(game)
     }
 
