@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-13
+
 ### Added
 - User runtime profiles: a JSON file dropped into `Profiles/` in Gala's data directory becomes a selectable runtime environment, building on a bundled one through `base`. A broken file is skipped and reported instead of stopping the app.
 - A game can be pointed at any profile by hand. `gala-cli profiles` lists them, `gala-cli use <game> <profile>` switches and saves, and `--profile` tries one for a single run.
