@@ -13,6 +13,11 @@ public final class VNDBClient: Sendable {
         return try await post(endpoint: "vn", body: body)
     }
 
+    public func getDetail(vnId: String) async throws -> VNDBDetail? {
+        let response: VNDBResponse<VNDBDetail> = try await post(endpoint: "vn", body: Self.detailRequestBody(vnId: vnId))
+        return response.results.first
+    }
+
     public func getReleases(vnId: String) async throws -> [VNDBRelease] {
         let body = Self.releasesRequestBody(vnId: vnId)
         let response: VNDBResponse<VNDBRelease> = try await post(endpoint: "release", body: body)
@@ -30,6 +35,14 @@ public final class VNDBClient: Sendable {
             "fields": "id, title, alttitle, released, rating, description, image{url,dims,thumbnail,thumbnail_dims}, developers{id,name}",
             "sort": "searchrank",
             "results": results
+        ]
+        return try! JSONSerialization.data(withJSONObject: body)
+    }
+
+    static func detailRequestBody(vnId: String) -> Data {
+        let body: [String: Any] = [
+            "filters": ["id", "=", vnId],
+            "fields": "length_minutes, titles{lang,title}, screenshots{url,sexual,violence}"
         ]
         return try! JSONSerialization.data(withJSONObject: body)
     }

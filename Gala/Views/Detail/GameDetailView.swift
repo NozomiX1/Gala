@@ -12,19 +12,29 @@ struct GameDetailView: View {
     private var isSettingUp: Bool { isActive && gameVM.isSettingUp }
     private var errorMessage: String? { isActive ? gameVM.errorMessage : nil }
 
+    @State private var viewedScreenshot: VNDBScreenshot?
+
+    private var detail: VNDBDetail? { library.detail(for: game) }
+    private var screenshots: [VNDBScreenshot] { detail?.safeScreenshots ?? [] }
+    /// Something sits between the title and the actions: a status panel, screenshots, or their placeholders.
+    private var hasMiddle: Bool {
+        isSettingUp || errorMessage != nil || !screenshots.isEmpty || (game.vndbId != nil && detail == nil)
+    }
+
     var body: some View {
         let cover = library.cover(for: game)
         GeometryReader { proxy in
             ScrollView {
-                HStack(alignment: .top, spacing: 46) {
+                HStack(alignment: hasMiddle ? .top : .center, spacing: 46) {
                     CoverArt(title: game.title, image: cover)
                         .frame(width: Self.coverSize.width, height: Self.coverSize.height)
                         .shadow(color: .black.opacity(0.5), radius: 30, y: 18)
 
                     // As tall as the cover: the title hangs from its top edge, the actions sit on its bottom edge.
+                    // With nothing for the middle, the column shrinks to its content and centres on the cover instead.
                     info
-                        .frame(width: 380, alignment: .leading)
-                        .frame(minHeight: Self.coverSize.height, alignment: .top)
+                        .frame(width: 420, alignment: .leading)
+                        .frame(minHeight: hasMiddle ? Self.coverSize.height : nil, alignment: .top)
                 }
                 // Without this the row stretches to the window's height and the actions drop to the bottom edge.
                 .fixedSize(horizontal: false, vertical: true)
@@ -33,6 +43,8 @@ struct GameDetailView: View {
             }
         }
         .background { AmbientBackground(image: cover, style: .detail) }
+        .overlay { screenshotViewer }
+        .task(id: game.vndbId) { await library.loadDetail(for: game) }
         // The page keeps its dark look in the light appearance too.
         .environment(\.colorScheme, .dark)
         .toolbarColorScheme(.dark, for: .windowToolbar)
@@ -47,24 +59,34 @@ struct GameDetailView: View {
             Text(game.title)
                 .font(.system(size: 34, weight: .semibold))
                 .fixedSize(horizontal: false, vertical: true)
+            if let chineseTitle = detail?.chineseTitle, chineseTitle != game.title {
+                Text(chineseTitle)
+                    .font(.title3)
+                    .padding(.top, 4)
+            }
             if !byline.isEmpty {
                 Text(byline)
                     .font(.title3)
                     .foregroundStyle(.secondary)
-                    .padding(.top, 6)
+                    .padding(.top, 4)
             }
 
             statusLine
-                .padding(.top, 16)
+                .padding(.top, 14)
 
-            Spacer(minLength: 24)
-
-            if isSettingUp {
-                progressPanel
-                    .padding(.bottom, 16)
-            } else if let errorMessage {
-                errorPanel(errorMessage)
-                    .padding(.bottom, 16)
+            if hasMiddle {
+                Spacer(minLength: 18)
+                if isSettingUp {
+                    progressPanel
+                } else if let errorMessage {
+                    errorPanel(errorMessage)
+                } else {
+                    screenshotStrip
+                }
+                Spacer(minLength: 18)
+            } else {
+                Spacer()
+                    .frame(height: 22)
             }
 
             HStack(spacing: 10) {
@@ -136,6 +158,9 @@ struct GameDetailView: View {
     private var stats: some View {
         HStack(spacing: 30) {
             stat("游玩时间", PlayTime.text(game.totalPlayTime))
+            if let minutes = detail?.lengthMinutes, minutes > 0 {
+                stat("通关时长", "约 \(max(1, Int((Double(minutes) / 60).rounded()))) 小时")
+            }
             stat("上次游玩", game.lastPlayedAt?.formatted(.relative(presentation: .named).locale(Locale(identifier: "zh_CN"))) ?? "—")
             if let rating = game.rating {
                 stat("VNDB 评分", String(format: "%.0f", rating))
@@ -153,6 +178,59 @@ struct GameDetailView: View {
                 .foregroundStyle(.secondary)
             Text(value)
                 .font(.callout.weight(.medium))
+        }
+    }
+
+    /// Up to three screenshots; grey slots stand in while they are being fetched.
+    private var screenshotStrip: some View {
+        HStack(spacing: 8) {
+            ForEach(0..<3, id: \.self) { index in
+                let shot = screenshots.indices.contains(index) ? screenshots[index] : nil
+                Button {
+                    viewedScreenshot = shot
+                } label: {
+                    Color.white.opacity(0.08)
+                        .aspectRatio(16 / 9, contentMode: .fit)
+                        .overlay {
+                            if let shot {
+                                AsyncImage(url: URL(string: shot.url)) { image in
+                                    image.resizable().scaledToFill()
+                                } placeholder: {
+                                    Color.clear
+                                }
+                            }
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .disabled(shot == nil)
+                .opacity(shot == nil && detail != nil ? 0 : 1)
+            }
+        }
+    }
+
+    /// The clicked screenshot at full size. Clicking it shows the next one; clicking around it closes.
+    @ViewBuilder
+    private var screenshotViewer: some View {
+        if let shot = viewedScreenshot {
+            ZStack {
+                Color.black.opacity(0.75)
+                    .ignoresSafeArea()
+                    .onTapGesture { viewedScreenshot = nil }
+                AsyncImage(url: URL(string: shot.url)) { image in
+                    image.resizable().scaledToFit()
+                } placeholder: {
+                    ProgressView()
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .padding(56)
+                .onTapGesture {
+                    let index = screenshots.firstIndex(of: shot) ?? 0
+                    viewedScreenshot = screenshots[(index + 1) % screenshots.count]
+                }
+            }
+            .onExitCommand { viewedScreenshot = nil }
+            .transition(.opacity)
         }
     }
 

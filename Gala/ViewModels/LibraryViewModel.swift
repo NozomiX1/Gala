@@ -30,6 +30,8 @@ final class LibraryViewModel {
     var didResetAllApplicationData = false
 
     private let covers = NSCache<NSString, NSImage>()
+    // shortcut: VNDB details live in memory only, so the game page needs a connection to show them; store them with the game if that turns out to matter.
+    private var details: [String: VNDBDetail] = [:]
     private let libraryStore: LibraryStore
     private let wineManager: WineManager
     let imageCache: ImageCache
@@ -64,6 +66,18 @@ final class LibraryViewModel {
         guard let data = imageCache.load(forKey: key), let image = NSImage(data: data) else { return nil }
         covers.setObject(image, forKey: key as NSString)
         return image
+    }
+
+    func detail(for game: Game) -> VNDBDetail? {
+        game.vndbId.flatMap { details[$0] }
+    }
+
+    @MainActor
+    func loadDetail(for game: Game) async {
+        guard let id = game.vndbId, details[id] == nil else { return }
+        if let detail = try? await vndbClient.getDetail(vnId: id) {
+            details[id] = detail
+        }
     }
 
     /// The cover that tints the wall: the most recently played game's, else the first one that has art.

@@ -33,6 +33,42 @@ public struct VNDBProducer: Decodable, Sendable {
     public let name: String
 }
 
+/// Extra facts about one visual novel, fetched when its page is opened.
+public struct VNDBDetail: Decodable, Sendable {
+    public let lengthMinutes: Int?
+    public let titles: [VNDBTitle]?
+    public let screenshots: [VNDBScreenshot]?
+
+    enum CodingKeys: String, CodingKey {
+        case lengthMinutes = "length_minutes"
+        case titles, screenshots
+    }
+
+    /// Screenshots VNDB's voters flagged as neither sexual nor violent. Anything else is never shown.
+    public var safeScreenshots: [VNDBScreenshot] {
+        (screenshots ?? []).filter { $0.sexual == 0 && $0.violence == 0 }
+    }
+
+    /// The Chinese title, Simplified before Traditional.
+    public var chineseTitle: String? {
+        let titles = titles ?? []
+        return ["zh-Hans", "zh-Hant", "zh"].lazy
+            .compactMap { prefix in titles.first { $0.lang.hasPrefix(prefix) }?.title }
+            .first
+    }
+}
+
+public struct VNDBTitle: Decodable, Sendable {
+    public let lang: String
+    public let title: String
+}
+
+public struct VNDBScreenshot: Decodable, Hashable, Sendable {
+    public let url: String
+    public let sexual: Double
+    public let violence: Double
+}
+
 public struct VNDBRelease: Decodable, Sendable {
     public let id: String
     public let title: String?
