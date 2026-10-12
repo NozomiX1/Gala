@@ -121,3 +121,30 @@ import Foundation
     await BottleManager.downloadOnDemandFonts(["Gala-No-Such-Font"], timeout: 20)
     #expect(Date().timeIntervalSince(started) < 15)
 }
+
+@Test func aPrefixIsCheckedForSubstitutesTheWayWineWritesThem() throws {
+    let prefix = FileManager.default.temporaryDirectory.appendingPathComponent("gala-font-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: prefix, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: prefix) }
+    let wanted = BottleManager.misreadJapaneseFontSubstitutes(installedFamilies: ["SimSong", "STHeiti"])
+
+    // A prefix configured by 1.x: other substitutes, none for the misread names.
+    try #"""
+    [Software\\Microsoft\\Windows NT\\CurrentVersion\\FontSubstitutes] 1775509734
+    "SimHei"="Source Han Sans SC"
+    """#.write(to: prefix.appendingPathComponent("system.reg"), atomically: true, encoding: .utf8)
+    #expect(!BottleManager.prefix(prefix, has: wanted))
+
+    // Copied from a real system.reg after `wine reg add`.
+    try #"""
+    [Software\\Microsoft\\Windows NT\\CurrentVersion\\FontSubstitutes] 1775509734
+    "\x4ff5\x4ffd \x4ff9\x50d1\x50d4\x50e2\x50cb"="STHeiti"
+    "\x4ff5\x4ffd \x4ff9\x67e7\x632c"="SimSong"
+    "\x4ff5\x4ffd \x50d1\x50d4\x50e2\x50cb"="STHeiti"
+    "\x4ff5\x4ffd \x67e7\x632c"="SimSong"
+    """#.write(to: prefix.appendingPathComponent("system.reg"), atomically: true, encoding: .utf8)
+    #expect(BottleManager.prefix(prefix, has: wanted))
+
+    // Pointing at the fallbacks is out of date once the better fonts are installed.
+    #expect(!BottleManager.prefix(prefix, has: BottleManager.misreadJapaneseFontSubstitutes(installedFamilies: [])))
+}

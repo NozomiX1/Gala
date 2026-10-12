@@ -97,7 +97,7 @@ public final class WineProcess: ObservableObject, @unchecked Sendable {
         return String(output.suffix(limit))
     }
 
-    private static func waitForWineDescendants(wineBinary: URL, environment: [String: String]?) {
+    static func waitForWineDescendants(wineBinary: URL, environment: [String: String]?) {
         guard let wineserver = wineserverURL(for: wineBinary) else { return }
 
         let process = Process()

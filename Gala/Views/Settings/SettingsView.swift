@@ -6,17 +6,23 @@ struct SettingsView: View {
     let library: LibraryViewModel
     let updater: SPUUpdater
 
+    // GALA_DEBUG_SETTINGS=runtime opens on that tab, for screenshots.
+    @State private var tab = ProcessInfo.processInfo.environment["GALA_DEBUG_SETTINGS"] ?? "general"
+
     var body: some View {
-        TabView {
+        TabView(selection: $tab) {
             GeneralSettings(updater: updater)
                 .frame(height: 150)
                 .tabItem { Label("通用", systemImage: "gearshape") }
+                .tag("general")
             RuntimeSettings(library: library, wineManager: library.wineManagerInstance)
-                .frame(height: 330)
+                .frame(height: 385)
                 .tabItem { Label("运行环境", systemImage: "wrench.and.screwdriver") }
+                .tag("runtime")
             DataSettings(library: library)
                 .frame(height: 230)
                 .tabItem { Label("数据", systemImage: "externaldrive") }
+                .tag("data")
         }
         .frame(width: 500)
     }
@@ -58,11 +64,15 @@ private struct RuntimeSettings: View {
     @State private var isWorking = false
     @State private var message: String?
     @State private var errorMessage: String?
+    @State private var fontStatus: OptionalFontStatus
+    @State private var isInstallingFonts = false
+    @State private var fontError: String?
 
     init(library: LibraryViewModel, wineManager: WineManager) {
         self.library = library
         self.wineManager = wineManager
         _status = State(initialValue: wineManager.runtimeEnvironmentStatus())
+        _fontStatus = State(initialValue: library.bottleManager.optionalFontStatus())
     }
 
     var body: some View {
@@ -71,6 +81,10 @@ private struct RuntimeSettings: View {
                 row("Wine 运行时", detail: WineManager.wineVersionName, installed: status.isWineInstalled)
                 row("中文字体", detail: "思源黑体", installed: status.isFontInstalled)
                 row("辅助工具", detail: "winetricks、cabextract", installed: status.isHelperToolInstalled)
+            }
+
+            Section {
+                optionalFonts
             }
 
             Section {
@@ -95,7 +109,62 @@ private struct RuntimeSettings: View {
             }
         }
         .formStyle(.grouped)
-        .onAppear { status = wineManager.runtimeEnvironmentStatus() }
+        .onAppear {
+            status = wineManager.runtimeEnvironmentStatus()
+            fontStatus = library.bottleManager.optionalFontStatus()
+        }
+    }
+
+    /// Kept apart from the rows above: games run without these fonts, they only decide how one kind of game draws its text.
+    private var optionalFonts: some View {
+        LabeledContent {
+            if isInstallingFonts {
+                ProgressView()
+                    .controlSize(.small)
+            } else if fontStatus.isSettled {
+                Text("已安装")
+                    .foregroundStyle(.secondary)
+            } else {
+                Button(fontStatus.areFontsInstalled ? "应用到现有环境" : "下载", action: installFonts)
+                    .disabled(isWorking || !status.isWineInstalled)
+            }
+        } label: {
+            Label {
+                Text("可选字体")
+                Text(fontDetail)
+                    .foregroundStyle(fontError == nil ? Color.secondary : Color.red)
+            } icon: {
+                Image(systemName: fontStatus.isSettled ? "checkmark.circle.fill" : "arrow.down.circle")
+                    .foregroundStyle(fontStatus.isSettled ? Color.green : Color.secondary)
+            }
+        }
+    }
+
+    private var fontDetail: String {
+        if let fontError { return fontError }
+        let about = "简宋、华文黑体。日本引擎游戏的宋体和黑体用它们显示，由 macOS 下载。"
+        if fontStatus.areFontsInstalled, fontStatus.outdatedPrefixCount > 0 {
+            return about + "有 \(fontStatus.outdatedPrefixCount) 个运行环境还没有用上。"
+        }
+        return about
+    }
+
+    private func installFonts() {
+        isInstallingFonts = true
+        fontError = nil
+        let bottleManager = library.bottleManager
+        Task { @MainActor in
+            do {
+                try await bottleManager.installOptionalFonts()
+            } catch {
+                fontError = "没能完成：\(error.localizedDescription)"
+            }
+            fontStatus = bottleManager.optionalFontStatus()
+            if fontError == nil, !fontStatus.areFontsInstalled {
+                fontError = "macOS 没能下载这两个字体，请检查网络后再试。游戏仍然可以运行。"
+            }
+            isInstallingFonts = false
+        }
     }
 
     private func row(_ title: String, detail: String, installed: Bool) -> some View {

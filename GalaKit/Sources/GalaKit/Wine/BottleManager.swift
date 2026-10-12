@@ -2,6 +2,15 @@ import CoreText
 import Foundation
 import os
 
+/// How the optional fonts stand; see `BottleManager.optionalFontStatus()`.
+public struct OptionalFontStatus: Equatable, Sendable {
+    public let areFontsInstalled: Bool
+    public let outdatedPrefixCount: Int
+
+    /// Nothing left to download or to apply.
+    public var isSettled: Bool { areFontsInstalled && outdatedPrefixCount == 0 }
+}
+
 struct FontSubstitute: Sendable {
     let sourceName: String
     let targetName: String
@@ -815,6 +824,65 @@ extension BottleManager {
                 return true
             }
             DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: finish)
+        }
+    }
+
+    /// The existing prefixes, one per runtime profile that has been configured.
+    private var existingPrefixes: [URL] {
+        let profiles = bottlesDirectory.appendingPathComponent("Profiles")
+        return ((try? FileManager.default.contentsOfDirectory(at: profiles, includingPropertiesForKeys: nil)) ?? [])
+            .filter { FileManager.default.fileExists(atPath: $0.appendingPathComponent("system.reg").path) }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+    }
+
+    /// Whether a prefix's registry file already holds these substitutes, read the way Wine writes them:
+    /// `"name"="target"` with every non-ASCII character of the name as `\xNNNN`.
+    static func prefix(_ prefix: URL, has substitutes: [FontSubstitute]) -> Bool {
+        guard let registry = try? String(contentsOf: prefix.appendingPathComponent("system.reg"), encoding: .utf8) else {
+            return false
+        }
+        return substitutes.allSatisfy { substitute in
+            let name = substitute.sourceName.utf16.map { $0 < 0x80 ? String(UnicodeScalar(UInt8($0))) : String(format: "\\x%04x", $0) }.joined()
+            return registry.contains("\"\(name)\"=\"\(substitute.targetName)\"")
+        }
+    }
+
+    /// Whether macOS has the optional Song and Hei fonts, and how many existing prefixes do not point at
+    /// the best fonts available right now. A prefix configured by 1.x has no such substitutes at all.
+    public func optionalFontStatus() -> OptionalFontStatus {
+        let installed = Self.installedOnDemandFontFamilies()
+        let wanted = Self.misreadJapaneseFontSubstitutes(installedFamilies: installed)
+        return OptionalFontStatus(
+            areFontsInstalled: installed.count == Self.onDemandFonts.count,
+            outdatedPrefixCount: existingPrefixes.filter { !Self.prefix($0, has: wanted) }.count
+        )
+    }
+
+    /// Has macOS download whichever optional font is missing, then points every existing prefix at what is installed,
+    /// so nobody has to rebuild a prefix to get the fonts.
+    public func installOptionalFonts() async throws {
+        guard let wineBinary = wineManager?.wineBinaryURL else { throw WineError.wineNotInstalled }
+        await Self.downloadOnDemandFonts()
+
+        let wanted = Self.misreadJapaneseFontSubstitutes(installedFamilies: Self.installedOnDemandFontFamilies())
+        let locale = BottleConfig(prefixPath: "").locale
+        for prefix in existingPrefixes where !Self.prefix(prefix, has: wanted) {
+            for substitute in wanted {
+                try await runWineCommand(
+                    wineBinary: wineBinary,
+                    arguments: [
+                        "reg", "add", "HKLM\\Software\\Microsoft\\Windows NT\\CurrentVersion\\FontSubstitutes",
+                        "/v", substitute.sourceName, "/t", "REG_SZ", "/d", substitute.targetName, "/f",
+                    ],
+                    prefix: prefix.path,
+                    locale: locale
+                )
+            }
+            // Wine writes the registry file when its server exits; wait so the status read right after sees it.
+            WineProcess.waitForWineDescendants(
+                wineBinary: wineBinary,
+                environment: Self.wineCommandEnvironment(prefix: prefix.path, locale: locale)
+            )
         }
     }
 
