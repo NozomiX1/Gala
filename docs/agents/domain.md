@@ -16,7 +16,7 @@ If they do not exist, proceed silently. Do not create them unless the user asks 
 - `AGENTS.md` is the canonical operational guide for agents.
 - `README.md` documents current user-facing behavior.
 - `CHANGELOG.md` records shipped changes.
-- `docs/plans/` contains historical design and implementation notes; do not treat old plans as current truth when they conflict with `AGENTS.md`, `README.md`, or code.
+- `docs/runtime-lessons.md` holds Wine runtime diagnosis lessons and the known bug table.
 
 ## Vocabulary
 
