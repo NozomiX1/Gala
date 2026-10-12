@@ -18,7 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Covers show the original-script title instead of the romanised one.
 - The game page shows the Chinese title, the developer and release date, the VNDB rating with its vote count, the average time to finish, whether a Chinese version exists (official, fan translation, or none), and the engine. These are fetched from VNDB when a game is added and stored with it; games added earlier fetch them the first time their page is opened.
 - Favourite and completed are icon buttons next to the launch button on the game page.
-- Games can be added by dropping a game folder or an .exe onto the window.
+- Games can be added by dropping a game folder or an .exe anywhere on the window, from the dashed tile at the end of the cover wall, or with File → 添加游戏… (⌘N). The toolbar no longer has an add button.
 - Adding a game opens the file picker straight away, then a redesigned sheet for matching it against VNDB.
 - Ren'Py, RPG Maker, and Unity games now run through Wine in the `common` profile. Native launch only worked when a `.app` sat next to the selected exe and otherwise left the game unlaunchable. Existing entries on those engines go back to "配置环境".
 - `Gala.xcodeproj` is no longer committed; generate it with `xcodegen generate`.

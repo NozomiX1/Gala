@@ -10,13 +10,16 @@ struct LibraryView: View {
     let onAdd: (URL?) -> Void
 
     @Environment(\.colorScheme) private var colorScheme
+    @State private var isDropTargeted = false
 
     private let columns = [GridItem(.adaptive(minimum: 150, maximum: 150), spacing: 28, alignment: .top)]
 
     var body: some View {
         let games = library.games(matching: filter)
+        // The add tile belongs to the full, unfiltered wall; a filtered or searched view shows only matches.
+        let showsAddTile = filter == .all && library.searchText.isEmpty
         ScrollView {
-            if games.isEmpty {
+            if games.isEmpty && !showsAddTile {
                 emptyState
                     .containerRelativeFrame(.vertical) { height, _ in height * 0.8 }
             } else {
@@ -31,6 +34,9 @@ struct LibraryView: View {
                         )
                         .contextMenu { GameMenuItems(game: game, library: library, gameVM: gameVM) }
                     }
+                    if showsAddTile {
+                        AddTile(isDropTargeted: isDropTargeted) { onAdd(nil) }
+                    }
                 }
                 .padding(.horizontal, 44)
                 .padding(.vertical, 24)
@@ -38,11 +44,12 @@ struct LibraryView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background { AmbientBackground(image: library.ambientCover, style: .wall) }
+        // A game folder or an .exe can be dropped anywhere on the wall, not only on the add tile.
         .dropDestination(for: URL.self) { urls, _ in
             guard let url = urls.first else { return false }
             onAdd(url)
             return true
-        }
+        } isTargeted: { isDropTargeted = $0 }
         .searchable(text: $library.searchText, prompt: "搜索")
         .toolbar {
             ToolbarItem(placement: .principal) {
@@ -51,13 +58,6 @@ struct LibraryView: View {
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
-            }
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    onAdd(nil)
-                } label: {
-                    Label("添加游戏", systemImage: "plus")
-                }
             }
         }
         .toolbarBackground(.hidden, for: .windowToolbar)
@@ -83,11 +83,6 @@ struct LibraryView: View {
             Text(library.games.isEmpty ? "还没有游戏" : "没有符合条件的游戏")
                 .font(.title3)
                 .foregroundStyle(.secondary)
-            if library.games.isEmpty {
-                Text("点右上角的 +，或者把游戏文件夹拖进来")
-                    .font(.callout)
-                    .foregroundStyle(.tertiary)
-            }
         }
         .frame(maxWidth: .infinity)
     }
@@ -144,6 +139,45 @@ private struct CoverCard: View {
         if isRunning { return "运行中" }
         if !game.isRuntimeConfigured { return "未配置" }
         return PlayTime.text(game.totalPlayTime)
+    }
+}
+
+/// The last cell of the wall: a cover-sized outline that adds a game and lights up while something is dragged over the window.
+private struct AddTile: View {
+    let isDropTargeted: Bool
+    let action: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        let active = isDropTargeted || isHovering
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 8) {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
+                    .foregroundStyle(isDropTargeted ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
+                    .background(.primary.opacity(active ? 0.06 : 0), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay {
+                        Image(systemName: "plus")
+                            .font(.system(size: 30, weight: .light))
+                            .foregroundStyle(isDropTargeted ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+                    }
+                    .frame(width: 150, height: 212)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(isDropTargeted ? "松开即可添加" : "添加游戏")
+                        .font(.callout.weight(.medium))
+                    Text("也可以把游戏文件夹拖进窗口")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(width: 150, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
+        .animation(.easeOut(duration: 0.16), value: active)
     }
 }
 

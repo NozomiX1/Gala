@@ -75,6 +75,9 @@ struct ContentView: View {
         .sheet(item: $addGameRequest) { request in
             AddGameView(viewModel: library, executable: request.executable)
         }
+        .onChange(of: library.addGameRequests) {
+            startAdding(from: nil)
+        }
         .onChange(of: library.games.map(\.id)) { _, ids in
             // Leave the detail page of a game that was just removed.
             path.removeAll { !ids.contains($0) }

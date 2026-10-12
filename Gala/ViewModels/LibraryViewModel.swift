@@ -28,6 +28,8 @@ final class LibraryViewModel {
     var isLoadingInitialState = true
     var libraryLoadErrorMessage: String?
     var didResetAllApplicationData = false
+    /// Bumped by the File menu item for adding a game; the main window watches it and opens the file picker.
+    var addGameRequests = 0
 
     private let covers = NSCache<NSString, NSImage>()
     private let libraryStore: LibraryStore

@@ -21,6 +21,13 @@ struct GalaApp: App {
             CommandGroup(after: .appInfo) {
                 CheckForUpdatesCommand(updater: updaterController.updater)
             }
+            CommandGroup(replacing: .newItem) {
+                Button("添加游戏…") {
+                    library.addGameRequests += 1
+                }
+                .keyboardShortcut("n")
+                .disabled(!library.isRuntimeEnvironmentReady || library.libraryLoadErrorMessage != nil)
+            }
         }
 
         Settings {
