@@ -35,9 +35,13 @@ Gala 用 Wine 运行 Windows 视觉小说。日系引擎五花八门，同一套
 
 ## 截图
 
-![游戏库](Gala.png)
+![游戏库](docs/images/library.png)
 
-![秽翼のユースティア 运行中](Eustia.png)
+![游戏页面](docs/images/game.png)
+
+![运行设置](docs/images/run-settings.png)
+
+![穢翼のユースティア 运行中](Eustia.png)
 
 ## 系统要求
 
@@ -126,6 +130,8 @@ Gala 用 Wine 运行 Windows 视觉小说。日系引擎五花八门，同一套
 
 ## 构建
 
+`Gala/` 是 SwiftUI 应用，`GalaKit/` 是 Swift 包，放 Wine 管理、引擎识别、VNDB 客户端和 `gala-cli`。
+
 `Gala.xcodeproj` 由 [XcodeGen](https://github.com/yonaskolb/XcodeGen) 从 `project.yml` 生成，不在仓库里。
 
 ```bash
@@ -156,29 +162,6 @@ Wine、字体、`winetricks`、`cabextract`、DXMT 和 Gala MF Runtime 由 Gala 
 
 这个缓存可被不同 bottle 复用，清除所有 Gala 本地数据时会一起删除。如果下载失败，「设置」的「运行环境」页会显示缺失，并可一键重新下载。
 
-## 工作原理
-
-Gala 封装 Wine Staging 运行 Windows 视觉小说。Wine 游戏会按运行环境 profile 共享 Wine 前缀（bottle），避免每个游戏都复制一套完整环境。未识别或老式 DirectShow 视频链常见的引擎会落到 `common`，例如 BGI、旧式 Artemis、NScripter、YU-RIS、RealLive、Majiro、AdvHD、QLIE 和 Unknown。需要额外兼容策略的引擎会拆到独立 profile；例如 Leaf/AQUAPLUS 使用 `leaf`，家族计划使用 `do-kizunar`，现代 iarsys/D3D11 Artemis 按媒体链路分到 `artemis-d3d11` 或 `artemis-mf-d3d11` 并使用 DXMT，避免它们的 DLL/图形/视频配置影响 `common` 或彼此污染。每个 bottle 会根据默认中文环境配置 codepage 和字体映射：
-
-- **中文游戏** — GBK (936)
-- **日文游戏** — Shift-JIS (932)
-
-每个 Wine bottle 都会安装 Source Han Sans SC Regular，并将常见 Windows CJK / 旧式 UI 字体映射到它，避免中文、日文菜单和系统对话框显示为方框。
-
-添加游戏后，Gala 会先保存游戏库记录。用户需要在详情页点击「配置环境」来创建或复用对应 bottle；配置完成后按钮会变为「启动」。如果清理了 Wine 配置，相关游戏会回到「配置环境」状态。
-
-Gala 更新时不会自动删除游戏库或 Wine bottle。资料库迁移写回前会创建备份；如果读取失败，Gala 会显示错误并避免把现有资料库覆盖成空库。
-
-### 引擎分流规则
-
-Gala 会先检查本地文件特征，例如 XP3、BGI 可执行文件、Leaf/WHITE ALBUM2 文件组、家族计划的 `KIZUNAR`/`kzn_sc` 文件组等。本地识别结果优先级最高，并会合并多个特征打分：单独 XP3 会进入 KiriKiri，但 `iarsys64.dll`、`.pfs`、E-mote DLL 和可执行文件里的 `D3D11CreateDevice` / `D3DCompile` 字符串会把现代 Artemis D3D11 游戏分到专用 profile，避免汉化补丁的 XP3 抢占判断。如果同目录可执行文件还包含 `MFCreateMediaSession`、`MFStartup`、`MF.dll` 或 `MFPlat.DLL` 等 Media Foundation 信号，则进入 `artemis-mf-d3d11`；否则进入 DirectShow 型的 `artemis-d3d11`。
-
-如果本地特征不足，Gala 才会读取 VNDB release 的 `engine` 字段作为 fallback。这个 fallback 只采纳 Windows release，并忽略 patch release，避免主机平台移植版或补丁包把游戏分到错误 profile。
-
-少数 VNDB 引擎名会被额外保护：`Ikura GDL` 只有在本地也检测到家族计划文件时才进入 `do-kizunar`；`AQUAPLUS Engine` 只有在本地也检测到 Leaf/WHITE ALBUM2 文件时才进入 `leaf`。VNDB 的 `Artemis Engine` 只作为旧式 Artemis fallback；`artemis-d3d11` / `artemis-mf-d3d11` 必须由本地 iarsys/D3D11 特征触发。这样可以避免一个宽泛的 VNDB 引擎标签把其他游戏错误地放进特殊 Wine 环境。
-
-每个运行环境的具体内容以 [`GalaKit/Sources/GalaKit/Resources/Profiles/`](GalaKit/Sources/GalaKit/Resources/Profiles) 里的文件为准，各自验证过哪些游戏见[已验证的游戏](docs/compatibility.md)。
-
 ## 卸载与空间清理
 
 macOS 不会在拖拽删除 `Gala.app` 时自动清理应用支持目录。Gala 下载的 Wine 运行时、bottle、字体和工具位于：
@@ -190,57 +173,6 @@ macOS 不会在拖拽删除 `Gala.app` 时自动清理应用支持目录。Gala 
 可以在 Gala「设置」的「数据」页清理 Wine 配置，或在卸载前清除所有 Gala 本地数据。如果已经卸载 Gala，也可以手动删除该目录来彻底释放空间。
 
 清除所有 Gala 本地数据会移除游戏库、封面缓存、Wine 运行时、bottle、字体、辅助工具和 winetricks 缓存。清理完成后，Gala 会显示「重新安装运行环境」和「退出 Gala」两个入口，避免在目录刚被删除后自动触发新的安装流程。
-
-## 架构
-
-```
-Gala/           SwiftUI 应用（Views, ViewModels）
-GalaKit/        Swift Package — Wine 管理、引擎检测、VNDB 客户端
-```
-
-## 兼容性说明
-
-Gala 自身的启动路径开销很小，主要成本来自 Wine 和游戏引擎本身。早期测试中，秽翼のユースティア（BGI）曾出现启动后长时间黑屏、OP 被跳过的问题；后续排查确认，原因是旧式 DirectShow / LAV 视频链路没有正确配置，而不是单纯的引擎初始化慢。
-
-当前旧式视频预设会自动安装 `quartz`、`amstream`、`lavfilters`，覆盖 BGI、KiriKiri、SiglusEngine、旧式 Artemis、NScripter、YU-RIS、RealLive 等依赖旧式视频播放链路的引擎。`common` 会启用 LAV Audio 的 WMA / WMA Pro / WMA Lossless 开关，减少 OP 只有画面没有声音的情况。Leaf/AQUAPLUS 额外使用更严格的 DirectShow / LAV RGB 输出配置，以修复 WHITE ALBUM2 的 OP/视频播放问题。家族计划独立使用 `do-kizunar`，因为它需要 builtin `quartz` 和 D.O. 的安装路径注册表。
-
-现代 Artemis/iarsys D3D11 游戏的黑屏问题不属于 OP/DirectShow 链路；Gala 会为这类游戏在 Wine Staging 11.6 上叠加 DXMT v0.80，其中 Hamidashi 这类 DirectShow/ASF `.dat` 视频会进入 `artemis-d3d11`，甜蜜女友3这类 Media Foundation/WMV 视频会进入 `artemis-mf-d3d11`，避免两类视频链路共用同一个 bottle。
-
-`artemis-mf-d3d11` 额外使用 Gala MF Runtime。启动前，Gala 会在 `~/Library/Application Support/Gala/MediaOverlays/<game-id>` 生成 per-game overlay：非视频资源用符号链接指回原游戏目录，`movie/*.wmv` 保留 WMV3 视频流并只把 WMA/WMA Lossless 音频轨转换为 PCM。原始游戏文件不会被修改；缓存会在源视频文件或 runtime 版本变化后重建。
-
-第一次启动 `artemis-mf-d3d11` 游戏时，Wine / GStreamer 可能会生成媒体插件缓存；甜蜜女友3 的 OP 曾出现声音先播放、画面短暂黑屏后才同步的情况。第二次启动后缓存已存在，音画会恢复同步。
-
-### 排除的方案
-
-**魔改 Wine（fork/recompile）**：编译一次 60-75 分钟，Wine Staging 补丁每两周需要 rebase，维护成本相当于全职工作。参考 Proton-GE（个人维护者）和 CrossOver（整个公司 + Valve 资助）。
-
-**原生引擎移植**：
-- krkrsdl2（KiriKiri）：无 XP3 解密、缺少商业插件，README 明确写「不支持商业游戏」
-- openbgi（BGI）：仅能运行 1 个试玩版，仍需 DLL 注入真实 BGI.exe
-- 所有主流引擎（Artemis、SiglusEngine）均闭源，无法移植
-
-## 为什么不用 GPTK
-
-[Game Porting Toolkit](https://developer.apple.com/game-porting-toolkit/) 的 Wine 基础是 7.7（来自 CrossOver 22.1.1），其 32on64 WoW64 翻译层对日系 VN 引擎有根本性问题：
-
-| 引擎 | 现象 | 根因 |
-|------|------|------|
-| BGI | 进程运行但窗口永远不出现 | 32on64 层无法处理 BGI 的窗口创建 |
-| KiriKiri | 启动时崩溃（virtual.c 断言失败） | 虚拟内存管理器无法处理 KiriKiri 的内存分配模式 |
-
-所有 GPTK 版本（1.0–3.0）使用相同的 Wine 7.7 基础，D3DMetal 版本号的升级不影响 Wine 层。几乎所有商业日系 galgame 都是 32-bit PE32 可执行文件，因此 **Wine Staging 11.6（Gcenx 构建）是目前唯一可行的方案**。
-
-## 日系 Galgame 引擎现状
-
-| 引擎 | 市场份额 | 趋势 | 原生移植 |
-|------|----------|------|----------|
-| KiriKiri Z | ~30%（~6800 作品） | 稳定，最大 | krkrsdl2 存在但无法运行商业游戏 |
-| BGI/Ethornell | ~10-15% | 衰退，无新作 | openbgi 不可用 |
-| Artemis | ~5-10% | 快速增长，业界迁移目标 | 闭源，不可能 |
-| SiglusEngine | ~3-5% | 稳定（VisualArts 专用） | 无重实现 |
-| CatSystem2 | ~3-5% | 缩小 | FelineSystem2 早期阶段 |
-
-值得关注：Artemis 引擎支持 Win/Switch/PS4/PS5/iOS/Android/WebAssembly，若未来推出 64-bit Windows exe，GPTK 路径将重新可行。
 
 ## 许可证
 
