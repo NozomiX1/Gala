@@ -179,7 +179,7 @@ struct GameDetailView: View {
             GridRow {
                 fact("VNDB 评分", ratingText)
                 fact("中文", chineseText)
-                fact("引擎", game.engine?.displayName ?? "未识别")
+                fact("引擎", engineText)
             }
         }
         .padding(.horizontal, 18)
@@ -192,6 +192,11 @@ struct GameDetailView: View {
         guard let rating = game.rating else { return "—" }
         let score = String(format: "%.0f", rating)
         return game.voteCount.map { "\(score)（\($0) 人）" } ?? score
+    }
+
+    private var engineText: String {
+        guard let engine = game.engine, engine != .unknown else { return "未识别" }
+        return engine.familyName
     }
 
     private var chineseText: String {

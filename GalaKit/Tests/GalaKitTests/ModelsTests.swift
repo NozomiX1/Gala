@@ -322,3 +322,15 @@ import Foundation
     #expect(config.locale == "zh_CN.UTF-8")
     #expect(config.dllOverrides.isEmpty)
 }
+
+@Test func engineFamilyNamesDropTheProfileVariantAndFitTheGamePage() {
+    #expect(Engine.artemisMFD3D11.familyName == "Artemis")
+    #expect(Engine.artemisD3D11.familyName == "Artemis")
+    #expect(Engine.ikuraGDLFamilyProject.familyName == "Ikura GDL")
+    #expect(Engine.bgi.familyName == "BGI/Ethornell")
+
+    // The facts panel on the game page has room for about this many characters per cell.
+    for engine in Engine.allCases {
+        #expect(engine.familyName.count <= 14, "\(engine.familyName) is too long")
+    }
+}

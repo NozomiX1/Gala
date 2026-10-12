@@ -290,4 +290,13 @@ extension Engine {
         case .unknown: return "Unknown"
         }
     }
+
+    /// The engine as players know it, without the variant that only decides which runtime profile is used.
+    public var familyName: String {
+        switch self {
+        case .artemis, .artemisD3D11, .artemisMFD3D11: return "Artemis"
+        case .ikuraGDLFamilyProject: return "Ikura GDL"
+        default: return displayName
+        }
+    }
 }
