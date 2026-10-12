@@ -105,7 +105,9 @@ struct RunSettingsView: View {
 
             Divider()
 
-            HStack {
+            HStack(spacing: 14) {
+                Button("恢复默认", action: restoreDefaults)
+                    .disabled(isDefault)
                 Button("把当前配置导出为文件…", action: export)
                     .buttonStyle(.link)
                 Spacer()
@@ -136,6 +138,21 @@ struct RunSettingsView: View {
 
     private func binding(for item: LaunchSwitch) -> Binding<String?> {
         Binding(get: { switches[item.id] }, set: { switches[item.id] = $0 })
+    }
+
+    private var isDefault: Bool {
+        profileID == nil && switches.isEmpty && [dllText, environmentText, argumentsText].allSatisfy {
+            $0.trimmingCharacters(in: .whitespaces).isEmpty
+        }
+    }
+
+    /// Clears the panel only; like every other edit it is saved by 完成 and dropped by 取消.
+    private func restoreDefaults() {
+        profileID = nil
+        switches = [:]
+        dllText = ""
+        environmentText = ""
+        argumentsText = ""
     }
 
     /// The game with what the panel currently shows applied.
