@@ -36,6 +36,7 @@
 | 汉化 Artemis D3D11 game detected as KiriKiri | Patch XP3 overrode real engine files | Engine detection scores multiple local signatures; `iarsys + .pfs + D3D11/D3DCompile` beats XP3 |
 
 ## Diagnosis Playbook
+- For playback, Wine runtime, and engine-profile lessons, read `docs/runtime-lessons.md` before changing profiles.
 - First classify the failure: startup crash, black screen with audio, OP/video issue, font/codepage issue, or path issue.
 - Inspect local files before trusting VNDB. Broad VNDB labels must not force a special profile without local evidence.
 - Validate risky runtime ideas in a temporary prefix before changing profile code.
