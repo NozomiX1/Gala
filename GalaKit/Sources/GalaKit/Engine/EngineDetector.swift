@@ -21,6 +21,13 @@ public enum EngineDetector {
         let reason: String
     }
 
+    /// The game's executable when a folder leaves no doubt: exactly one .exe at its top level.
+    public static func soleExecutable(in directory: URL) -> URL? {
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
+        let executables = names.filter { $0.lowercased().hasSuffix(".exe") }
+        return executables.count == 1 ? directory.appendingPathComponent(executables[0]) : nil
+    }
+
     /// Every engine that matched anything, best first, including ones below the threshold.
     public static func candidates(in directory: URL) -> [Candidate] {
         let fm = FileManager.default

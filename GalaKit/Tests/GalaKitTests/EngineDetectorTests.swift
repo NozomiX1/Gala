@@ -161,3 +161,20 @@ import Foundation
     let result = EngineDetector.detect(in: dir)
     #expect(result == .ikuraGDLFamilyProject)
 }
+
+@Test func soleExecutableIsFoundOnlyWhenTheFolderHasExactlyOne() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: dir.appendingPathComponent("backup"), withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+    let create = { (name: String) in _ = FileManager.default.createFile(atPath: dir.appendingPathComponent(name).path, contents: nil) }
+
+    #expect(EngineDetector.soleExecutable(in: dir) == nil)
+
+    create("Game.EXE")
+    create("data.xp3")
+    create("backup/Game.exe")
+    #expect(EngineDetector.soleExecutable(in: dir)?.lastPathComponent == "Game.EXE")
+
+    create("config.exe")
+    #expect(EngineDetector.soleExecutable(in: dir) == nil)
+}

@@ -90,6 +90,11 @@ struct ContentView: View {
             addGameRequest = AddGameRequest(executable: dropped)
             return
         }
+        // A dropped folder with a single .exe needs no question; with several, the user picks.
+        if let dropped, let executable = EngineDetector.soleExecutable(in: dropped) {
+            addGameRequest = AddGameRequest(executable: executable)
+            return
+        }
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.exe]
         panel.canChooseDirectories = false
