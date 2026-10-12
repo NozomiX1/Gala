@@ -730,6 +730,22 @@ public final class BottleManager: @unchecked Sendable {
 
 extension BottleManager {
     private static let cjkUIFaceName = "Source Han Sans SC"
+    /// macOS's own Song typeface, which Wine can see. It has one weight; "Songti SC" has four,
+    /// and Wine picks the heaviest of them for a regular-weight request.
+    private static let cjkSerifFaceName = "STSong"
+    /// A macOS Hei typeface whose average character width is about half its height, like MS Gothic's.
+    /// Games that ask for an explicit width (BGI asks for height 48, width 24) get glyphs squeezed to half size
+    /// from a font that reports a full-width average, which Source Han Sans does.
+    private static let cjkHalfWidthSansFaceName = "Hiragino Sans GB"
+
+    /// A font name as a game written for Japanese Windows ends up asking for it in a prefix with the Chinese code page:
+    /// its Shift-JIS bytes read as GBK. "ＭＳ 明朝" becomes "俵俽 柧挬".
+    static func misreadAsGBK(_ japaneseName: String) -> String? {
+        let gbk = String.Encoding(rawValue: CFStringConvertEncodingToNSStringEncoding(
+            CFStringEncoding(CFStringEncodings.dosChineseSimplif.rawValue)
+        ))
+        return japaneseName.data(using: .shiftJIS).flatMap { String(data: $0, encoding: gbk) }
+    }
 
     static let cjkFontSubstitutes: [FontSubstitute] = {
         let fontName = cjkUIFaceName
@@ -764,8 +780,19 @@ extension BottleManager {
             FontSubstitute(sourceName: "\u{FF2D}\u{FF33} \u{30B4}\u{30B7}\u{30C3}\u{30AF}", targetName: fontName),
             FontSubstitute(sourceName: "\u{FF2D}\u{FF33} \u{FF30}\u{660E}\u{671D}", targetName: fontName),
             FontSubstitute(sourceName: "\u{FF2D}\u{FF33} \u{FF30}\u{30B4}\u{30B7}\u{30C3}\u{30AF}", targetName: fontName),
-        ]
+        ] + misreadJapaneseFontSubstitutes
     }()
+
+    /// Without these no font matches the misread name, every request falls back to the same default font,
+    /// and a game's Mincho/Gothic (宋体/黑体) option changes nothing. Seen with 穢翼のユースティア (BGI).
+    private static let misreadJapaneseFontSubstitutes: [FontSubstitute] = [
+        ("ＭＳ 明朝", cjkSerifFaceName),
+        ("ＭＳ Ｐ明朝", cjkSerifFaceName),
+        ("ＭＳ ゴシック", cjkHalfWidthSansFaceName),
+        ("ＭＳ Ｐゴシック", cjkHalfWidthSansFaceName),
+    ].compactMap { name, target in
+        misreadAsGBK(name).map { FontSubstitute(sourceName: $0, targetName: target) }
+    }
 
     static let cjkWindowMetricFonts: [WindowMetricFont] = [
         WindowMetricFont(valueName: "CaptionFont", data: logFontData(height: 10, faceName: cjkUIFaceName)),

@@ -87,3 +87,15 @@ import Foundation
 
     #expect(String(decoding: faceCodeUnits, as: UTF16.self) == "Source Han Sans SC")
 }
+
+@Test func japaneseFontNamesMisreadUnderTheChineseCodePageAreMapped() {
+    // The exact names 穢翼のユースティア asks for, as traced with WINEDEBUG=+font.
+    #expect(BottleManager.misreadAsGBK("ＭＳ 明朝") == "\u{4FF5}\u{4FFD} \u{67E7}\u{632C}")
+    #expect(BottleManager.misreadAsGBK("ＭＳ ゴシック") == "\u{4FF5}\u{4FFD} \u{50D1}\u{50D4}\u{50E2}\u{50CB}")
+
+    let targets = Dictionary(uniqueKeysWithValues: BottleManager.cjkFontSubstitutes.map { ($0.sourceName, $0.targetName) })
+    #expect(targets["\u{4FF5}\u{4FFD} \u{67E7}\u{632C}"] == "STSong")
+    #expect(targets["\u{4FF5}\u{4FFD} \u{50D1}\u{50D4}\u{50E2}\u{50CB}"] == "Hiragino Sans GB")
+    // Serif and sans must differ, or the game's font option does nothing again.
+    #expect(targets["\u{4FF5}\u{4FFD} \u{67E7}\u{632C}"] != targets["\u{4FF5}\u{4FFD} \u{50D1}\u{50D4}\u{50E2}\u{50CB}"])
+}

@@ -66,6 +66,9 @@ Checked on 2026-10-13 with ハミダシクリエイティブ凸 (64-bit, D3D11) 
 
 Measured on Wine Staging 11.4 with 穢翼のユースティア; recheck before relying on them for a newer Wine.
 
+- Font names: a Japanese engine asks for `ＭＳ 明朝` / `ＭＳ ゴシック` by their Shift-JIS bytes through the ANSI API. In a prefix with the Chinese code page those bytes are read as GBK, so the game asks for `俵俽 柧挬` / `俵俽 僑僔僢僋`, no font matches, and every request falls back to one default font: the game's 宋体/黑体 option does nothing. `WINEDEBUG=+font` shows the requested name on the `NtGdiHfontCreate` lines; `font_EnumFonts facename` shows it only after substitution, so trace in a bare prefix to see the raw name. Checked on Wine Staging 11.6 on 2026-10-13.
+- Font width: BGI asks for an explicit width (height 48, width 24), and Wine scales glyphs by that width over the font's own average character width. A font reporting a full-width average (Source Han Sans, Heiti SC: about 1.0 em) comes out half size with wide gaps; one reporting about half (Hiragino Sans GB 0.54, STSong 0.41, like the MS fonts) looks right. Read `xAvgCharWidth` before choosing a substitute.
+- A multi-weight family is a poor substitute target: asked for Songti SC at weight 400, Wine chose its Black face. Target a single-weight family (STSong).
 - BGI renders with plain GDI (CPU drawing into DIB sections) and plays audio through DirectSound. The game made no DirectDraw or Direct3D rendering calls, so check GDI and DirectSound before touching D3D or DXMT settings.
 - Enabling esync made no measurable difference to startup time.
 - Disabling `explorer.exe` breaks window creation and DirectSound initialization; Wine needs it for the desktop window.
