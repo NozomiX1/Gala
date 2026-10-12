@@ -105,7 +105,11 @@
 
 ## 构建
 
+`Gala.xcodeproj` 由 [XcodeGen](https://github.com/yonaskolb/XcodeGen) 从 `project.yml` 生成，不在仓库里。
+
 ```bash
+brew install xcodegen
+xcodegen generate
 open Gala.xcodeproj
 # Xcode → Build & Run
 ```

@@ -31,4 +31,6 @@ targets:
       properties:
         CFBundleDisplayName: Gala
         CFBundleName: Gala
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSMinimumSystemVersion: "14.0"

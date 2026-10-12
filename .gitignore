@@ -1,8 +1,8 @@
 # Xcode
 build/
 DerivedData/
-*.xcodeproj/project.xcworkspace/
-*.xcodeproj/xcuserdata/
+# Generated from project.yml by `xcodegen generate`
+*.xcodeproj/
 *.xcworkspace/xcuserdata/
 *.pbxuser
 *.mode1v3
