@@ -101,8 +101,12 @@ struct ContentView: View {
         panel.allowsMultipleSelection = false
         panel.message = "选择游戏的 .exe 文件"
         panel.directoryURL = dropped
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        addGameRequest = AddGameRequest(executable: url)
+        // Not runModal: a modal loop started from a drop keeps the drag from finishing,
+        // and the dragged icon stays on screen above every app until the panel closes.
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            addGameRequest = AddGameRequest(executable: url)
+        }
     }
 
     private var startupLoadingView: some View {
