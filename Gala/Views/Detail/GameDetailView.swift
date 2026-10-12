@@ -16,14 +16,18 @@ struct GameDetailView: View {
         let cover = library.cover(for: game)
         GeometryReader { proxy in
             ScrollView {
-                HStack(alignment: .center, spacing: 46) {
+                HStack(alignment: .top, spacing: 46) {
                     CoverArt(title: game.title, image: cover)
-                        .frame(width: 250, height: 353)
+                        .frame(width: Self.coverSize.width, height: Self.coverSize.height)
                         .shadow(color: .black.opacity(0.5), radius: 30, y: 18)
 
+                    // As tall as the cover: the title hangs from its top edge, the actions sit on its bottom edge.
                     info
-                        .frame(maxWidth: 430, alignment: .leading)
+                        .frame(width: 380, alignment: .leading)
+                        .frame(minHeight: Self.coverSize.height, alignment: .top)
                 }
+                // Without this the row stretches to the window's height and the actions drop to the bottom edge.
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(48)
                 .frame(minWidth: proxy.size.width, minHeight: proxy.size.height)
             }
@@ -36,20 +40,32 @@ struct GameDetailView: View {
         .hidingWindowTitle()
     }
 
+    private static let coverSize = CGSize(width: 250, height: 353)
+
     private var info: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(game.title)
-                .font(.system(size: 31, weight: .semibold))
+                .font(.system(size: 34, weight: .semibold))
                 .fixedSize(horizontal: false, vertical: true)
-            if let developer = game.developer {
-                Text(developer)
+            if !byline.isEmpty {
+                Text(byline)
                     .font(.title3)
                     .foregroundStyle(.secondary)
-                    .padding(.top, 4)
+                    .padding(.top, 6)
             }
 
             statusLine
-                .padding(.top, 14)
+                .padding(.top, 16)
+
+            Spacer(minLength: 24)
+
+            if isSettingUp {
+                progressPanel
+                    .padding(.bottom, 16)
+            } else if let errorMessage {
+                errorPanel(errorMessage)
+                    .padding(.bottom, 16)
+            }
 
             HStack(spacing: 10) {
                 Button(action: primaryAction) {
@@ -72,29 +88,18 @@ struct GameDetailView: View {
                 .help("更多")
             }
             .controlSize(.large)
-            .padding(.top, 18)
-
-            if isSettingUp {
-                progressPanel
-                    .padding(.top, 16)
-            } else if let errorMessage {
-                errorPanel(errorMessage)
-                    .padding(.top, 16)
-            }
 
             stats
-                .padding(.top, 22)
-
-            if let description = game.description, !description.isEmpty {
-                Text(Self.plainText(description))
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .lineSpacing(4)
-                    .lineLimit(7)
-                    .padding(.top, 20)
-            }
+                .padding(.top, 18)
         }
         .foregroundStyle(.white)
+    }
+
+    /// Developer and release year, whichever are known.
+    private var byline: String {
+        [game.developer, game.releasedAt.map { String($0.prefix(4)) }]
+            .compactMap { $0 }
+            .joined(separator: " · ")
     }
 
     private var statusLine: some View {
@@ -182,10 +187,5 @@ struct GameDetailView: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .galaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-    }
-
-    /// VNDB descriptions carry BBCode such as [url=...]...[/url]; show only the words.
-    static func plainText(_ description: String) -> String {
-        description.replacingOccurrences(of: #"\[/?[a-zA-Z]+(=[^\]]*)?\]"#, with: "", options: .regularExpression)
     }
 }
