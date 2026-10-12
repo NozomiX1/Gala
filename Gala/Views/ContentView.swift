@@ -64,7 +64,7 @@ struct ContentView: View {
                 gameVM: gameVM,
                 filter: $filter,
                 onOpen: { path = [$0.id] },
-                onAdd: { addGameRequest = AddGameRequest(droppedURL: $0) }
+                onAdd: startAdding
             )
             .navigationDestination(for: UUID.self) { id in
                 if let game = library.games.first(where: { $0.id == id }) {
@@ -73,12 +73,28 @@ struct ContentView: View {
             }
         }
         .sheet(item: $addGameRequest) { request in
-            AddGameView(viewModel: library, droppedURL: request.droppedURL)
+            AddGameView(viewModel: library, executable: request.executable)
         }
         .onChange(of: library.games.map(\.id)) { _, ids in
             // Leave the detail page of a game that was just removed.
             path.removeAll { !ids.contains($0) }
         }
+    }
+
+    /// Goes straight to the file panel; the sheet only appears once there is an executable to match.
+    private func startAdding(from dropped: URL?) {
+        if let dropped, dropped.pathExtension.lowercased() == "exe" {
+            addGameRequest = AddGameRequest(executable: dropped)
+            return
+        }
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.exe]
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.message = "选择游戏的 .exe 文件"
+        panel.directoryURL = dropped
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        addGameRequest = AddGameRequest(executable: url)
     }
 
     private var startupLoadingView: some View {
@@ -132,6 +148,15 @@ struct ContentView: View {
            let game = library.games.first(where: { $0.title.localizedCaseInsensitiveContains(query) }) {
             path = [game.id]
         }
+        if let executable = environment["GALA_DEBUG_ADD"] {
+            addGameRequest = AddGameRequest(executable: URL(fileURLWithPath: executable))
+        }
+        if environment["GALA_DEBUG_POP"] != nil {
+            Task {
+                try? await Task.sleep(for: .seconds(2))
+                path = []
+            }
+        }
         if environment["GALA_DEBUG_SETTINGS"] != nil {
             openSettings()
         }
@@ -142,8 +167,8 @@ struct ContentView: View {
     #endif
 }
 
-/// A request to show the add-game sheet, optionally starting from something dropped on the window.
+/// A request to show the add-game sheet for one executable.
 struct AddGameRequest: Identifiable {
     let id = UUID()
-    let droppedURL: URL?
+    let executable: URL
 }

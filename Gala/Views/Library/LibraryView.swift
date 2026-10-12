@@ -9,6 +9,8 @@ struct LibraryView: View {
     let onOpen: (Game) -> Void
     let onAdd: (URL?) -> Void
 
+    @Environment(\.colorScheme) private var colorScheme
+
     private let columns = [GridItem(.adaptive(minimum: 150, maximum: 150), spacing: 28, alignment: .top)]
 
     var body: some View {
@@ -59,6 +61,7 @@ struct LibraryView: View {
             }
         }
         .toolbarBackground(.hidden, for: .windowToolbar)
+        .toolbarColorScheme(colorScheme, for: .windowToolbar)
         .hidingWindowTitle()
     }
 

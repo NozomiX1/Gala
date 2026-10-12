@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - The runtime environment sheet is now a standard Settings window (⌘,) with General, Runtime, and Data tabs; the two destructive actions sit on their own tab.
 - Covers show the original-script title instead of the romanised one.
 - Games can be added by dropping a game folder or an .exe onto the window.
+- Adding a game opens the file picker straight away, then a redesigned sheet for matching it against VNDB.
 - Ren'Py, RPG Maker, and Unity games now run through Wine in the `common` profile. Native launch only worked when a `.app` sat next to the selected exe and otherwise left the game unlaunchable. Existing entries on those engines go back to "配置环境".
 - `Gala.xcodeproj` is no longer committed; generate it with `xcodegen generate`.
 - The bundle build number now equals the version number.
