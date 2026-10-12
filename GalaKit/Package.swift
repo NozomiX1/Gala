@@ -8,7 +8,7 @@ let package = Package(
         .library(name: "GalaKit", targets: ["GalaKit"]),
     ],
     targets: [
-        .target(name: "GalaKit"),
+        .target(name: "GalaKit", resources: [.copy("Resources/Profiles")]),
         .executableTarget(name: "gala-cli", dependencies: ["GalaKit"]),
         .testTarget(name: "GalaKitTests", dependencies: ["GalaKit"]),
     ]

@@ -1,0 +1,13 @@
+{
+  "id": "kirikiri",
+  "name": "KiriKiri",
+  "notes": "吉里吉里引擎。和通用环境只差一条：quartz 只用 Windows 原版。",
+  "base": "common",
+  "version": 1,
+  "dllOverrides": {
+    "quartz": "native"
+  },
+  "verifiedGames": [
+    "千恋＊万花"
+  ]
+}

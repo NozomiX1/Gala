@@ -1,0 +1,11 @@
+{
+  "id": "cat-system2",
+  "name": "CatSystem2",
+  "notes": "未验证，没有测试过的游戏。",
+  "base": "common",
+  "version": 1,
+  "components": [
+    "dotnet40",
+    "vcrun2015"
+  ]
+}

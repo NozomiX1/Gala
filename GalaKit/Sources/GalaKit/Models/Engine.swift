@@ -37,7 +37,7 @@ public enum ManagedRuntimeComponent: String, Sendable {
     case mediaFoundation
 }
 
-public struct RegistryValue: Sendable {
+public struct RegistryValue: Equatable, Sendable {
     public let key: String
     public let valueName: String
     public let type: String
@@ -51,7 +51,7 @@ public struct RegistryValue: Sendable {
     }
 }
 
-public struct EnginePreset: Sendable {
+public struct EnginePreset: Equatable, Sendable {
     public let components: [String]
     public let managedComponents: [ManagedRuntimeComponent]
     public let dllOverrides: [String: String]

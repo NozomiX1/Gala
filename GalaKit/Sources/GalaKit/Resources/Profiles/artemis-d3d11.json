@@ -1,0 +1,20 @@
+{
+  "id": "artemis-d3d11",
+  "name": "Artemis（D3D11）",
+  "notes": "较新的 Artemis/iarsys 引擎，视频走 DirectShow。用带 DXMT 的 Wine 渲染 D3D11。",
+  "base": "common",
+  "version": 4,
+  "wine": "dxmt",
+  "components": [
+    "d3dcompiler_47"
+  ],
+  "managedComponents": [
+    "dxmt"
+  ],
+  "dllOverrides": {
+    "d3dcompiler_47": "native,builtin"
+  },
+  "verifiedGames": [
+    "ハミダシクリエイティブ凸"
+  ]
+}

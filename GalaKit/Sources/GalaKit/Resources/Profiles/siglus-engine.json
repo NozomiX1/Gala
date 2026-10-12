@@ -1,0 +1,16 @@
+{
+  "id": "siglus-engine",
+  "name": "SiglusEngine",
+  "notes": "未验证，没有测试过的游戏。",
+  "base": "common",
+  "version": 1,
+  "components": [
+    "xact",
+    "xinput",
+    "vcrun2019"
+  ],
+  "dllOverrides": {
+    "xaudio2_7": "native",
+    "xactengine3_7": "native"
+  }
+}

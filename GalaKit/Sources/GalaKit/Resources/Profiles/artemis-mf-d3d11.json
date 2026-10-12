@@ -1,0 +1,28 @@
+{
+  "id": "artemis-mf-d3d11",
+  "name": "Artemis（D3D11 · 新式视频）",
+  "notes": "较新的 Artemis/iarsys 引擎，视频走 Media Foundation。不继承通用环境：这里不能装 DirectShow/LAV 那一套。",
+  "version": 2,
+  "wine": "dxmt",
+  "components": [
+    "d3dcompiler_47"
+  ],
+  "managedComponents": [
+    "dxmt",
+    "mediaFoundation"
+  ],
+  "dllOverrides": {
+    "d3dcompiler_47": "native,builtin"
+  },
+  "registry": [
+    {
+      "key": "HKCU\\Software\\Wine\\MediaFoundation",
+      "name": "DisableGstByteStreamHandler",
+      "type": "REG_DWORD",
+      "data": "1"
+    }
+  ],
+  "verifiedGames": [
+    "アマカノ3"
+  ]
+}

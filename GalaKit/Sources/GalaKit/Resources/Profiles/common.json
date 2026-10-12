@@ -1,0 +1,69 @@
+{
+  "id": "common",
+  "name": "通用",
+  "notes": "大多数游戏的默认环境：旧式 DirectShow 视频链路（quartz、amstream、LAV Filters）。不要把只对个别游戏有效的改动加到这里，另建一个以它为 base 的文件。",
+  "version": 1,
+  "components": [
+    "quartz",
+    "amstream",
+    "lavfilters"
+  ],
+  "dllOverrides": {
+    "quartz": "native,builtin",
+    "*quartz": "native,builtin",
+    "amstream": "native,builtin",
+    "*amstream": "native,builtin"
+  },
+  "registry": [
+    {
+      "key": "HKCU\\Software\\LAV\\Audio\\Formats",
+      "name": "wma",
+      "type": "REG_DWORD",
+      "data": "1"
+    },
+    {
+      "key": "HKCU\\Software\\LAV\\Audio\\Formats",
+      "name": "wmapro",
+      "type": "REG_DWORD",
+      "data": "1"
+    },
+    {
+      "key": "HKCU\\Software\\LAV\\Audio\\Formats",
+      "name": "wmalossless",
+      "type": "REG_DWORD",
+      "data": "1"
+    },
+    {
+      "key": "HKCR\\Media Type\\{e436eb83-524f-11ce-9f53-0020af0ba770}\\{75B22630-668E-11CF-A6D9-00AA0062CE6C}",
+      "name": "0",
+      "type": "REG_SZ",
+      "data": "0,16,,3026B2758E66CF11A6D900AA0062CE6C"
+    },
+    {
+      "key": "HKCR\\Media Type\\{e436eb83-524f-11ce-9f53-0020af0ba770}\\{75B22630-668E-11CF-A6D9-00AA0062CE6C}",
+      "name": "Source Filter",
+      "type": "REG_SZ",
+      "data": "{B98D13E7-55DB-4385-A33D-09FD1BA26338}"
+    },
+    {
+      "key": "HKCR\\Wow6432Node\\Media Type\\{e436eb83-524f-11ce-9f53-0020af0ba770}\\{75B22630-668E-11CF-A6D9-00AA0062CE6C}",
+      "name": "0",
+      "type": "REG_SZ",
+      "data": "0,16,,3026B2758E66CF11A6D900AA0062CE6C"
+    },
+    {
+      "key": "HKCR\\Wow6432Node\\Media Type\\{e436eb83-524f-11ce-9f53-0020af0ba770}\\{75B22630-668E-11CF-A6D9-00AA0062CE6C}",
+      "name": "Source Filter",
+      "type": "REG_SZ",
+      "data": "{B98D13E7-55DB-4385-A33D-09FD1BA26338}"
+    }
+  ],
+  "registryDelete": [
+    "HKCR\\Media Type\\Extensions\\.dat",
+    "HKCR\\Wow6432Node\\Media Type\\Extensions\\.dat"
+  ],
+  "verifiedGames": [
+    "穢翼のユースティア",
+    "大図書館の羊飼い"
+  ]
+}

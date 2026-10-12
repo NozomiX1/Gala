@@ -1,0 +1,59 @@
+{
+  "id": "leaf",
+  "name": "Leaf / AQUAPLUS",
+  "notes": "DirectShow 用 Wine 自带的实现，关闭 Wine 自带的 WMA/WMV 解码，LAV 只输出 RGB。",
+  "base": "common",
+  "version": 1,
+  "dllOverrides": {
+    "quartz": "builtin",
+    "amstream": "builtin",
+    "devenum": "builtin",
+    "*quartz": "builtin",
+    "*amstream": "builtin",
+    "*devenum": "builtin",
+    "wmvdecod": "disabled",
+    "wmadmod": "disabled",
+    "winegstreamer": "disabled"
+  },
+  "registry": [
+    {
+      "key": "HKCU\\Software\\LAV\\Video\\Output",
+      "name": "nv12",
+      "type": "REG_DWORD",
+      "data": "0"
+    },
+    {
+      "key": "HKCU\\Software\\LAV\\Video\\Output",
+      "name": "yv12",
+      "type": "REG_DWORD",
+      "data": "0"
+    },
+    {
+      "key": "HKCU\\Software\\LAV\\Video\\Output",
+      "name": "yuy2",
+      "type": "REG_DWORD",
+      "data": "0"
+    },
+    {
+      "key": "HKCU\\Software\\LAV\\Video\\Output",
+      "name": "uyvy",
+      "type": "REG_DWORD",
+      "data": "0"
+    },
+    {
+      "key": "HKCU\\Software\\LAV\\Video\\Output",
+      "name": "rgb24",
+      "type": "REG_DWORD",
+      "data": "1"
+    },
+    {
+      "key": "HKCU\\Software\\LAV\\Video\\Output",
+      "name": "rgb32",
+      "type": "REG_DWORD",
+      "data": "1"
+    }
+  ],
+  "verifiedGames": [
+    "WHITE ALBUM2"
+  ]
+}
