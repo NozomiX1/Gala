@@ -123,7 +123,43 @@ public struct GameRuntime: Sendable {
             overlaysDirectory: wineManager.mediaOverlaysDirectory,
             ffmpegURL: wineManager.mediaFoundationFFmpegURL
         )
-        return try await manager.prepareLaunchGame(for: game, recipe: recipe, progressHandler: progress)
+        let launchGame = try await manager.prepareLaunchGame(for: game, recipe: recipe, progressHandler: progress)
+        buildGStreamerRegistryIfMissing(for: launchGame, recipe: recipe, progress: progress)
+        return launchGame
+    }
+
+    /// GStreamer indexes its plugins the first time it starts. Inside the game that takes most of a minute with the window
+    /// black, after which the game quits. Wine's own dxdiag touches the DirectShow filters and gets the same index written in seconds.
+    private func buildGStreamerRegistryIfMissing(
+        for game: Game,
+        recipe: RuntimeRecipe,
+        progress: @escaping @Sendable (MediaCompatibilityProgress) -> Void
+    ) {
+        guard let runtime = wineManager.mediaFoundationRuntime,
+              !FileManager.default.fileExists(atPath: runtime.gStreamerRegistryURL.path),
+              let wineBinary = try? wineBinaryForLaunch(game) else { return }
+        progress(MediaCompatibilityProgress(message: "准备视频组件...", completedUnitCount: 0, totalUnitCount: 0))
+
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("gala-dxdiag-\(UUID().uuidString)")
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let process = Process()
+        process.executableURL = wineBinary
+        process.arguments = ["dxdiag", "/whql:off", "/t", "report.txt"]
+        process.currentDirectoryURL = directory
+        process.environment = WineLaunchConfig.buildEnvironment(
+            game: game,
+            wineBinary: wineBinary,
+            mediaFoundationRuntime: runtime,
+            recipe: recipe
+        )
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        // Best effort: without the index the game still starts, the slow way.
+        guard (try? process.run()) != nil else { return }
+        process.waitUntilExit()
+        WineProcess.waitForWineDescendants(wineBinary: wineBinary, environment: process.environment)
     }
 }
 
