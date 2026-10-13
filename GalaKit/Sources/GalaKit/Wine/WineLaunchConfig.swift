@@ -31,8 +31,8 @@ public struct WineLaunchConfig: Sendable {
         var env = ProcessInfo.processInfo.environment
 
         env["WINEPREFIX"] = game.bottleConfig.prefixPath
-        env["LANG"] = game.bottleConfig.locale
-        env["LC_ALL"] = game.bottleConfig.locale
+        env["LANG"] = game.launchLocale
+        env["LC_ALL"] = game.launchLocale
         // Errors are always kept, so the first failed launch already has something to show.
         // Debug adds Wine's fixme lines and which DLLs load as native or builtin.
         env["WINEDEBUG"] = debug ? "+loaddll" : "fixme-all"

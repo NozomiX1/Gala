@@ -184,6 +184,8 @@ func applyOverrides(to game: inout Game, wineManager: WineManager) throws {
     }
     if let locale = try takeValue("--locale") {
         game.bottleConfig.locale = locale
+        // Asked for by name, so it outranks a saved switch for this one run.
+        game.launchSwitches[LaunchSwitch.locale.id] = nil
     }
 }
 

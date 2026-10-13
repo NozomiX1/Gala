@@ -29,7 +29,14 @@ public struct LaunchSwitch: Identifiable, Sendable {
         options: [Option(id: "dxmt", label: "DXMT"), Option(id: "builtin", label: "Wine 自带")]
     )
 
-    public static let all = [video, graphics]
+    public static let locale = LaunchSwitch(
+        id: "locale",
+        name: "文字区域",
+        hint: "想玩日文原版时选日文，其他情况不用改",
+        options: [Option(id: "zh", label: "中文"), Option(id: "ja", label: "日文")]
+    )
+
+    public static let all = [video, graphics, locale]
 }
 
 extension Game {
@@ -58,6 +65,15 @@ extension Game {
         }
     }
 
+    /// The locale Wine starts in, which decides the Windows code page for that run.
+    public var launchLocale: String {
+        switch launchSwitches[LaunchSwitch.locale.id] {
+        case "ja": "ja_JP.UTF-8"
+        case "zh": "zh_CN.UTF-8"
+        default: bottleConfig.locale
+        }
+    }
+
     /// The game's own settings written as a profile file, so a combination that works can be handed to someone else.
     public func exportedProfile(base recipe: RuntimeRecipe) -> ProfileFile {
         var extras: [String] = []
@@ -67,11 +83,15 @@ extension Game {
         if !bottleConfig.launchArguments.isEmpty {
             extras.append("启动参数：" + bottleConfig.launchArguments.joined(separator: " "))
         }
+        if let locale = launchSwitches[LaunchSwitch.locale.id],
+           let option = LaunchSwitch.locale.options.first(where: { $0.id == locale }) {
+            extras.append("文字区域：" + option.label)
+        }
         let overrides = launchDLLOverrides
         return ProfileFile(
             id: "\(recipe.id)-\(id.uuidString.prefix(8).lowercased())",
             name: "\(title) 的配置",
-            notes: extras.isEmpty ? nil : "运行环境文件写不进这些，需要在游戏的运行设置里另外填：" + extras.joined(separator: "。"),
+            notes: extras.isEmpty ? nil : "运行环境文件写不进这些，需要在游戏的运行设置里另外设：" + extras.joined(separator: "。"),
             base: recipe.id,
             wine: forcesDXMTWine.map { $0 ? .dxmt : .standard },
             dllOverrides: overrides.isEmpty ? nil : overrides.mapValues { Optional($0) }

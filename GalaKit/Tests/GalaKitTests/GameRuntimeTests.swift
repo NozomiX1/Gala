@@ -124,6 +124,24 @@ private final class Messages: @unchecked Sendable {
     #expect(environment["WINEDLLOVERRIDES"] == "amstream=native,builtin;d3dx9_43=native;quartz=builtin")
 }
 
+@Test func localeSwitchSetsTheLocaleWineStartsInAndNothingElse() {
+    var game = Game(title: "T", executablePath: "/tmp/g/game.exe", bottleConfig: BottleConfig(prefixPath: "/tmp/p"))
+    let wine = URL(fileURLWithPath: "/tmp/wine/bin/wine")
+    #expect(WineLaunchConfig.buildEnvironment(game: game, wineBinary: wine)["LC_ALL"] == "zh_CN.UTF-8")
+
+    game.launchSwitches = ["locale": "ja"]
+    let environment = WineLaunchConfig.buildEnvironment(game: game, wineBinary: wine)
+    #expect(environment["LC_ALL"] == "ja_JP.UTF-8")
+    #expect(environment["LANG"] == "ja_JP.UTF-8")
+    // Creating and repairing the prefix still follows the stored locale.
+    #expect(game.bottleConfig.locale == "zh_CN.UTF-8")
+    #expect(game.launchDLLOverrides.isEmpty)
+
+    game.bottleConfig.locale = "ja_JP.UTF-8"
+    game.launchSwitches = ["locale": "zh"]
+    #expect(game.launchLocale == "zh_CN.UTF-8")
+}
+
 @Test func graphicsSwitchPicksTheWineBuildInBothDirections() throws {
     let home = FileManager.default.temporaryDirectory.appendingPathComponent("gala-switch-\(UUID().uuidString)")
     defer { try? FileManager.default.removeItem(at: home) }

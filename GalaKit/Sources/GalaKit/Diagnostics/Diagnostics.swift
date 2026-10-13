@@ -88,7 +88,7 @@ public struct Diagnostics: Codable, Equatable, Sendable {
             isRuntimeConfigured: game.isRuntimeConfigured,
             isBottleReady: bottleManager.isBottleReady(for: game),
             runtimeMarker: marker,
-            locale: game.bottleConfig.locale,
+            locale: game.launchLocale,
             launchSwitches: game.launchSwitches,
             dllOverrides: game.bottleConfig.dllOverrides,
             environment: game.bottleConfig.environment.mapValues(scrub),
