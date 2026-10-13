@@ -122,7 +122,7 @@ public final class BottleManager: @unchecked Sendable {
     static func prefixPath(forProfile id: String, bottlesDirectory: URL) -> String {
         bottlesDirectory
             .appendingPathComponent("Profiles")
-            .appendingPathComponent(id)
+            .appendingPathComponent(ProfileStore.bottleID(forProfile: id))
             .path
     }
 
@@ -356,7 +356,8 @@ public final class BottleManager: @unchecked Sendable {
     }
 
     public func writeRuntimeMarker(for game: Game, configuredAt: Date = Date()) throws {
-        guard let recipe = profiles.recipe(for: game) else { return }
+        // A shared prefix carries its owner's marker, so every profile using it reads the same one.
+        guard let recipe = profiles.bottleRecipe(for: game) else { return }
         let marker = RuntimeProfileMarker.current(for: recipe, configuredAt: configuredAt)
         let markerURL = Self.runtimeMarkerURL(prefix: game.bottleConfig.prefixPath)
         try FileManager.default.createDirectory(
@@ -371,10 +372,11 @@ public final class BottleManager: @unchecked Sendable {
     }
 
     public func runtimeMarkerStatus(for game: Game) throws -> RuntimeMarkerStatus {
-        guard let recipe = profiles.recipe(for: game) else {
+        guard let recipe = profiles.recipe(for: game), let bottleRecipe = profiles.bottleRecipe(for: game) else {
             return .missing
         }
-        let current = RuntimeProfileMarker.current(for: recipe, configuredAt: Date())
+        // The game's own marker is still accepted: prefixes made before a profile began sharing a bottle carry it.
+        let accepted = [recipe, bottleRecipe].map { RuntimeProfileMarker.current(for: $0, configuredAt: Date()) }
 
         let markerURL = Self.runtimeMarkerURL(prefix: game.bottleConfig.prefixPath)
         guard FileManager.default.fileExists(atPath: markerURL.path) else {
@@ -386,12 +388,14 @@ public final class BottleManager: @unchecked Sendable {
         decoder.dateDecodingStrategy = .iso8601
         let marker = try decoder.decode(RuntimeProfileMarker.self, from: data)
 
-        return marker.profile == current.profile &&
-            marker.configVersion == current.configVersion &&
-            marker.wineVersionName == current.wineVersionName &&
-            marker.managedComponents == current.managedComponents &&
-            // An edited profile file changes the fingerprint even when nobody raised its version.
-            (marker.recipeFingerprint == nil || marker.recipeFingerprint == current.recipeFingerprint) ? .current : .outdated
+        return accepted.contains { current in
+            marker.profile == current.profile &&
+                marker.configVersion == current.configVersion &&
+                marker.wineVersionName == current.wineVersionName &&
+                marker.managedComponents == current.managedComponents &&
+                // An edited profile file changes the fingerprint even when nobody raised its version.
+                (marker.recipeFingerprint == nil || marker.recipeFingerprint == current.recipeFingerprint)
+        } ? .current : .outdated
     }
 
     private static func runtimeMarkerURL(prefix: String) -> URL {

@@ -86,7 +86,7 @@ import Foundation
     #expect(report.candidates.first == Diagnostics.Candidate(engine: "KiriKiri", score: 45, reasons: ["xp3 archive"]))
     #expect(report.files == ["data.xp3", "game.exe", "movie/"])
     #expect(report.executablePath == "~/Games/Sample/game.exe")
-    #expect(report.runtimeProfile == "kirikiri")
+    #expect(report.runtimeProfile == "common")
     #expect(!report.isBottleReady)
     #expect(report.runtimeMarker == "missing")
     #expect(report.logExcerpt?.contains("X.dll") == true)

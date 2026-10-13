@@ -331,12 +331,14 @@ import Foundation
     #expect(bottleManager.prefixPath(for: Engine.unity) == bgi)
     #expect(ikuraGDLFamilyProject == bottlesDir.appendingPathComponent("Profiles/do-kizunar").path)
     #expect(ikuraGDLFamilyProject != bgi)
-    #expect(artemisD3D11 == bottlesDir.appendingPathComponent("Profiles/artemis-d3d11").path)
-    #expect(artemisD3D11 != bgi)
+    // Same prefix contents as common: only the Wine build that starts the game differs.
+    #expect(artemisD3D11 == bgi)
+    #expect(bottleManager.prefixPath(forProfile: "artemis-d3d11") == bgi)
     #expect(artemisMFD3D11 == bottlesDir.appendingPathComponent("Profiles/artemis-mf-d3d11").path)
     #expect(artemisMFD3D11 != artemisD3D11)
-    #expect(kirikiri == bottlesDir.appendingPathComponent("Profiles/kirikiri").path)
-    #expect(kirikiri != bgi)
+    #expect(kirikiri == bgi)
+    // The retired profile keeps its own prefix for games pinned to it.
+    #expect(bottleManager.prefixPath(forProfile: "kirikiri") == bottlesDir.appendingPathComponent("Profiles/kirikiri").path)
 }
 
 @Test func bottleManagerUsesCommonSharedPrefixWithoutEngine() throws {

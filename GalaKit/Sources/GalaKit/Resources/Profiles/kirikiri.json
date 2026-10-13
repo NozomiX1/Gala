@@ -1,14 +1,10 @@
 {
   "id": "kirikiri",
-  "name": "KiriKiri",
-  "notes": "吉里吉里引擎。和通用环境只差一条：quartz 只用 Windows 原版。",
+  "name": "KiriKiri（旧）",
+  "notes": "2.0 及更早版本给吉里吉里游戏用的环境，和通用环境只差一条：quartz 只用 Windows 原版。新添加的吉里吉里游戏直接用通用环境；这一份留给已经配置在这里的游戏。",
   "base": "common",
   "version": 1,
   "dllOverrides": {
     "quartz": "native"
-  },
-  "verifiedGames": [
-    "千恋＊万花",
-    "ノラと皇女と野良猫ハート（2019 年 Steam 版）"
-  ]
+  }
 }

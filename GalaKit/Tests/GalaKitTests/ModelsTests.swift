@@ -107,7 +107,7 @@ import Foundation
     let preset = Engine.kirikiri.preset
     #expect(preset.components.contains("quartz"))
     #expect(preset.components.contains("lavfilters"))
-    #expect(preset.dllOverrides["quartz"] == "native")
+    #expect(preset.dllOverrides["quartz"] == "native,builtin")
 }
 
 @Test func commonPresetCoversUnknownAndUnderdetectedLegacyEngines() {
@@ -175,11 +175,14 @@ import Foundation
     }
 }
 
-@Test func artemisD3D11PresetUsesDedicatedDXMTProfile() {
+@Test func artemisD3D11PresetIsCommonStartedWithDXMT() {
     let preset = Engine.artemisD3D11.preset
 
     #expect(Engine.artemisD3D11.displayName == "Artemis Engine (D3D11)")
     #expect(Engine.artemisD3D11.runtimeProfile.rawValue == "artemis-d3d11")
+    // What lets it live in common's prefix: nothing that ends up in the prefix differs.
+    #expect(preset.registryValues == Engine.bgi.preset.registryValues)
+    #expect(preset.registryKeysToDelete == Engine.bgi.preset.registryKeysToDelete)
     #expect(Engine.artemisD3D11.runtimeConfigVersion == 4)
     #expect(preset.components.contains("quartz"))
     #expect(preset.components.contains("amstream"))

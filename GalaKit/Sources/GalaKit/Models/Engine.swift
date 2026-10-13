@@ -89,14 +89,12 @@ extension Engine {
     public var runtimeProfile: RuntimeProfile {
         switch self {
         case .bgi, .artemis, .nscripter, .yuris, .realLive, .renpy, .rpgMaker, .unity,
-             .majiro, .advHD, .qlie, .unknown:
+             .majiro, .advHD, .qlie, .unknown, .kirikiri:
             return .common
         case .artemisD3D11:
             return .artemisD3D11
         case .artemisMFD3D11:
             return .artemisMFD3D11
-        case .kirikiri:
-            return .kirikiri
         case .catSystem2:
             return .catSystem2
         case .siglusEngine:

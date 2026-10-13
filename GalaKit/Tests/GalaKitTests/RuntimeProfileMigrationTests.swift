@@ -57,8 +57,9 @@ import Foundation
     )
 
     #expect(migrated[0].engine == .artemisD3D11)
-    #expect(migrated[0].bottleConfig.prefixPath == dir.appendingPathComponent("Bottles/Profiles/artemis-d3d11").path)
+    #expect(migrated[0].bottleConfig.prefixPath == dir.appendingPathComponent("Bottles/Profiles/common").path)
     #expect(!migrated[0].isRuntimeConfigured)
+    #expect(migrated[0].profileID == nil)
 }
 
 @Test func runtimeProfileMigrationMovesMediaFoundationArtemisD3D11GameToSeparateProfile() throws {
@@ -272,4 +273,48 @@ import Foundation
 
     #expect(migrated[0].isRuntimeConfigured)
     #expect(migrated[0].runtimeProfileMigrationExecutablePath == "/games/renpy/new.exe")
+}
+
+@Test func aConfiguredKiriKiriGameIsPinnedToItsOldProfileAndAnUnconfiguredOneMovesToCommon() {
+    let bottles = URL(fileURLWithPath: "/tmp/gala-test/Bottles")
+    let oldPrefix = bottles.appendingPathComponent("Profiles/kirikiri").path
+    let configured = Game(title: "千恋", executablePath: "/g/a/a.exe", engine: .kirikiri, isRuntimeConfigured: true,
+                          runtimeProfileMigrationVersion: 2, runtimeProfileMigrationExecutablePath: "/g/a/a.exe",
+                          bottleConfig: BottleConfig(prefixPath: oldPrefix))
+    let unconfigured = Game(title: "新", executablePath: "/g/b/b.exe", engine: .kirikiri, isRuntimeConfigured: false,
+                            runtimeProfileMigrationVersion: 2, runtimeProfileMigrationExecutablePath: "/g/b/b.exe",
+                            bottleConfig: BottleConfig(prefixPath: oldPrefix))
+
+    let migrated = RuntimeProfileMigration.migrate(games: [configured, unconfigured], bottlesDirectory: bottles) { _ in .kirikiri }
+
+    #expect(migrated[0].profileID == "kirikiri")
+    #expect(migrated[0].bottleConfig.prefixPath == oldPrefix)
+    #expect(migrated[0].isRuntimeConfigured)
+    #expect(ProfileStore.bundled.recipe(for: migrated[0])?.id == "kirikiri")
+
+    #expect(migrated[1].profileID == nil)
+    #expect(migrated[1].bottleConfig.prefixPath == bottles.appendingPathComponent("Profiles/common").path)
+    #expect(ProfileStore.bundled.recipe(for: migrated[1])?.id == "common")
+
+    // Running the rules again changes nothing.
+    let again = RuntimeProfileMigration.migrate(games: migrated, bottlesDirectory: bottles) { _ in .kirikiri }
+    #expect(!RuntimeProfileMigration.didChangeRuntimeProfile(from: migrated, to: again))
+    #expect(again.map(\.profileID) == migrated.map(\.profileID))
+}
+
+@Test func aConfiguredArtemisD3D11GameStaysInThePrefixItHas() {
+    let bottles = URL(fileURLWithPath: "/tmp/gala-test/Bottles")
+    let oldPrefix = bottles.appendingPathComponent("Profiles/artemis-d3d11").path
+    let configured = Game(title: "ハミダシ", executablePath: "/g/h/h.exe", engine: .artemisD3D11, isRuntimeConfigured: true,
+                          runtimeProfileMigrationVersion: 2, runtimeProfileMigrationExecutablePath: "/g/h/h.exe",
+                          bottleConfig: BottleConfig(prefixPath: oldPrefix))
+    var unconfigured = configured
+    unconfigured.isRuntimeConfigured = false
+
+    let migrated = RuntimeProfileMigration.migrate(games: [configured, unconfigured], bottlesDirectory: bottles) { _ in .artemisD3D11 }
+
+    #expect(migrated[0].bottleConfig.prefixPath == oldPrefix)
+    #expect(migrated[0].isRuntimeConfigured)
+    #expect(migrated[0].profileID == nil)
+    #expect(migrated[1].bottleConfig.prefixPath == bottles.appendingPathComponent("Profiles/common").path)
 }

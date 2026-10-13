@@ -1,7 +1,7 @@
 import Foundation
 
 public enum RuntimeProfileMigration {
-    public static let currentRulesVersion = 2
+    public static let currentRulesVersion = 3
 
     public static func migrate(
         games: [Game],
@@ -20,12 +20,16 @@ public enum RuntimeProfileMigration {
             if let targetEngine = specialRuntimeTarget(for: game, engineDetector: engineDetector) {
                 let targetPrefix = BottleManager.prefixPath(for: targetEngine, bottlesDirectory: bottlesDirectory)
 
-                let changedRuntime = migrated.engine != targetEngine ||
-                    migrated.bottleConfig.prefixPath != targetPrefix
-                migrated.engine = targetEngine
-                migrated.bottleConfig.prefixPath = targetPrefix
-                if changedRuntime {
-                    migrated.isRuntimeConfigured = false
+                // A configured game whose engine is unchanged stays in the prefix it has, even when new games of
+                // that engine now go elsewhere (artemis-d3d11 began sharing common's prefix in rules v3).
+                if migrated.engine != targetEngine || !migrated.isRuntimeConfigured {
+                    let changedRuntime = migrated.engine != targetEngine ||
+                        migrated.bottleConfig.prefixPath != targetPrefix
+                    migrated.engine = targetEngine
+                    migrated.bottleConfig.prefixPath = targetPrefix
+                    if changedRuntime {
+                        migrated.isRuntimeConfigured = false
+                    }
                 }
             } else if usedRemovedNativeLaunch(game) {
                 migrated.bottleConfig.prefixPath = BottleManager.prefixPath(
@@ -33,10 +37,26 @@ public enum RuntimeProfileMigration {
                     bottlesDirectory: bottlesDirectory
                 )
                 migrated.isRuntimeConfigured = false
+            } else if usesRetiredKiriKiriPrefix(game, bottlesDirectory: bottlesDirectory) {
+                if game.isRuntimeConfigured {
+                    // Keeps running exactly as before; only new KiriKiri games start in common.
+                    migrated.profileID = RuntimeProfile.kirikiri.rawValue
+                } else {
+                    migrated.bottleConfig.prefixPath = BottleManager.prefixPath(for: game.engine, bottlesDirectory: bottlesDirectory)
+                }
             }
             markCurrent(&migrated)
             return migrated
         }
+    }
+
+    /// Until rules v3 KiriKiri games had a profile and a prefix of their own.
+    private static func usesRetiredKiriKiriPrefix(_ game: Game, bottlesDirectory: URL) -> Bool {
+        guard (game.runtimeProfileMigrationVersion ?? 0) < 3, game.engine == .kirikiri else { return false }
+        return game.bottleConfig.prefixPath == BottleManager.prefixPath(
+            forProfile: RuntimeProfile.kirikiri.rawValue,
+            bottlesDirectory: bottlesDirectory
+        )
     }
 
     public static func didChangeRuntimeProfile(from oldGames: [Game], to newGames: [Game]) -> Bool {

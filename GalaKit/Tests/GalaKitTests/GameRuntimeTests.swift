@@ -181,7 +181,7 @@ private final class Messages: @unchecked Sendable {
     let base = try #require(ProfileStore.bundled.recipe(for: game))
 
     let file = game.exportedProfile(base: base)
-    #expect(file.base == "kirikiri")
+    #expect(file.base == "common")
     #expect(file.wine == .dxmt)
     #expect(file.dllOverrides == ["quartz": "builtin", "amstream": "builtin"])
     #expect(file.notes?.contains("FOO=1") == true)

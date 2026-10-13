@@ -25,8 +25,10 @@ func everyEngineHasABundledProfile(engine: Engine) {
     let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: dir) }
     let manager = BottleManager(bottlesDirectory: dir)
-    let game = Game(title: "T", executablePath: "/g/a.exe", engine: .kirikiri,
+    var game = Game(title: "T", executablePath: "/g/a.exe", engine: .kirikiri,
                     bottleConfig: BottleConfig(prefixPath: dir.appendingPathComponent("Profiles/kirikiri").path))
+    // Where the migration leaves a KiriKiri game configured before that engine moved to common.
+    game.profileID = "kirikiri"
     let markerURL = URL(fileURLWithPath: game.bottleConfig.prefixPath).appendingPathComponent(".gala-runtime.json")
     try FileManager.default.createDirectory(at: markerURL.deletingLastPathComponent(), withIntermediateDirectories: true)
     let marker = { (fingerprint: String) in
@@ -161,13 +163,13 @@ private func userDirectory(_ files: [String: String]) throws -> URL {
     let store = ProfileStore.loading(userDirectory: dir).store
     var game = Game(title: "T", executablePath: "/g/a.exe", engine: .kirikiri)
 
-    #expect(store.recipe(for: game)?.id == "kirikiri")
+    #expect(store.recipe(for: game)?.id == "common")
 
     game.profileID = "mine"
     #expect(store.recipe(for: game)?.id == "mine")
 
     game.profileID = "deleted-since"
-    #expect(store.recipe(for: game)?.id == "kirikiri")
+    #expect(store.recipe(for: game)?.id == "common")
 
     #expect(try JSONDecoder().decode(Game.self, from: JSONEncoder().encode(game)).profileID == "deleted-since")
 }

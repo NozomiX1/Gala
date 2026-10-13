@@ -164,6 +164,20 @@ public struct ProfileStore: Sendable {
         return game.engine.flatMap { recipe(id: $0.runtimeProfile.rawValue) }
     }
 
+    /// Profiles that put nothing of their own into the prefix and so live in another profile's.
+    /// `artemis-d3d11` is `common` started with the DXMT Wine build.
+    static let sharedBottles = ["artemis-d3d11": "common"]
+
+    public static func bottleID(forProfile id: String) -> String {
+        sharedBottles[id] ?? id
+    }
+
+    /// The recipe the game's prefix is built from and marked with; the game's own unless it shares a bottle.
+    public func bottleRecipe(for game: Game) -> RuntimeRecipe? {
+        guard let recipe = recipe(for: game) else { return nil }
+        return self.recipe(id: Self.bottleID(forProfile: recipe.id)) ?? recipe
+    }
+
     public static func files(in directory: URL) throws -> [ProfileFile] {
         let urls = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
             .filter { $0.pathExtension == "json" }
@@ -258,7 +272,9 @@ extension ProfileStore {
                 lines.append("| \(game) | \(recipe.name)（`\(recipe.id)`） |")
             }
         }
-        let unverified = recipes.filter(\.verifiedGames.isEmpty)
+        // A profile no engine starts in any more is kept for games already using it; it is not waiting to be verified.
+        let defaults = Set(Engine.allCases.map(\.runtimeProfile.rawValue))
+        let unverified = recipes.filter { $0.verifiedGames.isEmpty && defaults.contains($0.id) }
         if !unverified.isEmpty {
             lines += ["", "## 还没有验证过游戏的运行环境", ""]
             lines += unverified.map { "- \($0.name)（`\($0.id)`）" }

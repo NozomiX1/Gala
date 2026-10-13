@@ -1,7 +1,7 @@
 {
   "id": "artemis-d3d11",
   "name": "Artemis（D3D11）",
-  "notes": "较新的 Artemis/iarsys 引擎，视频走 DirectShow。和通用环境只差一条：用带 DXMT 的 Wine 启动，由它渲染 D3D11。",
+  "notes": "较新的 Artemis/iarsys 引擎，视频走 DirectShow。和通用环境共用同一个 Wine 前缀，只差一条：用带 DXMT 的 Wine 启动，由它渲染 D3D11。",
   "base": "common",
   "version": 4,
   "wine": "dxmt",

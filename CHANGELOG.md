@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - 复制求助信息… is also in the cover's right-click menu on the library wall.
 - Diagnostics say when the engine label was taken from VNDB because nothing in the game folder identified it, and when the launch file looks like it was wrapped by a protector. The second is a hint for reading a crash; it does not stop a launch.
 
+### Changed
+- KiriKiri games now run in the `common` environment, and `artemis-d3d11` shares `common`'s Wine prefix instead of building its own. A library with BGI, KiriKiri, and Artemis D3D11 games needs one prefix where it needed three. Games already configured are left exactly where they are: KiriKiri ones stay on the old environment, now listed as "KiriKiri（旧）".
+
 ### Fixed
 - The ··· button on the game page was drawn smaller than the buttons beside it in the released build (and square on macOS 15). It now uses the same button as the others.
 - The first launch of a Media Foundation Artemis game (アマカノ3) after configuring showed a black window for most of a minute and then quit. The video component's plugin index is now built before the game starts, which takes a few seconds.

@@ -189,6 +189,14 @@ func applyOverrides(to game: inout Game, wineManager: WineManager) throws {
     }
 }
 
+/// The library as the app sees it: with the profile rules applied. Kept in memory unless the command saves; the app writes them the next time it starts.
+func loadGames(_ home: URL) throws -> [Game] {
+    RuntimeProfileMigration.migrate(
+        games: try LibraryStore(baseURL: home).load(),
+        bottlesDirectory: WineManager(baseURL: home).bottlesDirectory
+    )
+}
+
 func requireProfile(_ id: String, in wineManager: WineManager) throws {
     guard wineManager.profiles.recipe(id: id) == nil else { return }
     let known = wineManager.profiles.recipes.map(\.id).joined(separator: " ")
@@ -226,7 +234,7 @@ func run() async throws {
     case "guide":
         print(guide)
     case "list":
-        let games = try LibraryStore(baseURL: home).load()
+        let games = try loadGames(home)
         if json {
             try printJSON(games.map {
                 ListEntry(
@@ -248,7 +256,7 @@ func run() async throws {
         }
     case "diagnose":
         guard let query = arguments.first else { throw Failure(message: "diagnose 需要指定游戏。\n\n\(usage)") }
-        let game = try findGame(query, in: try LibraryStore(baseURL: home).load())
+        let game = try findGame(query, in: try loadGames(home))
         let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "开发版"
         let report = Diagnostics.collect(game: game, appVersion: appVersion, wineManager: WineManager(baseURL: home))
         if json { try printJSON(report) } else { print(report.text) }
@@ -273,7 +281,7 @@ func run() async throws {
     case "use":
         guard arguments.count >= 2 else { throw Failure(message: "use 需要游戏和运行环境两个参数。\n\n\(usage)") }
         let store = LibraryStore(baseURL: home)
-        var games = try store.load()
+        var games = try loadGames(home)
         let game = try findGame(arguments[0], in: games)
         let wineManager = WineManager(baseURL: home)
         let id = arguments[1] == "default" ? nil : arguments[1]
@@ -287,7 +295,7 @@ func run() async throws {
         guard let query = arguments.first else { throw Failure(message: "configure 需要指定游戏。\n\n\(usage)") }
         arguments.removeFirst()
         let store = LibraryStore(baseURL: home)
-        var games = try store.load()
+        var games = try loadGames(home)
         let saved = try findGame(query, in: games)
         let wineManager = WineManager(baseURL: home)
         var game = saved
@@ -306,7 +314,7 @@ func run() async throws {
         arguments.removeFirst()
         let debug = !takeFlag("--no-debug")
         let wineManager = WineManager(baseURL: home)
-        var game = try findGame(query, in: try LibraryStore(baseURL: home).load())
+        var game = try findGame(query, in: try loadGames(home))
         try applyOverrides(to: &game, wineManager: wineManager)
 
         let runtime = GameRuntime(wineManager: wineManager)

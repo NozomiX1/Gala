@@ -50,6 +50,15 @@ Checked on 2026-10-13 with ハミダシクリエイティブ凸 (64-bit, D3D11) 
 - Until 2.0, configuring a DXMT profile also copied every DLL from the variant's `lib/wine` into the prefix. The copies were builtin-marked, so Wine loaded its own `lib/wine` files regardless, and the copy overwrote what winetricks had installed just before: in those prefixes `quartz`, `amstream`, and `d3dcompiler_47` were Wine's builtin files and loaded as builtin, whatever the profile's overrides said. The copy is gone. `"wine": "dxmt"` in a profile is all DXMT needs, and it implies the download.
 - ハミダシ plays its logo and movies in both states: builtin `quartz` (an old `artemis-d3d11` prefix) and native `quartz` (the `common` prefix), each through LAV Splitter/Video and EVR. `d3dcompiler_47` loaded as builtin in every run, so the two Artemis D3D11 profiles no longer install the native one. アマカノ3 was not re-run; its prefix contents are unchanged by this, since the native DLL never survived the copy.
 
+## Fewer Prefixes
+
+Checked on 2026-10-13 in a clone of a real library and its prefixes.
+
+- `kirikiri` differed from `common` by one registry override that loads the same DLL (see Launch-Time Overrides). 千恋＊万花 and the 2019 ノラと皇女と野良猫ハート both reach their title screen in `common`; neither was played through to a video there. KiriKiri is now a `common` engine.
+- `artemis-d3d11` puts nothing into the prefix that `common` does not. ハミダシ pointed at `common`'s prefix needed no configuring (0 s, marker already current), started under the DXMT build, and played its logo movie through native `quartz`. A BGI game read the same prefix as current afterwards.
+- A game's prefix is the path stored on the game. That is what lets existing games stay put: a KiriKiri game configured earlier is pinned to the old profile (`profileID`), an Artemis D3D11 game keeps its old directory, whose marker is still accepted. Only newly added or not-yet-configured games get the shared prefix.
+- `gala-cli` used to read the library without applying the profile rules, so a rules change showed there as an outdated prefix until the app had run once. It now applies them in memory.
+
 ## One Title, Two Programs; A Packed Executable That Crashes
 
 Checked on 2026-10-13 with the copy of ノラと皇女と野良猫ハート from issue #5: the 2016 original (Whale engine, D3D9, `arc*.dat`, `script.dat`) with a fan translation, in a clone of the `kirikiri` prefix. The 2019 re-release of the same title is a KiriKiri program and shares nothing with it.

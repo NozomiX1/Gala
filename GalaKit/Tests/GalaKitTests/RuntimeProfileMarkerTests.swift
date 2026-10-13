@@ -26,12 +26,33 @@ import Foundation
     decoder.dateDecodingStrategy = .iso8601
     let marker = try decoder.decode(RuntimeProfileMarker.self, from: data)
 
-    #expect(marker.profile == "artemis-d3d11")
-    #expect(marker.configVersion == Engine.artemisD3D11.runtimeConfigVersion)
-    #expect(marker.wineVersionName == WineManager.dxmtWineVersionName)
-    #expect(marker.managedComponents == ["dxmt@v0.80"])
+    // artemis-d3d11 lives in common's prefix, so the marker is common's and both kinds of game read it as current.
+    #expect(marker.profile == "common")
+    #expect(marker.configVersion == Engine.bgi.runtimeConfigVersion)
+    #expect(marker.wineVersionName == WineManager.wineVersionName)
+    #expect(marker.managedComponents == [])
     #expect(marker.configuredAt == configuredAt)
     #expect(try bottleManager.runtimeMarkerStatus(for: game) == .current)
+    let commonGame = Game(title: "BGI", executablePath: "/Games/b/BGI.exe", engine: .bgi,
+                          bottleConfig: BottleConfig(prefixPath: prefix.path))
+    #expect(try bottleManager.runtimeMarkerStatus(for: commonGame) == .current)
+}
+
+@Test func aPrefixMarkedByArtemisD3D11BeforeItSharedABottleStaysCurrent() throws {
+    let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: tempDir) }
+    let prefix = tempDir.appendingPathComponent("Profiles/artemis-d3d11")
+    try FileManager.default.createDirectory(at: prefix, withIntermediateDirectories: true)
+    let game = Game(title: "ハミダシ", executablePath: "/Games/h/h.exe", engine: .artemisD3D11,
+                    isRuntimeConfigured: true, bottleConfig: BottleConfig(prefixPath: prefix.path))
+    // As 2.0 wrote it.
+    let recipe = try #require(ProfileStore.bundled.recipe(id: "artemis-d3d11"))
+    let encoder = JSONEncoder()
+    encoder.dateEncodingStrategy = .iso8601
+    try encoder.encode(RuntimeProfileMarker.current(for: recipe, configuredAt: Date()))
+        .write(to: prefix.appendingPathComponent(".gala-runtime.json"))
+
+    #expect(try BottleManager(bottlesDirectory: tempDir).runtimeMarkerStatus(for: game) == .current)
 }
 
 @Test func bottleManagerWritesDXMTMarkerForArtemisMediaFoundationProfile() throws {
