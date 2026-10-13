@@ -24,6 +24,7 @@ public enum WineLaunchDiagnostics {
     /// Lines every launch prints whether or not anything is wrong.
     static func isHarmlessWineNoise(_ line: String) -> Bool {
         line.contains(":fixme:")
+            || line.contains("trace:loaddll")
             // Printed many times by every launch on Apple silicon; the allocation is retried elsewhere.
             || line.contains("try_map_free_area")
             || line.contains(") stub")

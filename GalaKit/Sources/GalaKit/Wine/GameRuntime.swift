@@ -128,6 +128,24 @@ public struct GameRuntime: Sendable {
         return launchGame
     }
 
+    /// What the latest launch of this game loaded; nil before the first launch.
+    public func observation(for game: Game) -> LaunchObservation? {
+        guard let url = LaunchLog.latest(gameID: game.id, logsDirectory: wineManager.logsDirectory),
+              let log = try? String(contentsOf: url, encoding: .utf8) else { return nil }
+        let observation = LaunchObservation(log: log)
+        return observation.isEmpty ? nil : observation
+    }
+
+    /// Things the user could do for this game: what its profile's author says, then what the last launch showed.
+    public func advice(for game: Game) -> [String] {
+        let recipe = recipe(for: game)
+        let observed = observation(for: game)?.advice(
+            usesDXMTWine: wineManager.usesDXMTWine(for: game),
+            usesMediaFoundationRuntime: recipe?.usesMediaFoundation == true
+        ) ?? []
+        return [recipe?.advice].compactMap { $0 } + observed
+    }
+
     /// GStreamer indexes its plugins the first time it starts. Inside the game that takes most of a minute with the window
     /// black, after which the game quits. Wine's own dxdiag touches the DirectShow filters and gets the same index written in seconds.
     private func buildGStreamerRegistryIfMissing(

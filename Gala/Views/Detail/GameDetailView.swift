@@ -8,6 +8,7 @@ struct GameDetailView: View {
     let gameVM: GameViewModel
 
     @State private var sheet: Sheet?
+    @State private var advice: [String] = []
 
     /// One sheet at a time, so the failure sheet can hand over to the run settings or the help text.
     private enum Sheet: String, Identifiable {
@@ -44,6 +45,11 @@ struct GameDetailView: View {
         }
         .background { AmbientBackground(image: cover, style: .detail) }
         .task(id: game.id) { await library.loadFactsIfMissing(for: game) }
+        // Read again when a run ends or the profile changes: both can change what there is to suggest. The log can be large.
+        .task(id: "\(game.id)|\(isRunning)|\(game.profileID ?? "")|\(game.launchSwitches)") {
+            let game = game, wineManager = library.wineManagerInstance
+            advice = await Task.detached { GameRuntime(wineManager: wineManager).advice(for: game) }.value
+        }
         // The page keeps its dark look in the light appearance too.
         .environment(\.colorScheme, .dark)
         .toolbarColorScheme(.dark, for: .windowToolbar)
@@ -53,7 +59,7 @@ struct GameDetailView: View {
         .sheet(item: $sheet) { sheet in
             switch sheet {
             case .runSettings:
-                RunSettingsView(game: game, library: library, showsAdvanced: debugRunSettings == "advanced")
+                RunSettingsView(game: game, library: library, advice: advice, showsAdvanced: debugRunSettings == "advanced")
             case .helpRequest:
                 HelpRequestView(game: game, library: library)
             case .failure:
@@ -148,6 +154,9 @@ struct GameDetailView: View {
                 .truncationMode(.tail)
             if !isRunning, !isSettingUp, errorMessage != nil {
                 Button("查看原因") { sheet = .failure }
+                    .buttonStyle(.link)
+            } else if !isRunning, !isSettingUp, advice.contains(where: { !game.acknowledgedAdvice.contains($0) }) {
+                Button("查看建议") { sheet = .runSettings }
                     .buttonStyle(.link)
             }
         }

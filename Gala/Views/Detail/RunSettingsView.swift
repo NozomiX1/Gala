@@ -6,6 +6,8 @@ import GalaKit
 struct RunSettingsView: View {
     let game: Game
     let library: LibraryViewModel
+    /// What the profile's author and the last launch suggest; listed first, and marked as seen when the panel closes.
+    let advice: [String]
     @Environment(\.dismiss) private var dismiss
 
     @State private var profileID: String?
@@ -18,9 +20,10 @@ struct RunSettingsView: View {
 
     private var profiles: ProfileStore { library.wineManagerInstance.profiles }
 
-    init(game: Game, library: LibraryViewModel, showsAdvanced: Bool = false) {
+    init(game: Game, library: LibraryViewModel, advice: [String] = [], showsAdvanced: Bool = false) {
         self.game = game
         self.library = library
+        self.advice = advice
         let config = game.bottleConfig
         // A hand-picked profile whose file is gone already runs as the default; show it that way.
         let known = game.profileID.flatMap { library.wineManagerInstance.profiles.recipe(id: $0) }
@@ -47,6 +50,16 @@ struct RunSettingsView: View {
             .padding(.top, 22)
 
             Form {
+                if !advice.isEmpty {
+                    Section("建议") {
+                        ForEach(advice, id: \.self) { item in
+                            Label(item, systemImage: "lightbulb")
+                                .font(.callout)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+
                 Section {
                     Picker("运行环境", selection: $profileID) {
                         Text("自动（\(defaultProfileName)）").tag(String?.none)
@@ -111,7 +124,15 @@ struct RunSettingsView: View {
                 Button("把当前配置导出为文件…", action: export)
                     .buttonStyle(.link)
                 Spacer()
-                Button("取消", role: .cancel) { dismiss() }
+                Button("取消", role: .cancel) {
+                    // Closing without saving still counts as having read the advice.
+                    if seenAdvice != game.acknowledgedAdvice {
+                        var seen = game
+                        seen.acknowledgedAdvice = seenAdvice
+                        library.updateGame(seen)
+                    }
+                    dismiss()
+                }
                     .keyboardShortcut(.cancelAction)
                 Button("完成") {
                     library.updateGame(edited)
@@ -134,6 +155,10 @@ struct RunSettingsView: View {
         var plain = game
         plain.profileID = nil
         return profiles.recipe(for: plain)?.name ?? "通用"
+    }
+
+    private var seenAdvice: [String] {
+        game.acknowledgedAdvice + advice.filter { !game.acknowledgedAdvice.contains($0) }
     }
 
     private func binding(for item: LaunchSwitch) -> Binding<String?> {
@@ -163,6 +188,7 @@ struct RunSettingsView: View {
             updated.useProfile(profileID, bottlesDirectory: library.wineManagerInstance.bottlesDirectory)
         }
         updated.launchSwitches = switches
+        updated.acknowledgedAdvice = seenAdvice
         updated.bottleConfig.dllOverrides = BottleConfig.pairs(from: dllText)
         updated.bottleConfig.environment = BottleConfig.pairs(from: environmentText)
         updated.bottleConfig.launchArguments = argumentsText.split(separator: " ").map(String.init)

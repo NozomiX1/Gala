@@ -80,7 +80,8 @@ Gala 排查指南（给人和 AI 助手）
     { "id": "my-test", "name": "我的试验", "base": "common", "dllOverrides": { "quartz": "builtin" } }
   写了 base 就是继承它的全部，再加上或覆盖这里写的。可用的字段：
     components（要装的 Windows 组件，winetricks 的名字）、dllOverrides（值写 null 表示去掉继承来的那一条）、
-    registry（key、name、type、data）、registryDelete、wine（default 或 dxmt）、notes。
+    registry（key、name、type、data）、registryDelete、wine（default 或 dxmt）、notes、
+    advice（需要用户自己动手的一件事，会显示在游戏页面和运行设置里）。
   gala-cli profiles              确认它被读到了，没有报错
   gala-cli use <游戏> my-test     让这个游戏用它
   gala-cli configure <游戏>       建好环境

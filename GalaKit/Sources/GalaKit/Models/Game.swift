@@ -61,6 +61,8 @@ public struct Game: Identifiable, Codable, Sendable {
     public var profileID: String?
     /// Chosen options of the named switches, by switch id. A switch that is absent follows the profile.
     public var launchSwitches: [String: String] = [:]
+    /// Advice the user has already been shown for this game, so the game page stops pointing at it.
+    public var acknowledgedAdvice: [String] = []
     public var totalPlayTime: TimeInterval
     public var lastPlayedAt: Date?
     public var addedAt: Date
@@ -137,6 +139,7 @@ public struct Game: Identifiable, Codable, Sendable {
         engine = try container.decodeIfPresent(Engine.self, forKey: .engine)
         profileID = try container.decodeIfPresent(String.self, forKey: .profileID)
         launchSwitches = try container.decodeIfPresent([String: String].self, forKey: .launchSwitches) ?? [:]
+        acknowledgedAdvice = try container.decodeIfPresent([String].self, forKey: .acknowledgedAdvice) ?? []
         totalPlayTime = try container.decodeIfPresent(TimeInterval.self, forKey: .totalPlayTime) ?? 0
         lastPlayedAt = try container.decodeIfPresent(Date.self, forKey: .lastPlayedAt)
         addedAt = try container.decodeIfPresent(Date.self, forKey: .addedAt) ?? Date()

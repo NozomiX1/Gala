@@ -19,6 +19,8 @@ public struct ProfileFile: Codable, Equatable, Sendable {
     public var id: String
     public var name: String
     public var notes: String?
+    /// One thing the user has to do themselves for games in this profile, in their words. Shown on the game page.
+    public var advice: String?
     public var base: String?
     /// Raise it to make every existing prefix of this profile reconfigure even though the recipe reads the same.
     public var version: Int?
@@ -45,6 +47,7 @@ public struct RuntimeRecipe: Equatable, Sendable {
     public let id: String
     public let name: String
     public let notes: String?
+    public let advice: String?
     public let version: Int
     public let usesDXMTWine: Bool
     public let preset: EnginePreset
@@ -238,6 +241,7 @@ public struct ProfileStore: Sendable {
             id: file.id,
             name: file.name,
             notes: file.notes,
+            advice: file.advice,
             // Versions start at 1, so a bump anywhere in the chain raises every profile built on it.
             version: chain.reduce(1) { $0 + ($1.version ?? 1) - 1 },
             usesDXMTWine: wine == .dxmt,

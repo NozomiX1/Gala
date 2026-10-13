@@ -19,6 +19,11 @@ public struct Diagnostics: Codable, Equatable, Sendable {
     /// True when the launch file's section table looks like a protector's. A hint for reading a crash, never a reason to refuse a launch.
     public var looksPacked: Bool
     public var runtimeProfile: String?
+    /// What the profile's author wrote about it. It travels with the report so whoever reads it, a person or a chatbot, sees the known catches.
+    public var profileNotes: String?
+    /// What the latest launch really loaded, and what follows from it. See `LaunchObservation`.
+    public var usedComponents: String?
+    public var advice: [String]
     public var isProfileChosenByHand: Bool
     public var profileProblems: [String]
     public var prefixPath: String
@@ -51,6 +56,7 @@ public struct Diagnostics: Codable, Equatable, Sendable {
         let bottleManager = BottleManager(bottlesDirectory: wineManager.bottlesDirectory, wineManager: wineManager)
         let recipe = wineManager.profiles.recipe(for: game)
         let usesDXMT = wineManager.usesDXMTWine(for: game)
+        let runtime = GameRuntime(wineManager: wineManager)
 
         let entries = (try? FileManager.default.contentsOfDirectory(
             at: gameDirectory,
@@ -81,6 +87,9 @@ public struct Diagnostics: Codable, Equatable, Sendable {
             isEngineFromVNDB: game.engine != nil && game.engine != .unknown && EngineDetector.detect(in: gameDirectory) == nil,
             looksPacked: EngineDetector.looksPacked(URL(fileURLWithPath: game.executablePath)),
             runtimeProfile: recipe?.id,
+            profileNotes: recipe?.notes,
+            usedComponents: runtime.observation(for: game)?.summary,
+            advice: runtime.advice(for: game),
             isProfileChosenByHand: game.profileID != nil && recipe?.id == game.profileID,
             profileProblems: wineManager.profileProblems.map(\.localizedDescription)
                 + (game.profileID != nil && recipe?.id != game.profileID ? ["这个游戏选的运行环境 \(game.profileID!) 已经不存在，改用了引擎的默认环境。"] : []),
@@ -125,6 +134,14 @@ public struct Diagnostics: Codable, Equatable, Sendable {
             "",
             "【引擎识别】达到 \(detectionThreshold) 分才会被采纳",
         ]
+        if let profileNotes, let index = lines.firstIndex(where: { $0.hasPrefix("【环境状态】") }) {
+            lines.insert("【环境说明】\(profileNotes)", at: index)
+        }
+        if let index = lines.firstIndex(where: { $0.hasPrefix("【启动参数】") }) {
+            var extra = ["【上次运行实际用到的】\(usedComponents ?? "还没有记录（需要先启动一次）")"]
+            if !advice.isEmpty { extra += ["【建议】"] + advice.map { "  \($0)" } }
+            lines.insert(contentsOf: extra, at: index + 1)
+        }
         lines += candidates.isEmpty
             ? ["  没有匹配到任何已知特征"]
             : candidates.map { "  \($0.engine)：\($0.score) 分（\($0.reasons.joined(separator: "；"))）" }

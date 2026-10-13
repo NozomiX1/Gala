@@ -54,7 +54,7 @@ import Foundation
     let wine = URL(fileURLWithPath: "/nonexistent/bin/wine")
 
     // Errors only: enough to explain a failed launch without the noise.
-    #expect(WineLaunchConfig.buildEnvironment(game: game, wineBinary: wine)["WINEDEBUG"] == "fixme-all")
+    #expect(WineLaunchConfig.buildEnvironment(game: game, wineBinary: wine)["WINEDEBUG"] == "fixme-all,+loaddll")
     #expect(WineLaunchConfig.buildEnvironment(game: game, wineBinary: wine, debug: true)["WINEDEBUG"] == "+loaddll")
 }
 
@@ -123,6 +123,9 @@ import Foundation
 
     #expect(report.isEngineFromVNDB)
     #expect(report.looksPacked)
+    // The profile's own notes go along, so a known catch reaches whoever reads the report.
+    #expect(report.profileNotes == ProfileStore.bundled.recipe(id: "common")?.notes)
+    #expect(report.profileNotes.map { report.text.contains("【环境说明】\($0)") } == true)
     #expect(report.text.contains("取自 VNDB 的登记"))
     #expect(report.text.contains("像是加了保护壳"))
 }
@@ -183,4 +186,56 @@ private func writeExecutable(sections: [String], to url: URL) throws {
     #expect(EngineDetector.looksPacked(nameless))
     #expect(EngineDetector.looksPacked(enigma))
     #expect(!EngineDetector.looksPacked(dir.appendingPathComponent("missing.exe")))
+}
+
+private let d3d11Log = #"""
+00d8:trace:loaddll:build_module Loaded L"C:\\windows\\system32\\d3d11.dll" at 00006FFFF9E90000: builtin
+00d8:trace:loaddll:build_module Loaded L"Z:\\Games\\名前 with space\\game.exe" at 0000000140000000: native
+00d8:trace:loaddll:build_module Loaded L"C:\\windows\\syswow64\\quartz.dll" at 6FF10000: native
+00d8:trace:loaddll:build_module Loaded L"C:\\windows\\syswow64\\LAVSplitter.ax" at 10000000: native
+00d8:trace:loaddll:build_module Loaded L"C:\\windows\\syswow64\\wmp.dll" at 70000000: builtin
+0024:err:module:import_dll Library X.dll not found
+"""#
+
+@Test func aLaunchLogSaysWhatTheGameUsedAndWhatToTry() {
+    let observation = LaunchObservation(log: d3d11Log)
+    #expect(observation.modules["quartz.dll"] == "native")
+    #expect(observation.modules["game.exe"] == "native")
+    #expect(observation.summary == "图形：D3D11 · 视频：DirectShow（Windows 原版）、LAV 解码器、Windows Media Player 控件（Wine 的空壳）")
+
+    // Run with plain Wine: both findings come with something to try.
+    let advice = observation.advice(usesDXMTWine: false, usesMediaFoundationRuntime: false)
+    #expect(advice.count == 2)
+    #expect(advice[0].contains("DXMT"))
+    #expect(advice[1].contains("Windows Media Player"))
+    // Already on the DXMT build: nothing left to suggest about graphics.
+    #expect(observation.advice(usesDXMTWine: true, usesMediaFoundationRuntime: false).count == 1)
+
+    #expect(LaunchObservation(log: "0024:err:module:import_dll Library X.dll not found").isEmpty)
+    // The module list stays out of the excerpt and out of the quick-exit message.
+    #expect(!LogExcerpt.make(d3d11Log).contains("loaddll"))
+    #expect(LogExcerpt.make(d3d11Log).contains("X.dll"))
+    #expect(WineLaunchDiagnostics.isHarmlessWineNoise(String(d3d11Log.split(separator: "\n")[0])))
+}
+
+@Test func adviceComesFromTheProfileAndFromTheLastLaunchAndReachesTheReport() throws {
+    let home = FileManager.default.temporaryDirectory.appendingPathComponent("user-\(UUID().uuidString)")
+    defer { try? FileManager.default.removeItem(at: home) }
+    let wineManager = WineManager(baseURL: home.appendingPathComponent("GalaData"))
+    let runtime = GameRuntime(wineManager: wineManager)
+    let game = Game(title: "Summer Pockets", executablePath: home.appendingPathComponent("g/SiglusEngine.exe").path, engine: .siglusEngine)
+
+    // Before any launch only the profile speaks.
+    #expect(runtime.observation(for: game) == nil)
+    #expect(runtime.advice(for: game).count == 1)
+    #expect(runtime.advice(for: game)[0].contains("MCI"))
+
+    try Data(d3d11Log.utf8).write(to: try LaunchLog.newURL(gameID: game.id, logsDirectory: wineManager.logsDirectory))
+    #expect(runtime.advice(for: game).count == 3)
+
+    let report = Diagnostics.collect(game: game, appVersion: "2.1.0", wineManager: wineManager, home: home.path)
+    #expect(report.advice == runtime.advice(for: game))
+    #expect(report.text.contains("【上次运行实际用到的】图形：D3D11"))
+    #expect(report.text.contains("【建议】"))
+    #expect(try JSONDecoder().decode(Game.self, from: JSONEncoder().encode(game)).acknowledgedAdvice.isEmpty)
 }

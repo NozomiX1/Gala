@@ -1,7 +1,8 @@
 {
   "id": "siglus-engine",
   "name": "SiglusEngine",
-  "notes": "未验证，没有测试过的游戏。",
+  "notes": "SiglusEngine（Key 社近年的作品等）。视频用 Wine 自带的 DirectShow：换成 Windows 原版的话，片头只有声音没有画面。这类游戏默认用 Windows Media Player 放片头，在这里放不出来，会被直接跳过；要在游戏的设置里把影片播放方式改成 MCI。",
+  "advice": "请在游戏自己的设置里把影片播放方式改成 MCI，否则片头会被直接跳过，没有任何提示。",
   "base": "common",
   "version": 1,
   "components": [
@@ -11,6 +12,13 @@
   ],
   "dllOverrides": {
     "xaudio2_7": "native",
-    "xactengine3_7": "native"
-  }
+    "xactengine3_7": "native",
+    "quartz": "builtin",
+    "*quartz": "builtin",
+    "amstream": "builtin",
+    "*amstream": "builtin"
+  },
+  "verifiedGames": [
+    "Summer Pockets REFLECTION BLUE"
+  ]
 }
