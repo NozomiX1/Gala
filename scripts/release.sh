@@ -31,6 +31,8 @@ mkdir -p dist
 hdiutil create -volname "Gala $VERSION" -srcfolder "$STAGE" -ov -format UDZO dist/Gala.dmg
 
 awk -v v="$VERSION" 'index($0, "## [" v "]") == 1 { on = 1; next } /^## \[/ { on = 0 } on' CHANGELOG.md > dist/Gala.md
+# The update window shows this file to users who read Chinese.
+grep -q '^### 更新摘要' dist/Gala.md || { echo "CHANGELOG.md: the $VERSION section has no '### 更新摘要'" >&2; exit 1; }
 
 SPARKLE_BIN=build/SourcePackages/artifacts/sparkle/Sparkle/bin
 FEED_ARGS=(--embed-release-notes --download-url-prefix "https://github.com/NozomiX1/Gala/releases/download/v$VERSION/" dist)

@@ -50,7 +50,7 @@ Read `docs/runtime-lessons.md` before changing a profile or debugging playback, 
 - Tests also run on GitHub's machines (`.github/workflows/test.yml`), which have no login session and three cores. A call that waits on a system service there (CoreText asked about a font macOS could download) never returns, and three blocked tests starve every other one. Keep such calls behind a timeout in the code and out of the tests that run with `CI` set.
 - `Gala.xcodeproj` is generated and not committed. Edit `project.yml`, which also holds the version number, then run `xcodegen generate`.
 - Commit messages use a `feat:`, `fix:`, `perf:`, `docs:`, or `chore:` prefix.
-- Record user-visible changes under `## [Unreleased]` in `CHANGELOG.md`.
+- Record user-visible changes under `## [Unreleased]` in `CHANGELOG.md`. That section opens with `### 更新摘要`: a few plain Chinese lines for users, since the whole section is shown in the app's update window and on the release page. The detailed entries below it stay English. `scripts/release.sh` refuses a version without the summary.
 - `docs/compatibility.md` is generated from the profiles' `verifiedGames`; a test fails when it is stale. Regenerate it with `swift run --package-path GalaKit gala-cli compat > docs/compatibility.md`. When a game is confirmed to run, add its original title to the profile's `verifiedGames`, with the release in parentheses when the title exists as more than one program (an original and a re-release on another engine).
 - UI strings and `README.md` are Chinese. Code, comments, commit messages, and the other docs are English.
 

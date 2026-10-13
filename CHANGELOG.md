@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### 更新摘要
+- 运行设置里多了「文字区域」开关：想玩日文原版游戏时选日文，相当于转区。
+- 吉里吉里（KiriKiri）游戏和较新的 Artemis 游戏现在和其他游戏共用同一个运行环境，新添加游戏时少建环境、少占空间。已经配置好的游戏不受影响。
+- 修复：甜蜜女友 3 这类游戏配置后第一次启动会黑屏并自动退出。
+- 修复：游戏页面的「···」按钮比旁边的按钮小。
+- 封面右键菜单里可以直接「复制求助信息…」；求助信息会提示引擎是否认得不准、启动文件是否加了壳。
+
 ### Added
 - A third per-game switch in run settings, 文字区域: start the game in a Japanese locale, for Japanese originals that fail, show mojibake, or cannot find their files under the Chinese one. It takes effect at the next launch without reconfiguring. `gala-cli` takes it as `--switch locale=ja`.
 - 复制求助信息… is also in the cover's right-click menu on the library wall.
