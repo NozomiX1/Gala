@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 - A third per-game switch in run settings, 文字区域: start the game in a Japanese locale, for Japanese originals that fail, show mojibake, or cannot find their files under the Chinese one. It takes effect at the next launch without reconfiguring. `gala-cli` takes it as `--switch locale=ja`.
+- 复制求助信息… is also in the cover's right-click menu on the library wall.
 - Diagnostics say when the engine label was taken from VNDB because nothing in the game folder identified it, and when the launch file looks like it was wrapped by a protector. The second is a hint for reading a crash; it does not stop a launch.
 
 ### Fixed

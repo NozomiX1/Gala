@@ -11,6 +11,7 @@ struct LibraryView: View {
 
     @Environment(\.colorScheme) private var colorScheme
     @State private var isDropTargeted = false
+    @State private var helpGame: Game?
 
     private let columns = [GridItem(.adaptive(minimum: 150, maximum: 150), spacing: 28, alignment: .top)]
 
@@ -32,7 +33,11 @@ struct LibraryView: View {
                             onOpen: { onOpen(game) },
                             onPrimaryAction: { primaryAction(for: game) }
                         )
-                        .contextMenu { GameMenuItems(game: game, library: library, gameVM: gameVM) }
+                        .contextMenu {
+                            Button("复制求助信息…") { helpGame = game }
+                            Divider()
+                            GameMenuItems(game: game, library: library, gameVM: gameVM)
+                        }
                     }
                     if showsAddTile {
                         AddTile(isDropTargeted: isDropTargeted) { onAdd(nil) }
@@ -44,6 +49,7 @@ struct LibraryView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background { AmbientBackground(image: library.ambientCover, style: .wall) }
+        .sheet(item: $helpGame) { HelpRequestView(game: $0, library: library) }
         // A game folder or an .exe can be dropped anywhere on the wall, not only on the add tile.
         .dropDestination(for: URL.self) { urls, _ in
             guard let url = urls.first else { return false }
