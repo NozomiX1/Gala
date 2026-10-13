@@ -2,6 +2,7 @@ import Foundation
 
 public enum ProfileImportError: Error, Equatable, LocalizedError {
     case noJSON
+    case several(Int)
     case unreadable(String)
     case unknownFields([String])
     case missingName
@@ -12,6 +13,7 @@ public enum ProfileImportError: Error, Equatable, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .noJSON: return "没有找到运行环境的内容。它应该是一段用花括号包起来的 JSON。"
+        case .several(let count): return "这段文字里有 \(count) 份不同的运行环境。请只粘贴你要用的那一份：从它的左花括号到右花括号。"
         case .unreadable(let detail): return "这段 JSON 读不出来：\(detail)"
         case .unknownFields(let names): return "有不认识的字段：\(names.joined(separator: "、"))。可能是拼写错了；可用的字段见 README 的“自己写一个运行环境”。"
         case .missingName: return "缺少 name（这个运行环境叫什么）。"
@@ -57,14 +59,25 @@ public struct ProfileImport: Equatable, Sendable {
     public var needsOwnPrefix: Bool { recipe.bottleID == file.id }
 
     public static func parse(_ text: String, userDirectory: URL) throws -> ProfileImport {
-        guard let json = firstJSONObject(in: text) else { throw ProfileImportError.noJSON }
-        let parsed: Any
-        do {
-            parsed = try JSONSerialization.jsonObject(with: Data(json.utf8))
-        } catch {
-            throw ProfileImportError.unreadable(error.localizedDescription)
+        // A whole chat reply gets pasted. Its prose has braces of its own (a GUID quoted from the log), and it may
+        // hold a first attempt next to its correction: the one with a name is the profile, and two that differ are not guessed between.
+        var objects: [[String: Any]] = []
+        var failure: Error?
+        for run in braceRuns(in: text) {
+            do {
+                if let object = try JSONSerialization.jsonObject(with: Data(run.utf8)) as? [String: Any],
+                   !objects.contains(where: { ($0 as NSDictionary).isEqual(to: object) }) {
+                    objects.append(object)
+                }
+            } catch {
+                failure = error
+            }
         }
-        guard var object = parsed as? [String: Any] else { throw ProfileImportError.noJSON }
+        let named = objects.filter { $0["name"] != nil }
+        guard named.count <= 1 else { throw ProfileImportError.several(named.count) }
+        guard var object = named.first ?? objects.first else {
+            throw failure.map { ProfileImportError.unreadable($0.localizedDescription) } ?? ProfileImportError.noJSON
+        }
 
         // A misspelt field would otherwise be dropped in silence and the prefix built without it.
         let unknown = object.keys.filter { !knownFields.contains($0) }.sorted()
@@ -133,9 +146,22 @@ public struct ProfileImport: Equatable, Sendable {
         return url
     }
 
-    /// The first balanced `{...}` in the text, skipping braces inside strings.
-    static func firstJSONObject(in text: String) -> String? {
-        guard let start = text.firstIndex(of: "{") else { return nil }
+    /// Every `{…}` run at the top level of the text, in order. One that never closes is skipped, not allowed to swallow the rest.
+    static func braceRuns(in text: String) -> [String] {
+        var runs: [String] = []
+        var search = text.startIndex
+        while let start = text[search...].firstIndex(of: "{") {
+            if let end = closingBrace(in: text, from: start) {
+                runs.append(String(text[start...end]))
+                search = text.index(after: end)
+            } else {
+                search = text.index(after: start)
+            }
+        }
+        return runs
+    }
+
+    private static func closingBrace(in text: String, from start: String.Index) -> String.Index? {
         var depth = 0, inString = false, escaped = false
         for index in text[start...].indices {
             let character = text[index]
@@ -148,7 +174,7 @@ public struct ProfileImport: Equatable, Sendable {
             case "{": depth += 1
             case "}":
                 depth -= 1
-                if depth == 0 { return String(text[start...index]) }
+                if depth == 0 { return index }
             default: break
             }
         }

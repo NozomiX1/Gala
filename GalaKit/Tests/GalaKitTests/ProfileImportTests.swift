@@ -170,3 +170,20 @@ private func emptyUserDirectory() throws -> URL {
     try ProfileStore.deleteUserProfile(id: "common", in: dir)
     #expect(ProfileStore.loading(userDirectory: dir).store.recipe(id: "common") != nil)
 }
+
+// Both shapes came back from a real assistant given the help request.
+@Test func aWholeChatReplyIsReadPastItsOtherBraces() throws {
+    let dir = try emptyUserDirectory()
+    defer { try? FileManager.default.removeItem(at: dir) }
+    let profile = #"{ "name": "WA2 试验", "base": "leaf", "dllOverrides": { "wmvdecod": null } }"#
+
+    // The prose quotes a GUID from the log, and an unfinished brace, before the profile.
+    let quoted = "日志里的 `no class object {82d353df-90bd-4382-8bc2-3f6192b76e34}` 说明解码器没有加载，{ 之后：\n\(profile)"
+    #expect(try ProfileImport.parse(quoted, userDirectory: dir).removals == ["DLL 设置 wmvdecod"])
+
+    // The same profile twice is one profile; a first attempt next to its correction is not guessed between.
+    #expect(try ProfileImport.parse("\(profile)\n再贴一次：\n\(profile)", userDirectory: dir).file.name == "WA2 试验")
+    let corrected = #"{ "name": "漏了一项", "base": "leaf" }"# + "\n上面漏写了，请用这个：\n\(profile)"
+    #expect(throws: ProfileImportError.several(2)) { try ProfileImport.parse(corrected, userDirectory: dir) }
+    #expect(throws: ProfileImportError.self) { try ProfileImport.parse("只有 {82d353df-90bd} 没有环境", userDirectory: dir) }
+}
