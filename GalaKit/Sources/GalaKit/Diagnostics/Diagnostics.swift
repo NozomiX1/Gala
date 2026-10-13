@@ -21,6 +21,8 @@ public struct Diagnostics: Codable, Equatable, Sendable {
     public var runtimeProfile: String?
     /// What the profile's author wrote about it. It travels with the report so whoever reads it, a person or a chatbot, sees the known catches.
     public var profileNotes: String?
+    /// Every setting of the profile, one per line with the file it comes from. Enough to write a changed copy from.
+    public var profileContents: String?
     /// What the latest launch really loaded, and what follows from it. See `LaunchObservation`.
     public var usedComponents: String?
     public var advice: [String]
@@ -88,6 +90,7 @@ public struct Diagnostics: Codable, Equatable, Sendable {
             looksPacked: EngineDetector.looksPacked(URL(fileURLWithPath: game.executablePath)),
             runtimeProfile: recipe?.id,
             profileNotes: recipe?.notes,
+            profileContents: recipe.map { wineManager.profiles.detail(of: $0).text },
             usedComponents: runtime.observation(for: game)?.summary,
             advice: runtime.advice(for: game),
             isProfileChosenByHand: game.profileID != nil && recipe?.id == game.profileID,
@@ -134,8 +137,13 @@ public struct Diagnostics: Codable, Equatable, Sendable {
             "",
             "【引擎识别】达到 \(detectionThreshold) 分才会被采纳",
         ]
-        if let profileNotes, let index = lines.firstIndex(where: { $0.hasPrefix("【环境状态】") }) {
-            lines.insert("【环境说明】\(profileNotes)", at: index)
+        if let index = lines.firstIndex(where: { $0.hasPrefix("【环境状态】") }) {
+            var extra: [String] = []
+            if let profileNotes { extra.append("【环境说明】\(profileNotes)") }
+            if let profileContents {
+                extra += ["【运行环境的内容】"] + profileContents.split(separator: "\n").map { "  \($0)" }
+            }
+            lines.insert(contentsOf: extra, at: index)
         }
         if let index = lines.firstIndex(where: { $0.hasPrefix("【启动参数】") }) {
             var extra = ["【上次运行实际用到的】\(usedComponents ?? "还没有记录（需要先启动一次）")"]
@@ -190,6 +198,20 @@ extension Diagnostics {
             "请用「设置名 → 选项」的形式回答，例如：视频播放方式 → Wine 自带。",
             "一次只建议改一处，我试完会告诉你结果。",
             "不要建议修改游戏目录里的文件，也不要建议从别的网站下载 DLL。",
+            "",
+            "【如果这些设置不够】你可以直接给我一个新的运行环境，我会把它粘贴进 Gala 导入（游戏页面的 ··· 菜单 →“导入运行环境…”）。",
+            "请放在一个 JSON 代码块里，只写一个对象。例如在当前环境的基础上多装一个组件、换一条 DLL 设置：",
+            #"{ "name": "试验一", "base": "\#(runtimeProfile ?? "common")", "components": ["d3dx9"], "dllOverrides": { "quartz": "builtin" } }"#,
+            "字段只有这些，写了别的会被拒绝：",
+            "  name：名字，必填。base：基于哪个已有的运行环境，写它的 id，也就是上面“运行环境”那一行括号里的名字。notes：说明。",
+            "  启动时带上的：dllOverrides（值是 native、builtin、native,builtin 或 disabled）、wine（default 或 dxmt）、",
+            "    environment（环境变量）、launchArguments（给游戏的参数，数组）、locale（例如 ja_JP.UTF-8）。",
+            "  装进环境的：components（winetricks 的组件名，数组）、registry（数组，每项有 key、name、type、data）、registryDelete（数组）。",
+            "只写你要改的，base 的其余内容会自动继承，不要把它们抄一遍。",
+            "要去掉继承来的某一条 DLL 设置或环境变量，把它的值写成 null；组件和注册表去不掉。",
+            "新环境不用你起 id：不要写 id 这个字段，Gala 导入时会自己起一个。",
+            "这个游戏现在用的运行环境是 \(runtimeProfile ?? "common")。如果它是我上一次从你这里导入的，想接着改就把 base 写成它。",
+            "当前环境的完整内容在下面的【运行环境的内容】里。",
             "",
             "—— 以下是 Gala 生成的诊断信息 ——",
             text,

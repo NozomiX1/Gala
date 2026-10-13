@@ -62,6 +62,9 @@ public struct RuntimeProfileMarker: Codable, Equatable, Sendable {
     /// 2 since the fingerprint covers only what is in the prefix. Absent in older markers, whose fingerprint
     /// also covered DLL overrides and the Wine build and so cannot be compared with today's.
     public let format: Int?
+    /// True for a prefix from before format 2 whose profile had DLL overrides, which that version wrote into it.
+    /// They do no harm to the games using it, but a copy would carry them, so it is not used as a clone source.
+    public let carriesDLLOverrides: Bool?
 
     public init(
         profile: String,
@@ -70,7 +73,8 @@ public struct RuntimeProfileMarker: Codable, Equatable, Sendable {
         wineVersionName: String,
         managedComponents: [String],
         recipeFingerprint: String? = nil,
-        format: Int? = nil
+        format: Int? = nil,
+        carriesDLLOverrides: Bool? = nil
     ) {
         self.profile = profile
         self.configVersion = configVersion
@@ -79,6 +83,7 @@ public struct RuntimeProfileMarker: Codable, Equatable, Sendable {
         self.managedComponents = managedComponents
         self.recipeFingerprint = recipeFingerprint
         self.format = format
+        self.carriesDLLOverrides = carriesDLLOverrides
     }
 
     static let currentFormat = 2
@@ -162,10 +167,36 @@ public final class BottleManager: @unchecked Sendable {
                   FileManager.default.fileExists(atPath: prefix.appendingPathComponent("system.reg").path),
                   let marker = Self.readMarker(prefix: prefix.path), marker.matches(candidate) else { continue }
             // Before format 2 a profile's DLL overrides were written into its prefix; a clone would carry them along.
+            if marker.carriesDLLOverrides == true { continue }
             if marker.format != RuntimeProfileMarker.currentFormat, !candidate.preset.dllOverrides.isEmpty { continue }
             return prefix
         }
         return nil
+    }
+
+    /// Starts a profile's prefix as a copy of another profile's built one, when a file was written on top of that
+    /// profile and then folded flat: the lineage no longer says so, but that prefix already holds most of what is needed.
+    /// Returns whether a copy was made; the caller configures the game either way.
+    @discardableResult
+    public func seedPrefix(forProfile id: String, fromProfile sourceID: String) -> Bool {
+        let target = URL(fileURLWithPath: prefixPath(forProfile: id))
+        let source = URL(fileURLWithPath: prefixPath(forProfile: sourceID))
+        guard target.path != source.path,
+              !FileManager.default.fileExists(atPath: target.path),
+              FileManager.default.fileExists(atPath: source.appendingPathComponent("system.reg").path),
+              let sourceRecipe = profiles.recipe(id: profiles.bottleID(forProfile: sourceID)),
+              let marker = Self.readMarker(prefix: source.path), marker.matches(sourceRecipe),
+              marker.carriesDLLOverrides != true, marker.format == RuntimeProfileMarker.currentFormat else { return false }
+        try? FileManager.default.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+        guard copyfile(source.path, target.path, nil, copyfile_flags_t(COPYFILE_ALL | COPYFILE_RECURSIVE | COPYFILE_CLONE)) == 0 else { return false }
+        try? FileManager.default.removeItem(at: Self.runtimeMarkerURL(prefix: target.path))
+        return true
+    }
+
+    /// Deletes the prefix a profile owns. One it merely shares with its base is not its to delete.
+    public func deletePrefix(ownedByProfile id: String) {
+        guard profiles.bottleID(forProfile: id) == id else { return }
+        try? FileManager.default.removeItem(atPath: prefixPath(forProfile: id))
     }
 
     public func createBottle(for game: Game) async throws {
@@ -390,10 +421,21 @@ public final class BottleManager: @unchecked Sendable {
         }
     }
 
-    public func writeRuntimeMarker(for game: Game, configuredAt: Date = Date()) throws {
+    public func writeRuntimeMarker(for game: Game, configuredAt: Date = Date(), carriesDLLOverrides: Bool? = nil) throws {
         // A shared prefix carries its owner's marker, so every profile using it reads the same one.
         guard let recipe = profiles.bottleRecipe(for: game) else { return }
-        let marker = RuntimeProfileMarker.current(for: recipe, configuredAt: configuredAt)
+        let current = RuntimeProfileMarker.current(for: recipe, configuredAt: configuredAt)
+        let marker = RuntimeProfileMarker(
+            profile: current.profile,
+            configVersion: current.configVersion,
+            configuredAt: current.configuredAt,
+            wineVersionName: current.wineVersionName,
+            managedComponents: current.managedComponents,
+            recipeFingerprint: current.recipeFingerprint,
+            format: current.format,
+            // Once true it stays true: reconfiguring in place does not take the old entries out.
+            carriesDLLOverrides: carriesDLLOverrides ?? Self.readMarker(prefix: game.bottleConfig.prefixPath)?.carriesDLLOverrides
+        )
         let markerURL = Self.runtimeMarkerURL(prefix: game.bottleConfig.prefixPath)
         try FileManager.default.createDirectory(
             at: markerURL.deletingLastPathComponent(),
@@ -435,7 +477,8 @@ public final class BottleManager: @unchecked Sendable {
         guard let marker = Self.readMarker(prefix: game.bottleConfig.prefixPath),
               marker.format != RuntimeProfileMarker.currentFormat,
               (try? runtimeMarkerStatus(for: game)) == .current else { return }
-        try? writeRuntimeMarker(for: game, configuredAt: marker.configuredAt)
+        let hadOverrides = profiles.recipe(for: game)?.preset.dllOverrides.isEmpty == false
+        try? writeRuntimeMarker(for: game, configuredAt: marker.configuredAt, carriesDLLOverrides: hadOverrides ? true : nil)
     }
 
     private static func runtimeMarkerURL(prefix: String) -> URL {

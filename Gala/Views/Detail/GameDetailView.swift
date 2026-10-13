@@ -12,7 +12,7 @@ struct GameDetailView: View {
 
     /// One sheet at a time, so the failure sheet can hand over to the run settings or the help text.
     private enum Sheet: String, Identifiable {
-        case runSettings, helpRequest, failure
+        case runSettings, helpRequest, failure, importProfile
         var id: String { rawValue }
     }
 
@@ -62,6 +62,11 @@ struct GameDetailView: View {
                 RunSettingsView(game: game, library: library, advice: advice, showsAdvanced: debugRunSettings == "advanced", showsDetail: debugRunSettings == "detail")
             case .helpRequest:
                 HelpRequestView(game: game, library: library)
+            case .importProfile:
+                ImportProfileView(game: game, library: library, initialText: debugValue("GALA_DEBUG_IMPORT") ?? "") { updated in
+                    // Straight on to building it: the user has already read what it will do and agreed.
+                    gameVM.configureRuntime(for: updated, viewModel: library)
+                }
             case .failure:
                 FailureView(
                     title: game.title,
@@ -80,6 +85,7 @@ struct GameDetailView: View {
         .onAppear {
             if debugRunSettings != nil { sheet = .runSettings }
             if debugValue("GALA_DEBUG_HELP") != nil { sheet = .helpRequest }
+            if debugValue("GALA_DEBUG_IMPORT") != nil { sheet = .importProfile }
         }
     }
 
@@ -195,6 +201,7 @@ struct GameDetailView: View {
                     GeometryReader { geometry in
                         Menu {
                             Button("复制求助信息…") { sheet = .helpRequest }
+                        Button("导入运行环境…") { sheet = .importProfile }
                             Button("导出诊断信息…", action: exportDiagnostics)
                             Divider()
                             GameMenuItems(game: game, library: library, gameVM: gameVM, includesToggles: false)

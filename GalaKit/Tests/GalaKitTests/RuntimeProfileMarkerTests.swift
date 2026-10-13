@@ -192,7 +192,46 @@ private func makeBuiltPrefix(_ manager: BottleManager, profile: String, markerJS
     #expect(wineManager.profiles.recipe(id: "on-leaf")?.cloneCandidates == ["leaf", "common"])
     #expect(manager.cloneSource(for: game)?.path == common.path)
 
+    // Finding the older prefix current rewrites its marker, and the marker remembers what the prefix carries.
+    let leafGame = Game(title: "WA2", executablePath: "/g/WA2.exe", engine: .leaf, isRuntimeConfigured: true,
+                        bottleConfig: BottleConfig(prefixPath: manager.prefixPath(forProfile: "leaf")))
+    manager.adoptOlderMarker(for: leafGame)
+    #expect(try manager.runtimeMarkerStatus(for: leafGame) == .current)
+    #expect(try String(contentsOf: URL(fileURLWithPath: leafGame.bottleConfig.prefixPath).appendingPathComponent(".gala-runtime.json"), encoding: .utf8).contains(#""carriesDLLOverrides" : true"#))
+    #expect(manager.cloneSource(for: game)?.path == common.path)
+    // Reconfiguring it in place does not make it clean either.
+    try manager.writeRuntimeMarker(for: leafGame)
+    #expect(manager.cloneSource(for: game)?.path == common.path)
+
     // Built by this version, leaf's prefix holds no DLL overrides of Gala's and is the nearer source.
+    try FileManager.default.removeItem(atPath: leafGame.bottleConfig.prefixPath)
     let leaf = try makeBuiltPrefix(manager, profile: "leaf")
     #expect(manager.cloneSource(for: game)?.path == leaf.path)
+}
+
+@Test func aFlattenedProfileStartsFromThePrefixOfTheAttemptItReplaces() throws {
+    let home = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: home) }
+    let wineManager = WineManager(baseURL: home)
+    for (id, components) in [("one", #"["d3dx9"]"#), ("two", #"["d3dx9","wmp11"]"#)] {
+        try Data(#"{"id":"\#(id)","name":"\#(id)","base":"common","components":\#(components)}"#.utf8)
+            .write(to: wineManager.profilesDirectory.appendingPathComponent("\(id).json"))
+    }
+    wineManager.reloadProfiles()
+    let manager = BottleManager(bottlesDirectory: wineManager.bottlesDirectory, wineManager: wineManager)
+    let one = try makeBuiltPrefix(manager, profile: "one")
+
+    #expect(manager.seedPrefix(forProfile: "two", fromProfile: "one"))
+    let two = URL(fileURLWithPath: manager.prefixPath(forProfile: "two"))
+    #expect(try String(contentsOf: two.appendingPathComponent("system.reg"), encoding: .utf8) == "registry of one")
+    #expect(!FileManager.default.fileExists(atPath: two.appendingPathComponent(".gala-runtime.json").path))
+    // Never over a prefix that is already there.
+    #expect(!manager.seedPrefix(forProfile: "two", fromProfile: "one"))
+
+    // The earlier attempt's prefix goes with it; common's is not a derived profile's to delete.
+    manager.deletePrefix(ownedByProfile: "one")
+    #expect(!FileManager.default.fileExists(atPath: one.path))
+    _ = try makeBuiltPrefix(manager, profile: "common")
+    manager.deletePrefix(ownedByProfile: "artemis-d3d11")
+    #expect(FileManager.default.fileExists(atPath: manager.prefixPath(forProfile: "common")))
 }

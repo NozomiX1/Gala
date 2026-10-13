@@ -176,6 +176,40 @@ public struct ProfileStore: Sendable {
         recipes.first { $0.id == id }
     }
 
+    /// The user's own files that can be read, with where each one is. One that cannot is someone else's problem to report.
+    static func userFiles(in directory: URL) -> [(url: URL, file: ProfileFile)] {
+        ((try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? [])
+            .filter { $0.pathExtension == "json" }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+            .compactMap { url in
+                (try? JSONDecoder().decode(ProfileFile.self, from: Data(contentsOf: url))).map { (url, $0) }
+            }
+    }
+
+    /// The user's own profiles written directly on top of the given one. While there are any, deleting it would break them.
+    public static func userProfiles(basedOn id: String, in directory: URL) -> [ProfileFile] {
+        userFiles(in: directory).map(\.file).filter { $0.base == id }
+    }
+
+    /// Deletes the user's own file with this id. A bundled profile has no such file and is left alone.
+    public static func deleteUserProfile(id: String, in directory: URL) throws {
+        for (url, file) in userFiles(in: directory) where file.id == id {
+            try FileManager.default.removeItem(at: url)
+        }
+    }
+
+    /// Resolves one file against the bundled profiles and the user's readable ones, as it would be once saved among them.
+    static func resolve(_ file: ProfileFile, withUserFilesIn directory: URL) throws -> RuntimeRecipe {
+        var byID = Dictionary(uniqueKeysWithValues: bundledFiles.map { ($0.id, $0) })
+        var userIDs: Set<String> = [file.id]
+        for (_, other) in userFiles(in: directory) {
+            byID[other.id] = other
+            userIDs.insert(other.id)
+        }
+        byID[file.id] = file
+        return try resolve(file, in: byID, userIDs: userIDs)
+    }
+
     /// The recipe a game runs with: the one picked by hand if it still exists, otherwise its engine's default.
     public func recipe(for game: Game) -> RuntimeRecipe? {
         if let id = game.profileID, let chosen = recipe(id: id) { return chosen }
@@ -257,6 +291,13 @@ public struct ProfileStore: Sendable {
             }
             for (dll, mode) in link.dllOverrides ?? [:] {
                 overrides[dll] = mode
+                // "quartz" and "*quartz" are two spellings Wine looks up for one DLL. A file that names one of them
+                // means the DLL: an inherited twin left alone would keep the old choice in force.
+                let twin = dll.hasPrefix("*") ? String(dll.dropFirst()) : "*" + dll
+                if link.dllOverrides?.keys.contains(twin) != true, overrides[twin] != nil {
+                    overrides[twin] = mode
+                    origins["dll:\(twin)"] = link.id
+                }
             }
             registry += (link.registry ?? []).map {
                 RegistryValue(key: $0.key, valueName: $0.name, type: $0.type, data: $0.data)
