@@ -6,7 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+- A third per-game switch in run settings, 文字区域: start the game in a Japanese locale, for Japanese originals that fail, show mojibake, or cannot find their files under the Chinese one. It takes effect at the next launch without reconfiguring. `gala-cli` takes it as `--switch locale=ja`.
+- Diagnostics say when the engine label was taken from VNDB because nothing in the game folder identified it, and when the launch file looks like it was wrapped by a protector. The second is a hint for reading a crash; it does not stop a launch.
+
 ### Fixed
+- The ··· button on the game page was drawn smaller than the buttons beside it in the released build (and square on macOS 15). It now uses the same button as the others.
+- The first launch of a Media Foundation Artemis game (アマカノ3) after configuring showed a black window for most of a minute and then quit. The video component's plugin index is now built before the game starts, which takes a few seconds.
 - A game whose releases use different engines (an original and a re-release on another engine) is no longer labelled with one of them by guesswork when nothing in its folder identifies the engine. It is added as unknown and runs in `common`.
 
 ## [2.0.0] - 2026-10-13
