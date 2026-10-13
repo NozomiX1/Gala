@@ -42,7 +42,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.nozomi.gala
-        MARKETING_VERSION: "2.0.0"
+        MARKETING_VERSION: "2.1.0"
         SWIFT_VERSION: "5.10"
         MACOSX_DEPLOYMENT_TARGET: "14.0"
         INFOPLIST_KEY_LSApplicationCategoryType: "public.app-category.games"

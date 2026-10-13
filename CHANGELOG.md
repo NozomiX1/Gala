@@ -6,22 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-13
+
 ### 更新摘要
+- 游戏页面会出现「查看建议」：Gala 记下游戏上次运行时实际用到的图形和视频组件，据此告诉你可以试什么；求助信息里也会带上这些内容。
 - 运行设置里多了「文字区域」开关：想玩日文原版游戏时选日文，相当于转区。
 - 吉里吉里（KiriKiri）游戏和较新的 Artemis 游戏现在和其他游戏共用同一个运行环境，新添加游戏时少建环境、少占空间。已经配置好的游戏不受影响。
 - 修复：甜蜜女友 3 这类游戏配置后第一次启动会黑屏并自动退出。
 - 修复：游戏页面的「···」按钮比旁边的按钮小。
+- Summer Pockets 等 SiglusEngine 游戏：把游戏设置里的影片播放方式改成 MCI 后，片头可以正常播放（默认方式仍然放不出来，会被跳过）。
 - 封面右键菜单里可以直接「复制求助信息…」；求助信息会提示引擎是否认得不准、启动文件是否加了壳。
 
 ### Added
+- Every launch records which DLLs Wine loaded, and Gala reads from that what the game really used: D3D9 or D3D11, DirectShow, Media Foundation, MCI, the Windows Media Player control. Diagnostics show it, and where it points at something to try (D3D11 without DXMT, the Wine shell of Windows Media Player, Media Foundation outside its environment) the game page offers 查看建议 and run settings list the advice.
+- A profile can carry `advice`: one thing the user has to do themselves, shown the same way. `siglus-engine` uses it for the MCI setting.
 - A third per-game switch in run settings, 文字区域: start the game in a Japanese locale, for Japanese originals that fail, show mojibake, or cannot find their files under the Chinese one. It takes effect at the next launch without reconfiguring. `gala-cli` takes it as `--switch locale=ja`.
 - 复制求助信息… is also in the cover's right-click menu on the library wall.
+- Diagnostics and the help request carry the runtime environment's own notes, so a catch its author knew about reaches whoever reads them.
 - Diagnostics say when the engine label was taken from VNDB because nothing in the game folder identified it, and when the launch file looks like it was wrapped by a protector. The second is a hint for reading a crash; it does not stop a launch.
 
 ### Changed
 - KiriKiri games now run in the `common` environment, and `artemis-d3d11` shares `common`'s Wine prefix instead of building its own. A library with BGI, KiriKiri, and Artemis D3D11 games needs one prefix where it needed three. Games already configured are left exactly where they are: KiriKiri ones stay on the old environment, now listed as "KiriKiri（旧）".
 
 ### Fixed
+- Engine detection counted the same kind of evidence once per file, so sixty BGI archives scored 6000, and the XP3 header it looked for matched no real archive, leaving KiriKiri to pass on the file extension alone. Each kind now counts once and the header is the real one. Detection results for the ten games on hand are unchanged.
+- SiglusEngine games (Summer Pockets REFLECTION BLUE) showed a black picture with sound for the opening movie when the game was set to play movies through MCI. The environment now uses Wine's own DirectShow, which draws it. The game's default, the Windows Media Player control, still does not work here: the movie is skipped until the setting is changed in the game.
 - The ··· button on the game page was drawn smaller than the buttons beside it in the released build (and square on macOS 15). It now uses the same button as the others.
 - The first launch of a Media Foundation Artemis game (アマカノ3) after configuring showed a black window for most of a minute and then quit. The video component's plugin index is now built before the game starts, which takes a few seconds.
 - A game whose releases use different engines (an original and a re-release on another engine) is no longer labelled with one of them by guesswork when nothing in its folder identifies the engine. It is added as unknown and runs in `common`.

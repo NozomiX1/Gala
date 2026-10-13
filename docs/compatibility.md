@@ -13,8 +13,8 @@
 | ノラと皇女と野良猫ハート（2019 年 Steam 版） | 通用（`common`） |
 | 家族計画 ～追憶～ | 家族計画（`do-kizunar`） |
 | WHITE ALBUM2 | Leaf / AQUAPLUS（`leaf`） |
+| Summer Pockets REFLECTION BLUE | SiglusEngine（`siglus-engine`） |
 
 ## 还没有验证过游戏的运行环境
 
 - CatSystem2（`cat-system2`）
-- SiglusEngine（`siglus-engine`）
