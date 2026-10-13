@@ -178,20 +178,29 @@ struct GameDetailView: View {
             }
             .disabled(gameVM.isBusy)
 
-            Menu {
-                Button("复制求助信息…") { sheet = .helpRequest }
-                Button("导出诊断信息…", action: exportDiagnostics)
-                Divider()
-                GameMenuItems(game: game, library: library, gameVM: gameVM, includesToggles: false)
-            } label: {
-                Image(systemName: "ellipsis")
-                    .frame(width: 18, height: 18)
-            }
-            .menuIndicator(.hidden)
-            .galaButtonStyle()
-            .buttonBorderShape(.circle)
-            .fixedSize()
-            .help("更多")
+            // A Menu draws its own button smaller than its neighbours on some SDK and system pairs, and square on macOS 15.
+            // So the look comes from the same button as the others, and an invisible menu on top takes the click.
+            iconButton("ellipsis", help: "更多") {}
+                .overlay {
+                    // The menu's own control is only as large as its label, so the label is given the button's size.
+                    GeometryReader { geometry in
+                        Menu {
+                            Button("复制求助信息…") { sheet = .helpRequest }
+                            Button("导出诊断信息…", action: exportDiagnostics)
+                            Divider()
+                            GameMenuItems(game: game, library: library, gameVM: gameVM, includesToggles: false)
+                        } label: {
+                            Color.clear
+                                .frame(width: geometry.size.width, height: geometry.size.height)
+                                .contentShape(Rectangle())
+                        }
+                        .menuStyle(.button)
+                        .menuIndicator(.hidden)
+                        .buttonStyle(.plain)
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                        .help("更多")
+                    }
+                }
         }
         .controlSize(.extraLarge)
     }
