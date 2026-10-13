@@ -228,6 +228,45 @@ final class LibraryViewModel {
         }
     }
 
+    /// One of the user's own profiles with what still depends on it.
+    struct UserProfileUsage: Identifiable {
+        let recipe: RuntimeRecipe
+        let games: [Game]
+        /// Names of the user's other profiles written on top of it. While there are any it cannot be deleted.
+        let dependents: [String]
+        var id: String { recipe.id }
+    }
+
+    func userProfileUsage() -> [UserProfileUsage] {
+        wineManager.profiles.recipes.filter(\.isUserProvided).map { recipe in
+            UserProfileUsage(
+                recipe: recipe,
+                games: games.filter { $0.profileID == recipe.id },
+                dependents: ProfileStore.userProfiles(basedOn: recipe.id, in: wineManager.profilesDirectory).map(\.name)
+            )
+        }
+    }
+
+    /// Removes one of the user's own profiles: its games go back to their engine's default, its own prefix and its file go.
+    func deleteUserProfile(_ id: String) {
+        for game in games where game.profileID == id {
+            useProfile(nil, for: game)
+        }
+        bottleManager.deletePrefix(ownedByProfile: id)
+        try? ProfileStore.deleteUserProfile(id: id, in: wineManager.profilesDirectory)
+        wineManager.reloadProfiles()
+    }
+
+    func unusedPrefixes() -> [URL] {
+        bottleManager.unusedPrefixes(inUse: Set(games.map(\.bottleConfig.prefixPath)))
+    }
+
+    func deletePrefixes(_ urls: [URL]) {
+        for url in urls {
+            try? FileManager.default.removeItem(at: url)
+        }
+    }
+
     /// Switches a game to another runtime profile; nil goes back to its engine's default.
     func useProfile(_ id: String?, for game: Game) {
         var updated = game

@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - 运行环境文件可以写环境变量、启动参数和文字区域了，「把当前配置导出为文件…」导出的是完整的配置。
 - 可以直接导入 AI 写的运行环境：把求助信息贴给 AI，它回一段内容，在游戏页面的「···」菜单里点「导入运行环境…」粘贴进去。Gala 会先列出它要装什么、改什么，确认后自动用到这个游戏上。
 - 运行设置里，运行环境下面多了一行摘要和「详情」，能看到这个环境基于谁、装了什么、改了什么。
+- 「设置 → 运行环境」里能看到自己导入的运行环境，并逐个删除。「设置 → 数据」里可以找出没有游戏在用的环境，由你决定删不删。
 - 修复：运行设置里填的启动参数以前会让游戏启动不了。
 - 已经配置好的游戏不受影响。
 
@@ -19,6 +20,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - 导入运行环境… in the game page's ··· menu takes a profile as pasted text or a dropped file: one JSON object, with any prose or code fence around it ignored. Before anything is written it lists what the file itself asks for and what it inherits, whether a new prefix is needed, and whether it replaces one of the user's own. A misspelt field name, an unknown base, an id that belongs to a bundled profile, and an attempt to set a variable Gala manages are refused with the reason. Without an id one is made from the name. On confirming, the game is pointed at it and configured.
 - A pasted profile written on top of one of the user's earlier imports is saved flat: the earlier one's contents are folded in and the file is built on the bundled profile beneath it. Its prefix still starts as a copy of the earlier attempt's, so only what is new gets installed, and the import page offers to delete the earlier attempt when no other game or profile uses it. An assistant can go on writing only its latest change while the list holds one environment per game.
 - What a pasted profile merely repeats from its base is dropped, and what it removes from its base is listed. Naming one spelling of a DLL (`quartz` or `*quartz`) now changes or removes both.
+- Settings list the user's own profiles with the games using each and delete them one at a time; a profile that another of the user's profiles is built on cannot be deleted until that one is. Deleting moves its games back to their engine's default and removes the prefix it owns.
+- Settings can find the prefixes no game points at and delete the ones the user ticks. Nothing is deleted on its own: a prefix can hold the saves of a game that used to run in it. The shared `common` prefix is listed unticked.
 - The help request tells an assistant that it may answer with such a profile, lists the fields, and carries the current profile's full contents.
 - Run settings show what the selected environment is made of: a summary under the picker and the full list in a popover, each line with the file it comes from.
 

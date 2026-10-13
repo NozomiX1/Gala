@@ -6,8 +6,12 @@ struct SettingsView: View {
     let library: LibraryViewModel
     let updater: SPUUpdater
 
-    // GALA_DEBUG_SETTINGS=runtime opens on that tab, for screenshots.
-    @State private var tab = ProcessInfo.processInfo.environment["GALA_DEBUG_SETTINGS"] ?? "general"
+    // GALA_DEBUG_SETTINGS=runtime opens on that tab, for screenshots; "unused" opens the data tab and runs its search.
+    @State private var tab = Self.debugTab == "unused" ? "data" : (Self.debugTab ?? "general")
+
+    fileprivate static let debugTab = ProcessInfo.processInfo.environment["GALA_DEBUG_SETTINGS"]
+
+    private var ownProfileCount: Int { library.wineManagerInstance.profiles.recipes.filter(\.isUserProvided).count }
 
     var body: some View {
         TabView(selection: $tab) {
@@ -16,11 +20,12 @@ struct SettingsView: View {
                 .tabItem { Label("通用", systemImage: "gearshape") }
                 .tag("general")
             RuntimeSettings(library: library, wineManager: library.wineManagerInstance)
-                .frame(height: 385)
+                // Room for the user's own environments when there are any; more than three scroll.
+                .frame(height: 385 + (ownProfileCount > 0 ? 44 + CGFloat(min(ownProfileCount, 3)) * 54 : 0))
                 .tabItem { Label("运行环境", systemImage: "wrench.and.screwdriver") }
                 .tag("runtime")
             DataSettings(library: library)
-                .frame(height: 230)
+                .frame(height: 280)
                 .tabItem { Label("数据", systemImage: "externaldrive") }
                 .tag("data")
         }
@@ -68,11 +73,15 @@ private struct RuntimeSettings: View {
     @State private var fontStatus: OptionalFontStatus?
     @State private var isInstallingFonts = false
     @State private var fontError: String?
+    /// The user's own environments. Read again after each deletion: the profile list is not observed.
+    @State private var ownProfiles: [LibraryViewModel.UserProfileUsage]
+    @State private var deleting: LibraryViewModel.UserProfileUsage?
 
     init(library: LibraryViewModel, wineManager: WineManager) {
         self.library = library
         self.wineManager = wineManager
         _status = State(initialValue: wineManager.runtimeEnvironmentStatus())
+        _ownProfiles = State(initialValue: library.userProfileUsage())
     }
 
     var body: some View {
@@ -85,6 +94,20 @@ private struct RuntimeSettings: View {
 
             Section {
                 optionalFonts
+            }
+
+            if !ownProfiles.isEmpty {
+                Section("我的运行环境") {
+                    ForEach(ownProfiles) { item in
+                        LabeledContent {
+                            Button("删除…", role: .destructive) { deleting = item }
+                                .disabled(!item.dependents.isEmpty)
+                        } label: {
+                            Text(item.recipe.name)
+                            Text(caption(for: item))
+                        }
+                    }
+                }
             }
 
             Section {
@@ -109,8 +132,44 @@ private struct RuntimeSettings: View {
             }
         }
         .formStyle(.grouped)
-        .onAppear { status = wineManager.runtimeEnvironmentStatus() }
+        .onAppear {
+            status = wineManager.runtimeEnvironmentStatus()
+            ownProfiles = library.userProfileUsage()
+        }
         .task { fontStatus = await checkFonts() }
+        .alert(
+            "删除「\(deleting?.recipe.name ?? "")」？",
+            isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
+            presenting: deleting
+        ) { item in
+            Button("取消", role: .cancel) {}
+            Button("删除", role: .destructive) {
+                library.deleteUserProfile(item.recipe.id)
+                ownProfiles = library.userProfileUsage()
+            }
+        } message: { item in
+            Text(deletionWarning(for: item))
+        }
+    }
+
+    private func caption(for item: LibraryViewModel.UserProfileUsage) -> String {
+        let base = item.recipe.baseID.flatMap { wineManager.profiles.recipe(id: $0)?.name }.map { "基于\($0)" } ?? "从零建立"
+        if !item.dependents.isEmpty {
+            return "\(base) · 「\(item.dependents.joined(separator: "」「"))」基于它，不能删除"
+        }
+        let users = item.games.isEmpty ? "没有游戏在用" : "在用：" + item.games.map(\.title).joined(separator: "、")
+        return "\(base) · \(users)"
+    }
+
+    private func deletionWarning(for item: LibraryViewModel.UserProfileUsage) -> String {
+        var parts: [String] = []
+        if !item.games.isEmpty {
+            parts.append("\(item.games.map(\.title).joined(separator: "、"))会改回自动选择的运行环境，需要重新配置。")
+        }
+        if item.recipe.bottleID == item.recipe.id {
+            parts.append("它建出来的环境会一起删除。如果游戏把存档放在环境里，那些存档也会删除。")
+        }
+        return parts.isEmpty ? "它不占用单独的环境，删除后只是不再出现在列表里。" : parts.joined(separator: "\n\n")
     }
 
     /// Kept apart from the rows above: games run without these fonts, they only decide how one kind of game draws its text.
@@ -214,11 +273,22 @@ private struct DataSettings: View {
 
     @State private var confirmingWineReset = false
     @State private var confirmingFullReset = false
+    /// Nil while nothing has been looked for; the sheet shows what was found.
+    @State private var unused: [UnusedPrefix]?
     @State private var message: String?
     @State private var errorMessage: String?
 
     var body: some View {
         Form {
+            Section {
+                LabeledContent {
+                    Button("查找…", action: findUnused)
+                } label: {
+                    Text("清理没有游戏在用的环境")
+                    Text("换过运行环境、或者删掉游戏之后，原来的环境会留在磁盘上。这里把它们找出来，由你决定删不删。")
+                }
+            }
+
             Section {
                 LabeledContent {
                     Button("清理…", role: .destructive) { confirmingWineReset = true }
@@ -242,6 +312,14 @@ private struct DataSettings: View {
             }
         }
         .formStyle(.grouped)
+        .onAppear { if SettingsView.debugTab == "unused" { findUnused() } }
+        .sheet(isPresented: Binding(get: { unused?.isEmpty == false }, set: { if !$0 { unused = nil } })) {
+            UnusedPrefixesView(found: unused ?? []) { chosen in
+                library.deletePrefixes(chosen.map(\.url))
+                message = "已删除 \(chosen.count) 个环境。"
+                errorMessage = nil
+            }
+        }
         .alert("清理 Wine 配置？", isPresented: $confirmingWineReset) {
             Button("取消", role: .cancel) {}
             Button("清理", role: .destructive) {
@@ -260,6 +338,18 @@ private struct DataSettings: View {
         }
     }
 
+    private func findUnused() {
+        let profiles = library.wineManagerInstance.profiles
+        let found = library.unusedPrefixes().map { url in
+            UnusedPrefix(url: url, name: profiles.recipe(id: url.lastPathComponent)?.name ?? url.lastPathComponent)
+        }
+        if found.isEmpty {
+            message = "没有找到：磁盘上的环境都有游戏在用。"
+            errorMessage = nil
+        }
+        unused = found
+    }
+
     private func reset(_ change: RuntimeEnvironmentChange, done: String, _ action: (WineManager) throws -> Void) {
         do {
             try action(library.wineManagerInstance)
@@ -269,5 +359,82 @@ private struct DataSettings: View {
         } catch {
             errorMessage = "操作失败：\(error.localizedDescription)"
         }
+    }
+}
+
+struct UnusedPrefix: Identifiable, Hashable {
+    let url: URL
+    let name: String
+    var id: URL { url }
+}
+
+/// The prefixes no game points at, for the user to pick from. Nothing here is deleted without a choice:
+/// a prefix can hold the saves of a game that used to run in it.
+private struct UnusedPrefixesView: View {
+    let found: [UnusedPrefix]
+    let onDelete: ([UnusedPrefix]) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var chosen: Set<UnusedPrefix>
+
+    init(found: [UnusedPrefix], onDelete: @escaping ([UnusedPrefix]) -> Void) {
+        self.found = found
+        self.onDelete = onDelete
+        // The shared root is what new environments are copied from: left unticked, since without it the next one takes minutes.
+        _chosen = State(initialValue: Set(found.filter { $0.url.lastPathComponent != RuntimeProfile.common.rawValue }))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("没有游戏在用的环境")
+                    .font(.title2.weight(.semibold))
+                Text("这些环境现在没有任何游戏在用。有些游戏把存档放在环境里：如果某个游戏以前在其中一个里运行过，删除会连那些存档一起删掉，无法找回。")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 22)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(found) { item in
+                        Toggle(isOn: Binding(
+                            get: { chosen.contains(item) },
+                            set: { isOn in if isOn { chosen.insert(item) } else { chosen.remove(item) } }
+                        )) {
+                            Text(item.name)
+                            Text(item.url.lastPathComponent == RuntimeProfile.common.rawValue
+                                ? "新建环境时要从它复制。删掉的话，下次需要重新安装，要等几分钟。"
+                                : item.url.lastPathComponent)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .toggleStyle(.checkbox)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 16)
+            }
+            .frame(maxHeight: 240)
+            .fixedSize(horizontal: false, vertical: true)
+
+            Divider()
+
+            HStack(spacing: 14) {
+                Spacer()
+                Button("取消", role: .cancel) { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Button("删除选中的 \(chosen.count) 个", role: .destructive) {
+                    onDelete(found.filter(chosen.contains))
+                    dismiss()
+                }
+                .disabled(chosen.isEmpty)
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 14)
+        }
+        .frame(width: 460)
     }
 }

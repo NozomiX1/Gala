@@ -193,6 +193,16 @@ public final class BottleManager: @unchecked Sendable {
         return true
     }
 
+    /// Prefixes on disk that no game points at: left behind when a game moved to another profile, or by a profile
+    /// no game uses any more. They may still hold a game's saves, so nothing deletes them without being asked.
+    public func unusedPrefixes(inUse paths: Set<String>) -> [URL] {
+        let used = Set(paths.map { URL(fileURLWithPath: $0).standardizedFileURL.path })
+        let root = bottlesDirectory.appendingPathComponent("Profiles")
+        return ((try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: [.isDirectoryKey])) ?? [])
+            .filter { $0.hasDirectoryPath && !used.contains($0.standardizedFileURL.path) }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+    }
+
     /// Deletes the prefix a profile owns. One it merely shares with its base is not its to delete.
     public func deletePrefix(ownedByProfile id: String) {
         guard profiles.bottleID(forProfile: id) == id else { return }

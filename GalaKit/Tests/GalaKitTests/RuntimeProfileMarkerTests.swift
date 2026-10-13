@@ -235,3 +235,18 @@ private func makeBuiltPrefix(_ manager: BottleManager, profile: String, markerJS
     manager.deletePrefix(ownedByProfile: "artemis-d3d11")
     #expect(FileManager.default.fileExists(atPath: manager.prefixPath(forProfile: "common")))
 }
+
+@Test func prefixesNoGamePointsAtAreFound() throws {
+    let bottles = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: bottles) }
+    let manager = BottleManager(bottlesDirectory: bottles)
+    for name in ["common", "leaf", "my-old-trial"] {
+        try FileManager.default.createDirectory(at: bottles.appendingPathComponent("Profiles/\(name)"), withIntermediateDirectories: true)
+    }
+    try Data().write(to: bottles.appendingPathComponent("Profiles/.DS_Store"))
+
+    // A trailing slash or a dot segment in a stored path is still the same folder.
+    let inUse: Set<String> = [manager.prefixPath(forProfile: "common") + "/", bottles.path + "/Profiles/./leaf"]
+    #expect(manager.unusedPrefixes(inUse: inUse).map(\.lastPathComponent) == ["my-old-trial"])
+    #expect(manager.unusedPrefixes(inUse: []).map(\.lastPathComponent) == ["common", "leaf", "my-old-trial"])
+}
