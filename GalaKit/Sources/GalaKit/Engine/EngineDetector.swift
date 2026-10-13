@@ -84,11 +84,12 @@ public enum EngineDetector {
             add(.artemis, score: 70, reason: "Artemis file name")
         }
 
-        for candidate in magicCandidates(in: directory) {
-            add(candidate.engine, score: candidate.score, reason: candidate.reason)
-        }
-
-        for candidate in executableStringCandidates(in: directory, contents: contents) {
+        // One kind of evidence counts once per engine, however many files carry it: sixty BGI archives say no more
+        // than one, and three patch archives must not outweigh the files that name the real engine.
+        var counted: Set<String> = []
+        for candidate in magicCandidates(in: directory) + executableStringCandidates(in: directory, contents: contents) {
+            let kind = candidate.reason.components(separatedBy: " in ").first ?? candidate.reason
+            guard counted.insert("\(candidate.engine.rawValue)|\(kind)").inserted else { continue }
             add(candidate.engine, score: candidate.score, reason: candidate.reason)
         }
 
@@ -143,7 +144,8 @@ public enum EngineDetector {
     }
 
     private static let magicSignatures: [MagicSignature] = [
-        MagicSignature(bytes: [0x58, 0x50, 0x33, 0x0D, 0x0A, 0x1A, 0x08, 0x00], engine: .kirikiri, score: 70),
+        // "XP3\r\n \n\x1A", as real archives start; the bytes here before matched no file.
+        MagicSignature(bytes: [0x58, 0x50, 0x33, 0x0D, 0x0A, 0x20, 0x0A, 0x1A], engine: .kirikiri, score: 70),
         MagicSignature(bytes: [0x52, 0x50, 0x41, 0x2D], engine: .renpy, score: 90),
         MagicSignature(bytes: [0x59, 0x50, 0x46, 0x00], engine: .yuris, score: 90),
         MagicSignature(bytes: [0x52, 0x47, 0x53, 0x53, 0x41, 0x44], engine: .rpgMaker, score: 90),

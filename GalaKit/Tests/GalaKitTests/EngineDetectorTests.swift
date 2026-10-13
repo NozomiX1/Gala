@@ -120,7 +120,7 @@ import Foundation
     let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: dir) }
-    let xp3Magic = Data([0x58, 0x50, 0x33, 0x0D, 0x0A, 0x1A, 0x08, 0x00])
+    let xp3Magic = Data([0x58, 0x50, 0x33, 0x0D, 0x0A, 0x20, 0x0A, 0x1A, 0x8B, 0x67, 0x01])
     try xp3Magic.write(to: dir.appendingPathComponent("archive.dat"))
     FileManager.default.createFile(atPath: dir.appendingPathComponent("game.exe").path, contents: nil)
     let result = EngineDetector.detect(in: dir)
