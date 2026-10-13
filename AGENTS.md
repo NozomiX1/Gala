@@ -35,7 +35,7 @@ The files are the source of truth; this table is a summary.
 | `artemis-d3d11` | DirectShow-oriented Artemis/iarsys D3D11, e.g. ハミダシクリエイティブ凸 | `common` launched with the DXMT v0.80 Wine variant; lives in `common`'s prefix |
 | `artemis-mf-d3d11` | Media Foundation Artemis/iarsys D3D11, e.g. 甜蜜女友3 / アマカノ3 | Separate DXMT profile for MF/WMV routing; no DirectShow/LAV preset; Gala MF Runtime plus per-game WMV audio overlay |
 | `cat-system2` | CatSystem2 | Unverified, no tested game: common video components plus `dotnet40`, `vcrun2015` |
-| `siglus-engine` | SiglusEngine | Unverified, no tested game: common video components plus `xact`, `xinput`, `vcrun2019`, native `xaudio2_7`/`xactengine3_7` |
+| `siglus-engine` | SiglusEngine, e.g. Summer Pockets REFLECTION BLUE | Clone of `common` plus `xact`, `xinput`, `vcrun2019`; launched with builtin `quartz`/`amstream` and native `xaudio2_7`/`xactengine3_7`. The opening movie plays only after the user sets the game to MCI, which the profile's `advice` says |
 
 Ren'Py, RPG Maker, and Unity games also run in `common`. That is unverified: no game on those engines has been tested.
 

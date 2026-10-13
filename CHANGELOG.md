@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-10-14
+
 ### 更新摘要
 - 新建运行环境快了很多：需要单独环境的游戏不再从头安装，而是从通用环境复制一份再补上自己的部分。白色相簿 2、家族计画的环境从几分钟缩短到十几秒，也几乎不多占磁盘。
 - 只改了 DLL 设置的运行环境（包括你自己写的）不再需要单独的环境，改完直接启动就生效。
@@ -17,7 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - 已经配置好的游戏不受影响。
 
 ### Added
-- 导入运行环境… in the game page's ··· menu takes a profile as pasted text or a dropped file: one JSON object, with any prose or code fence around it ignored. Before anything is written it lists what the file itself asks for and what it inherits, whether a new prefix is needed, and whether it replaces one of the user's own. A misspelt field name, an unknown base, an id that belongs to a bundled profile, and an attempt to set a variable Gala manages are refused with the reason. Without an id one is made from the name. On confirming, the game is pointed at it and configured.
+- 导入运行环境… in the game page's ··· menu takes a profile as pasted text or a dropped file: one JSON object, with the rest of a chat reply around it ignored, including braces the prose has of its own. Two different profiles in one paste are refused rather than chosen between. Before anything is written it lists what the file itself asks for and what it inherits, whether a new prefix is needed, and whether it replaces one of the user's own. A misspelt field name, an unknown base, an id that belongs to a bundled profile, and an attempt to set a variable Gala manages are refused with the reason. Without an id one is made from the name. On confirming, the game is pointed at it and configured.
 - A pasted profile written on top of one of the user's earlier imports is saved flat: the earlier one's contents are folded in and the file is built on the bundled profile beneath it. Its prefix still starts as a copy of the earlier attempt's, so only what is new gets installed, and the import page offers to delete the earlier attempt when no other game or profile uses it. An assistant can go on writing only its latest change while the list holds one environment per game.
 - What a pasted profile merely repeats from its base is dropped, and what it removes from its base is listed. Naming one spelling of a DLL (`quartz` or `*quartz`) now changes or removes both.
 - Settings list the user's own profiles with the games using each and delete them one at a time; a profile that another of the user's profiles is built on cannot be deleted until that one is. Deleting moves its games back to their engine's default and removes the prefix it owns.
