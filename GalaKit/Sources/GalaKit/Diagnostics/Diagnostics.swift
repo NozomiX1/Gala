@@ -14,6 +14,10 @@ public struct Diagnostics: Codable, Equatable, Sendable {
     public var title: String
     public var executablePath: String
     public var engine: String?
+    /// True when nothing in the game folder identifies the engine, so the stored one came from VNDB's release list.
+    public var isEngineFromVNDB: Bool
+    /// True when the launch file's section table looks like a protector's. A hint for reading a crash, never a reason to refuse a launch.
+    public var looksPacked: Bool
     public var runtimeProfile: String?
     public var isProfileChosenByHand: Bool
     public var profileProblems: [String]
@@ -74,6 +78,8 @@ public struct Diagnostics: Codable, Equatable, Sendable {
             title: game.title,
             executablePath: scrub(game.executablePath),
             engine: game.engine?.displayName,
+            isEngineFromVNDB: game.engine != nil && game.engine != .unknown && EngineDetector.detect(in: gameDirectory) == nil,
+            looksPacked: EngineDetector.looksPacked(URL(fileURLWithPath: game.executablePath)),
             runtimeProfile: recipe?.id,
             isProfileChosenByHand: game.profileID != nil && recipe?.id == game.profileID,
             profileProblems: wineManager.profileProblems.map(\.localizedDescription)
@@ -106,9 +112,9 @@ public struct Diagnostics: Codable, Equatable, Sendable {
 
         var lines = [
             "【游戏】\(title)",
-            "【启动文件】\(executablePath)",
+            "【启动文件】\(executablePath)" + (looksPacked ? "\n  这个 exe 像是加了保护壳。加壳的程序有的能正常运行，有的一启动就崩溃；崩溃地址不属于任何模块时先怀疑它。" : ""),
             "【版本】Gala \(appVersion) · \(system) · \(wineVersion)",
-            "【引擎】\(engine ?? "未识别")",
+            "【引擎】\(engine ?? "未识别")" + (isEngineFromVNDB ? "（游戏目录里没有认出来，取自 VNDB 的登记，可能是这部作品的另一个版本）" : ""),
             "【运行环境】\(runtimeProfile ?? "无")\(isProfileChosenByHand ? "（手动选择）" : "") · \(prefixPath.isEmpty ? "未指定位置" : prefixPath)",
             "【环境状态】已配置=\(isRuntimeConfigured ? "是" : "否") · bottle 就绪=\(isBottleReady ? "是" : "否") · 配置标记=\(runtimeMarker)",
             "【区域】\(locale)",

@@ -97,8 +97,34 @@ import Foundation
     #expect(text.contains("quartz=builtin"))
     #expect(text.contains("Gala 2.0.0"))
 
+    #expect(!report.isEngineFromVNDB)
+    #expect(!report.looksPacked)
+
     let decoded = try JSONDecoder().decode(Diagnostics.self, from: JSONEncoder().encode(report))
     #expect(decoded == report)
+}
+
+@Test func diagnosticsSayWhenTheEngineWasNotFoundLocallyAndWhenTheLaunchFileLooksPacked() throws {
+    let home = FileManager.default.temporaryDirectory.appendingPathComponent("user-\(UUID().uuidString)")
+    let gameDir = home.appendingPathComponent("Games/Sample")
+    try FileManager.default.createDirectory(at: gameDir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: home) }
+    let executable = gameDir.appendingPathComponent("game.exe")
+    try writeExecutable(sections: ["        ", ".rsrc"], to: executable)
+
+    // Nothing in the folder says KiriKiri: the label came from VNDB, as with the Whale original of ノラとと.
+    let game = Game(title: "Sample", executablePath: executable.path, engine: .kirikiri)
+    let report = Diagnostics.collect(
+        game: game,
+        appVersion: "2.0.1",
+        wineManager: WineManager(baseURL: home.appendingPathComponent("GalaData")),
+        home: home.path
+    )
+
+    #expect(report.isEngineFromVNDB)
+    #expect(report.looksPacked)
+    #expect(report.text.contains("取自 VNDB 的登记"))
+    #expect(report.text.contains("像是加了保护壳"))
 }
 
 @Test func logExcerptDropsTheMapNoiseEveryLaunchPrints() {
@@ -125,4 +151,36 @@ import Foundation
     #expect(text.contains("设置名 → 选项"))
     #expect(text.hasSuffix(report.text))
     #expect(!text.contains(home.path))
+}
+
+/// A PE header with the given section names and nothing else.
+private func writeExecutable(sections: [String], to url: URL) throws {
+    var data = Data(count: 0x80 + 24 + sections.count * 40)
+    data[0] = 0x4D; data[1] = 0x5A
+    data[0x3C] = 0x80
+    data.replaceSubrange(0x80..<0x84, with: Data("PE\0\0".utf8))
+    data[0x86] = UInt8(sections.count)
+    for (index, name) in sections.enumerated() {
+        let start = 0x80 + 24 + index * 40
+        data.replaceSubrange(start..<start + name.utf8.count, with: Data(name.utf8))
+    }
+    try data.write(to: url)
+}
+
+@Test func aNamelessOrProtectorSectionMarksAnExecutableAsPacked() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+
+    let plain = dir.appendingPathComponent("plain.exe")
+    try writeExecutable(sections: [".text", ".adata", ".rdata", ".rsrc"], to: plain)
+    let nameless = dir.appendingPathComponent("nameless.exe")
+    try writeExecutable(sections: ["        ", ".rsrc", "rkqjpsru"], to: nameless)
+    let enigma = dir.appendingPathComponent("enigma.exe")
+    try writeExecutable(sections: [".text", ".enigma1"], to: enigma)
+
+    #expect(!EngineDetector.looksPacked(plain))
+    #expect(EngineDetector.looksPacked(nameless))
+    #expect(EngineDetector.looksPacked(enigma))
+    #expect(!EngineDetector.looksPacked(dir.appendingPathComponent("missing.exe")))
 }

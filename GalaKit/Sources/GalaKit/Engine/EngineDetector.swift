@@ -236,6 +236,29 @@ public enum EngineDetector {
         return candidates
     }
 
+    private static let packerSections: Set<String> = [
+        "UPX0", "UPX1", ".themida", ".winlice", ".vmp0", ".vmp1", ".enigma1", ".enigma2", ".aspack", ".nsp0", ".petite", ".MPRESS1",
+    ]
+    // `.adata` is left out on purpose: half the games tested carry it and run.
+
+    /// Whether a PE file's section table looks like a protector or packer wrote it: a nameless section, or a name such tools leave behind.
+    public static func looksPacked(_ executable: URL) -> Bool {
+        guard let handle = try? FileHandle(forReadingFrom: executable) else { return false }
+        defer { handle.closeFile() }
+        guard let data = try? handle.read(upToCount: 4096), data.count > 0x40, data[0] == 0x4D, data[1] == 0x5A else { return false }
+        func u16(_ at: Int) -> Int? { at + 2 <= data.count ? Int(data[at]) | Int(data[at + 1]) << 8 : nil }
+        func u32(_ at: Int) -> Int? { at + 4 <= data.count ? (0..<4).reduce(0) { $0 | Int(data[at + $1]) << (8 * $1) } : nil }
+        guard let pe = u32(0x3C), let count = u16(pe + 6), let optionalSize = u16(pe + 20) else { return false }
+        let table = pe + 24 + optionalSize
+        for index in 0..<count {
+            let start = table + index * 40
+            guard start + 8 <= data.count else { break }
+            let name = String(decoding: data[start..<start + 8].prefix { $0 != 0 }, as: UTF8.self)
+            if name.trimmingCharacters(in: .whitespaces).isEmpty || packerSections.contains(name) { return true }
+        }
+        return false
+    }
+
     private static func containsMediaFoundationSignal(in data: Data) -> Bool {
         data.containsASCII("MFCreateMediaSession") ||
             data.containsASCII("MFStartup") ||
