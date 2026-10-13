@@ -71,6 +71,11 @@ public struct RuntimeRecipe: Equatable, Sendable {
     public let bottleID: String
     /// Ancestors with a prefix of their own, nearest first. A new prefix is cloned from the first one that is already built.
     public let cloneCandidates: [String]
+    /// The profile this one is written on top of.
+    public let baseID: String?
+    /// Which file in the chain each setting comes from, so a folded recipe can still be shown line by line.
+    /// Keys: `component:<name>`, `dll:<name>`, `env:<name>`, `registry:<key>|<name>`, `registryDelete:<key>`, `wine`, `arguments`, `locale`.
+    public let origins: [String: String]
 
     public var usesMediaFoundation: Bool { preset.managedComponents.contains(.mediaFoundation) }
 
@@ -224,7 +229,16 @@ public struct ProfileStore: Sendable {
         var environment: [String: String] = [:]
         var launchArguments: [String] = []
         var locale: String?
+        var origins: [String: String] = [:]
         for link in chain {
+            for name in link.components ?? [] where origins["component:\(name)"] == nil { origins["component:\(name)"] = link.id }
+            for name in (link.dllOverrides ?? [:]).keys { origins["dll:\(name)"] = link.id }
+            for name in (link.environment ?? [:]).keys { origins["env:\(name)"] = link.id }
+            for entry in link.registry ?? [] { origins["registry:\(entry.key)|\(entry.name)"] = link.id }
+            for key in link.registryDelete ?? [] where origins["registryDelete:\(key)"] == nil { origins["registryDelete:\(key)"] = link.id }
+            if link.wine != nil { origins["wine"] = link.id }
+            if link.launchArguments != nil { origins["arguments"] = link.id }
+            if link.locale != nil { origins["locale"] = link.id }
             for (name, value) in link.environment ?? [:] {
                 // These decide which prefix and which Wine run, or have a field of their own; a pasted file must not redirect them.
                 guard !reservedEnvironment.contains(name), !name.hasPrefix("DYLD_") else {
@@ -287,7 +301,9 @@ public struct ProfileStore: Sendable {
             verifiedGames: file.verifiedGames ?? [],
             isUserProvided: userIDs.contains(file.id),
             bottleID: owners.last ?? file.id,
-            cloneCandidates: owners.dropLast().reversed()
+            cloneCandidates: owners.dropLast().reversed(),
+            baseID: file.base,
+            origins: origins
         )
     }
 }

@@ -59,7 +59,7 @@ struct GameDetailView: View {
         .sheet(item: $sheet) { sheet in
             switch sheet {
             case .runSettings:
-                RunSettingsView(game: game, library: library, advice: advice, showsAdvanced: debugRunSettings == "advanced")
+                RunSettingsView(game: game, library: library, advice: advice, showsAdvanced: debugRunSettings == "advanced", showsDetail: debugRunSettings == "detail")
             case .helpRequest:
                 HelpRequestView(game: game, library: library)
             case .failure:

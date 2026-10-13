@@ -17,13 +17,15 @@ struct RunSettingsView: View {
     @State private var argumentsText: String
     @State private var showsAdvanced: Bool
     @State private var exportError: String?
+    @State private var showsDetail: Bool
 
     private var profiles: ProfileStore { library.wineManagerInstance.profiles }
 
-    init(game: Game, library: LibraryViewModel, advice: [String] = [], showsAdvanced: Bool = false) {
+    init(game: Game, library: LibraryViewModel, advice: [String] = [], showsAdvanced: Bool = false, showsDetail: Bool = false) {
         self.game = game
         self.library = library
         self.advice = advice
+        _showsDetail = State(initialValue: showsDetail)
         let config = game.bottleConfig
         // A hand-picked profile whose file is gone already runs as the default; show it that way.
         let known = game.profileID.flatMap { library.wineManagerInstance.profiles.recipe(id: $0) }
@@ -66,6 +68,41 @@ struct RunSettingsView: View {
                         Divider()
                         ForEach(profiles.recipes, id: \.id) { recipe in
                             Text(recipe.isUserProvided ? "\(recipe.name) · 我的" : recipe.name).tag(Optional(recipe.id))
+                        }
+                    }
+                    if let detail = selectedDetail {
+                        // What the name alone does not say: what this environment is made of.
+                        // The list opens beside the panel, so the panel keeps its height.
+                        HStack {
+                            Text(detail.summary)
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Button("详情") { showsDetail = true }
+                                .buttonStyle(.link)
+                                .popover(isPresented: $showsDetail, arrowEdge: .trailing) {
+                                    ScrollView {
+                                        Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 14, verticalSpacing: 7) {
+                                            ForEach(detail.compactRows) { row in
+                                                GridRow {
+                                                    Text(row.label)
+                                                        .foregroundStyle(.secondary)
+                                                        .gridColumnAlignment(.trailing)
+                                                    Text(row.value)
+                                                        .textSelection(.enabled)
+                                                        .fixedSize(horizontal: false, vertical: true)
+                                                    Text(row.source.map { "来自\($0)" } ?? "")
+                                                        .foregroundStyle(.tertiary)
+                                                }
+                                            }
+                                        }
+                                        .font(.callout)
+                                        .padding(18)
+                                    }
+                                    .frame(width: 400)
+                                    .frame(maxHeight: 360)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                }
                         }
                     }
                 }
@@ -149,6 +186,13 @@ struct RunSettingsView: View {
         } message: {
             Text(exportError ?? "")
         }
+    }
+
+    /// The environment the panel currently points at, laid out line by line.
+    private var selectedDetail: ProfileDetail? {
+        var picked = game
+        picked.profileID = profileID
+        return profiles.recipe(for: picked).map(profiles.detail(of:))
     }
 
     private var defaultProfileName: String {

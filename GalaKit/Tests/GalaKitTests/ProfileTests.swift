@@ -314,3 +314,38 @@ private func userDirectory(_ files: [String: String]) throws -> URL {
         }
     }
 }
+
+@Test func aRecipeCanBeReadLineByLineWithWhereEachSettingComesFrom() throws {
+    let store = ProfileStore.bundled
+    let siglus = store.detail(of: try #require(store.recipe(id: "siglus-engine")))
+    #expect(siglus.summary == "基于通用 · 多装 3 个组件 · 4 条启动设置")
+    #expect(siglus.rows.first == .init(label: "基于", value: "通用（common）", source: nil))
+    #expect(siglus.rows.contains(.init(label: "组件", value: "quartz", source: "通用")))
+    #expect(siglus.rows.contains(.init(label: "组件", value: "xact", source: nil)))
+    // Two spellings of one DLL, one line.
+    #expect(siglus.rows.filter { $0.label == "DLL 设置" && $0.value.contains("quartz") } == [.init(label: "DLL 设置", value: "quartz = Wine 自带", source: nil)])
+    #expect(siglus.text.contains("组件：quartz（来自 通用）"))
+    #expect(siglus.compactRows == [
+        .init(label: "基于", value: "通用（common）", source: nil),
+        .init(label: "组件", value: "xact、xinput、vcrun2019", source: nil),
+        .init(label: "组件", value: "quartz、amstream、lavfilters", source: "通用"),
+        .init(label: "DLL 设置", value: "amstream = Wine 自带", source: nil),
+        .init(label: "DLL 设置", value: "quartz = Wine 自带", source: nil),
+        .init(label: "DLL 设置", value: "xactengine3_7 = Windows 原版", source: nil),
+        .init(label: "DLL 设置", value: "xaudio2_7 = Windows 原版", source: nil),
+        .init(label: "注册表", value: "9 条", source: "通用"),
+    ])
+
+    #expect(store.detail(of: try #require(store.recipe(id: "common"))).summary == "从零建立 · 装 3 个组件 · 9 条注册表")
+    #expect(store.detail(of: try #require(store.recipe(id: "artemis-d3d11"))).summary == "基于通用 · 1 条启动设置")
+    #expect(store.detail(of: try #require(store.recipe(id: "cat-system2"))).summary == "基于通用 · 多装 2 个组件")
+
+    // Something written on top of a profile that is itself on top of another: each line names its own file.
+    let mine = ProfileFile(id: "mine", name: "我的", base: "siglus-engine", components: ["dotnet40"], environment: ["A": "1"])
+    let mixed = try ProfileStore(files: ProfileStore.bundledFiles + [mine])
+    let detail = mixed.detail(of: try #require(mixed.recipe(id: "mine")))
+    #expect(detail.summary == "基于SiglusEngine · 多装 1 个组件 · 1 条启动设置")
+    #expect(detail.rows.contains(.init(label: "组件", value: "xact", source: "SiglusEngine")))
+    #expect(detail.rows.contains(.init(label: "DLL 设置", value: "quartz = Wine 自带", source: "SiglusEngine")))
+    #expect(detail.rows.contains(.init(label: "环境变量", value: "A = 1", source: nil)))
+}
