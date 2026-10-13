@@ -236,3 +236,29 @@ private final class Messages: @unchecked Sendable {
     #expect(BottleConfig.text(from: ["b": "2", "a": "1"]) == "a=1; b=2")
     #expect(BottleConfig.pairs(from: BottleConfig.text(from: ["b": "2", "a": "1"])) == ["b": "2", "a": "1"])
 }
+
+@Test func aGStreamerIndexForAnotherFolderOrOlderThanAPluginIsNotCurrent() throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    let plugins = dir.appendingPathComponent("runtime/lib/gstreamer-1.0")
+    try FileManager.default.createDirectory(at: plugins, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir) }
+    let plugin = plugins.appendingPathComponent("libgstlibav.dylib")
+    try Data("x".utf8).write(to: plugin)
+    let registry = dir.appendingPathComponent("gst-registry.bin")
+    func current() -> Bool { GameRuntime.isGStreamerRegistryCurrent(registry: registry, pluginDirectory: plugins) }
+    func touch(_ url: URL, _ date: Date) throws { try FileManager.default.setAttributes([.modificationDate: date], ofItemAtPath: url.path) }
+
+    #expect(!current())
+
+    // Copied along with the data folder from somewhere else: there, but about other files.
+    try Data("\u{1}/elsewhere/runtime/lib/gstreamer-1.0/libgstlibav.dylib\u{0}".utf8).write(to: registry)
+    #expect(!current())
+
+    try Data("\u{1}\(plugin.path)\u{0}".utf8).write(to: registry)
+    try touch(plugin, Date(timeIntervalSinceNow: -60))
+    #expect(current())
+
+    // The runtime was downloaded again into the same place.
+    try touch(plugin, Date(timeIntervalSinceNow: 60))
+    #expect(!current())
+}

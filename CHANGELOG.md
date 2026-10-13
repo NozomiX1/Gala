@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - 把当前配置导出为文件… writes the environment variables, launch arguments, and locale into the file instead of a note asking to set them by hand.
 
 ### Fixed
+- The black window on the first launch of a Media Foundation game came back whenever the video component's plugin index was present but out of date: after the runtime was downloaded again, or when the data folder had been copied from elsewhere. The index is now rebuilt before the game starts in those cases too, not only when it is missing.
 - Launch arguments typed in run settings were put before the game's executable, where Wine took the first one for the program to run. They now follow it.
 
 ## [2.1.0] - 2026-10-13

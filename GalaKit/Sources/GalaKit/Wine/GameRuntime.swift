@@ -125,7 +125,7 @@ public struct GameRuntime: Sendable {
             ffmpegURL: wineManager.mediaFoundationFFmpegURL
         )
         let launchGame = try await manager.prepareLaunchGame(for: game, recipe: recipe, progressHandler: progress)
-        buildGStreamerRegistryIfMissing(for: launchGame, recipe: recipe, progress: progress)
+        buildGStreamerRegistryIfStale(for: launchGame, recipe: recipe, progress: progress)
         return launchGame
     }
 
@@ -147,15 +147,30 @@ public struct GameRuntime: Sendable {
         return [recipe?.advice].compactMap { $0 } + observed
     }
 
+    /// Whether GStreamer will accept its index as it is. It rebuilds one that names another plugin folder or is older
+    /// than a plugin, and inside the game that rebuild is the black window this exists to prevent: a present file is not enough.
+    static func isGStreamerRegistryCurrent(registry: URL, pluginDirectory: URL) -> Bool {
+        let fm = FileManager.default
+        func modified(_ url: URL) -> Date? { (try? fm.attributesOfItem(atPath: url.path))?[.modificationDate] as? Date }
+        guard let written = modified(registry),
+              let data = try? Data(contentsOf: registry),
+              data.range(of: Data((pluginDirectory.path + "/").utf8)) != nil else { return false }
+        let plugins = (try? fm.contentsOfDirectory(at: pluginDirectory, includingPropertiesForKeys: nil)) ?? []
+        return plugins.allSatisfy { (modified($0) ?? .distantPast) <= written }
+    }
+
     /// GStreamer indexes its plugins the first time it starts. Inside the game that takes most of a minute with the window
     /// black, after which the game quits. Wine's own dxdiag touches the DirectShow filters and gets the same index written in seconds.
-    private func buildGStreamerRegistryIfMissing(
+    private func buildGStreamerRegistryIfStale(
         for game: Game,
         recipe: RuntimeRecipe,
         progress: @escaping @Sendable (MediaCompatibilityProgress) -> Void
     ) {
         guard let runtime = wineManager.mediaFoundationRuntime,
-              !FileManager.default.fileExists(atPath: runtime.gStreamerRegistryURL.path),
+              !Self.isGStreamerRegistryCurrent(
+                  registry: runtime.gStreamerRegistryURL,
+                  pluginDirectory: runtime.rootURL.appendingPathComponent("lib/gstreamer-1.0")
+              ),
               let wineBinary = try? wineBinaryForLaunch(game) else { return }
         progress(MediaCompatibilityProgress(message: "准备视频组件...", completedUnitCount: 0, totalUnitCount: 0))
 
