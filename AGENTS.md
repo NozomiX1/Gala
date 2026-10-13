@@ -50,7 +50,7 @@ Read `docs/runtime-lessons.md` before changing a profile or debugging playback, 
 - `Gala.xcodeproj` is generated and not committed. Edit `project.yml`, which also holds the version number, then run `xcodegen generate`.
 - Commit messages use a `feat:`, `fix:`, `perf:`, `docs:`, or `chore:` prefix.
 - Record user-visible changes under `## [Unreleased]` in `CHANGELOG.md`.
-- `docs/compatibility.md` is generated from the profiles' `verifiedGames`; a test fails when it is stale. Regenerate it with `swift run --package-path GalaKit gala-cli compat > docs/compatibility.md`. When a game is confirmed to run, add its original title to the profile's `verifiedGames`.
+- `docs/compatibility.md` is generated from the profiles' `verifiedGames`; a test fails when it is stale. Regenerate it with `swift run --package-path GalaKit gala-cli compat > docs/compatibility.md`. When a game is confirmed to run, add its original title to the profile's `verifiedGames`, with the release in parentheses when the title exists as more than one program (an original and a re-release on another engine).
 - UI strings and `README.md` are Chinese. Code, comments, commit messages, and the other docs are English.
 
 ## Releasing

@@ -11,7 +11,7 @@
 | 大図書館の羊飼い | 通用（`common`） |
 | 家族計画 ～追憶～ | 家族計画（`do-kizunar`） |
 | 千恋＊万花 | KiriKiri（`kirikiri`） |
-| ノラと皇女と野良猫ハート | KiriKiri（`kirikiri`） |
+| ノラと皇女と野良猫ハート（2019 年 Steam 版） | KiriKiri（`kirikiri`） |
 | WHITE ALBUM2 | Leaf / AQUAPLUS（`leaf`） |
 
 ## 还没有验证过游戏的运行环境
