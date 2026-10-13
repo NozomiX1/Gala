@@ -65,36 +65,37 @@ extension Game {
         }
     }
 
-    /// The locale Wine starts in, which decides the Windows code page for that run.
-    public var launchLocale: String {
+    /// The locale Wine starts in, which decides the Windows code page for that run:
+    /// the game's switch, else what its profile asks for, else the one its prefix was built with.
+    public func launchLocale(recipe: RuntimeRecipe?) -> String {
         switch launchSwitches[LaunchSwitch.locale.id] {
         case "ja": "ja_JP.UTF-8"
         case "zh": "zh_CN.UTF-8"
-        default: bottleConfig.locale
+        default: recipe?.locale ?? bottleConfig.locale
         }
     }
 
+    public var launchLocale: String { launchLocale(recipe: nil) }
+
+    /// Arguments for the game: its own when it has any, else its profile's.
+    public func launchArguments(recipe: RuntimeRecipe?) -> [String] {
+        bottleConfig.launchArguments.isEmpty ? (recipe?.launchArguments ?? []) : bottleConfig.launchArguments
+    }
+
     /// The game's own settings written as a profile file, so a combination that works can be handed to someone else.
+    /// Only what differs from `recipe` is written; the rest comes with `base`.
     public func exportedProfile(base recipe: RuntimeRecipe) -> ProfileFile {
-        var extras: [String] = []
-        if !bottleConfig.environment.isEmpty {
-            extras.append("环境变量：" + BottleConfig.text(from: bottleConfig.environment))
-        }
-        if !bottleConfig.launchArguments.isEmpty {
-            extras.append("启动参数：" + bottleConfig.launchArguments.joined(separator: " "))
-        }
-        if let locale = launchSwitches[LaunchSwitch.locale.id],
-           let option = LaunchSwitch.locale.options.first(where: { $0.id == locale }) {
-            extras.append("文字区域：" + option.label)
-        }
         let overrides = launchDLLOverrides
+        let locale = launchLocale(recipe: recipe)
         return ProfileFile(
             id: "\(recipe.id)-\(id.uuidString.prefix(8).lowercased())",
             name: "\(title) 的配置",
-            notes: extras.isEmpty ? nil : "运行环境文件写不进这些，需要在游戏的运行设置里另外设：" + extras.joined(separator: "。"),
             base: recipe.id,
             wine: forcesDXMTWine.map { $0 ? .dxmt : .standard },
-            dllOverrides: overrides.isEmpty ? nil : overrides.mapValues { Optional($0) }
+            dllOverrides: overrides.isEmpty ? nil : overrides.mapValues { Optional($0) },
+            environment: bottleConfig.environment.isEmpty ? nil : bottleConfig.environment.mapValues { Optional($0) },
+            launchArguments: bottleConfig.launchArguments.isEmpty ? nil : bottleConfig.launchArguments,
+            locale: launchSwitches[LaunchSwitch.locale.id] == nil ? nil : locale
         )
     }
 }

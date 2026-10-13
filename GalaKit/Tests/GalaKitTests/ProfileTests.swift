@@ -39,8 +39,18 @@ func everyEngineHasABundledProfile(engine: Engine) {
     try Data(marker("").utf8).write(to: markerURL)
     #expect(try manager.runtimeMarkerStatus(for: game) == .current)
 
-    // Written by 2.0 from a recipe that has since been edited.
+    // Written by 2.0 or 2.1: that fingerprint also covered DLL overrides and the Wine build, so it cannot be
+    // compared with today's. The version decides, and finding the prefix current rewrites the marker.
     try Data(marker(#","recipeFingerprint":"something-else""#).utf8).write(to: markerURL)
+    #expect(try manager.runtimeMarkerStatus(for: game) == .current)
+    manager.adoptOlderMarker(for: game)
+    let adopted = try String(contentsOf: markerURL, encoding: .utf8)
+    #expect(adopted.contains(#""format" : 2"#))
+    #expect(adopted.contains("2026-01-01"))
+    #expect(try manager.runtimeMarkerStatus(for: game) == .current)
+
+    // Written by this version from a recipe whose prefix half has since been edited.
+    try Data(#"{"profile":"common","configVersion":1,"configuredAt":"2026-01-01T00:00:00Z","wineVersionName":"wine-staging-11.6","managedComponents":[],"recipeFingerprint":"something-else","format":2}"#.utf8).write(to: markerURL)
     #expect(try manager.runtimeMarkerStatus(for: game) == .outdated)
 
     try manager.writeRuntimeMarker(for: game)
@@ -84,7 +94,37 @@ private func file(_ id: String, base: String? = nil, version: Int? = nil, compon
     let changed = try #require(try ProfileStore(files: [file("a", dll: ["quartz": "builtin"])]).recipe(id: "a"))
 
     #expect(a.fingerprint == renamed.fingerprint)
-    #expect(a.fingerprint != changed.fingerprint)
+    // A DLL choice is passed at launch and leaves the prefix as it is.
+    #expect(a.fingerprint == changed.fingerprint)
+    let more = try #require(try ProfileStore(files: [file("a", components: ["xact"], dll: ["quartz": "native"])]).recipe(id: "a"))
+    #expect(a.fingerprint != more.fingerprint)
+}
+
+@Test func aProfileLivesInThePrefixOfTheNearestAncestorThatPutsSomethingIntoOne() throws {
+    let store = try ProfileStore(files: [
+        file("root", components: ["quartz"]),
+        file("launch-only", base: "root", dll: ["quartz": "builtin"]),
+        file("heavy", base: "launch-only", components: ["xact"]),
+        file("tweak", base: "heavy", dll: ["xaudio2_7": "builtin"]),
+        file("heavier", base: "tweak", components: ["dotnet40"]),
+    ])
+    func recipe(_ id: String) throws -> RuntimeRecipe { try #require(store.recipe(id: id)) }
+
+    #expect(try recipe("root").bottleID == "root")
+    #expect(try recipe("root").cloneCandidates.isEmpty)
+    #expect(try recipe("launch-only").bottleID == "root")
+    #expect(try recipe("heavy").bottleID == "heavy")
+    #expect(try recipe("heavy").cloneCandidates == ["root"])
+    #expect(try recipe("tweak").bottleID == "heavy")
+    #expect(try recipe("heavier").cloneCandidates == ["heavy", "root"])
+
+    // The launch half still follows the whole chain.
+    #expect(try recipe("heavier").preset.dllOverrides == ["quartz": "builtin", "xaudio2_7": "builtin"])
+    #expect(store.bottleID(forProfile: "no-such-profile") == "no-such-profile")
+
+    #expect(ProfileStore.bundled.recipe(id: "artemis-d3d11")?.bottleID == "common")
+    #expect(ProfileStore.bundled.recipe(id: "leaf")?.cloneCandidates == ["common"])
+    #expect(ProfileStore.bundled.recipe(id: "artemis-mf-d3d11")?.cloneCandidates == [])
 }
 
 @Test func brokenProfileSetsAreRejectedWithTheReason() {
@@ -125,7 +165,9 @@ private func userDirectory(_ files: [String: String]) throws -> URL {
     #expect(mine.preset.dllOverrides["quartz"] == "builtin")
     #expect(mine.preset.components == ["quartz", "amstream", "lavfilters"])
     #expect(store.recipe(id: "kirikiri")?.isUserProvided == false)
-    #expect(mine.fingerprint != store.recipe(id: "kirikiri")?.fingerprint)
+    // Only launch-time settings differ, so it runs in common's prefix and adds nothing to it.
+    #expect(mine.bottleID == "common")
+    #expect(mine.fingerprint == store.recipe(id: "common")?.fingerprint)
 }
 
 @Test func userFileWithABundledIdReplacesItForEveryProfileBuiltOnIt() throws {
@@ -199,10 +241,19 @@ private func userDirectory(_ files: [String: String]) throws -> URL {
     try bottleManager.writeRuntimeMarker(for: game)
     #expect(try bottleManager.runtimeMarkerStatus(for: game) == .current)
     let marker = try String(contentsOf: URL(fileURLWithPath: game.bottleConfig.prefixPath).appendingPathComponent(".gala-runtime.json"), encoding: .utf8)
-    #expect(marker.contains(#""profile" : "mine""#))
+    // It puts nothing into the prefix, so the prefix is its base's and carries the base's marker.
+    #expect(marker.contains(#""profile" : "do-kizunar""#))
+    #expect(game.bottleConfig.prefixPath.hasSuffix("Profiles/do-kizunar"))
 
-    // Editing the file makes the prefix stale without anyone touching a version number.
+    // A change to what is passed at launch leaves the prefix current.
     try Data(#"{"id":"mine","name":"我的","base":"do-kizunar","wine":"dxmt","dllOverrides":{"quartz":"native"}}"#.utf8)
+        .write(to: wineManager.profilesDirectory.appendingPathComponent("mine.json"))
+    wineManager.reloadProfiles()
+    #expect(try bottleManager.runtimeMarkerStatus(for: game) == .current)
+    #expect(WineLaunchConfig.buildEnvironment(game: game, wineBinary: dxmtWine, recipe: wineManager.profiles.recipe(for: game))["WINEDLLOVERRIDES"]?.contains("quartz=native") == true)
+
+    // A change to what goes into the prefix makes it stale without anyone touching a version number.
+    try Data(#"{"id":"mine","name":"我的","base":"do-kizunar","wine":"dxmt","components":["xact"]}"#.utf8)
         .write(to: wineManager.profilesDirectory.appendingPathComponent("mine.json"))
     wineManager.reloadProfiles()
     #expect(try bottleManager.runtimeMarkerStatus(for: game) == .outdated)
@@ -229,4 +280,37 @@ private func userDirectory(_ files: [String: String]) throws -> URL {
 
     // Out of date? Run: swift run --package-path GalaKit gala-cli compat > docs/compatibility.md
     #expect(try String(contentsOf: document, encoding: .utf8) == ProfileStore.bundled.compatibilityMarkdown)
+}
+
+@Test func theLaunchHalfIsInheritedAndTheGamesOwnSettingsWin() throws {
+    let json = #"{"id":"child","name":"c","base":"parent","environment":{"A":"child","B":null},"locale":"ja_JP.UTF-8"}"#
+    let child = try JSONDecoder().decode(ProfileFile.self, from: Data(json.utf8))
+    let parent = ProfileFile(id: "parent", name: "p", environment: ["A": "parent", "B": "parent", "C": "parent"], launchArguments: ["-windowed"])
+    let recipe = try #require(try ProfileStore(files: [parent, child]).recipe(id: "child"))
+
+    #expect(recipe.environment == ["A": "child", "C": "parent"])
+    #expect(recipe.launchArguments == ["-windowed"])
+    #expect(recipe.locale == "ja_JP.UTF-8")
+    // None of it is in the prefix.
+    #expect(recipe.bottleID == "parent")
+
+    var game = Game(title: "T", executablePath: "/tmp/g/g.exe", profileID: "child", bottleConfig: BottleConfig(prefixPath: "/tmp/p"))
+    #expect(game.launchLocale(recipe: recipe) == "ja_JP.UTF-8")
+    #expect(game.launchArguments(recipe: recipe) == ["-windowed"])
+    game.launchSwitches = ["locale": "zh"]
+    game.bottleConfig.launchArguments = ["-fullscreen"]
+    game.bottleConfig.environment = ["A": "game"]
+    #expect(game.launchLocale(recipe: recipe) == "zh_CN.UTF-8")
+    #expect(game.launchArguments(recipe: recipe) == ["-fullscreen"])
+    let environment = WineLaunchConfig.buildEnvironment(game: game, wineBinary: URL(fileURLWithPath: "/tmp/wine/bin/wine"), recipe: recipe)
+    #expect(environment["A"] == "game")
+    #expect(environment["C"] == "parent")
+}
+
+@Test func aProfileCannotRedirectWhatGalaManages() {
+    for name in ["WINEPREFIX", "DYLD_INSERT_LIBRARIES", "PATH", "WINEDLLOVERRIDES", "LC_ALL"] {
+        #expect(throws: ProfileError.reservedEnvironment(id: "a", name: name)) {
+            try ProfileStore(files: [ProfileFile(id: "a", name: "a", environment: [name: "x"])])
+        }
+    }
 }

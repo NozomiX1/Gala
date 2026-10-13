@@ -1,19 +1,13 @@
 {
   "id": "common",
   "name": "通用",
-  "notes": "大多数游戏的默认环境：旧式 DirectShow 视频链路（quartz、amstream、LAV Filters）。不要把只对个别游戏有效的改动加到这里，另建一个以它为 base 的文件。",
+  "notes": "大家共用的环境：Windows、字体、旧式 DirectShow 视频组件（quartz、amstream、LAV Filters）。这些组件装上时自带“优先用 Windows 原版”的设置，所以这里不用再写 DLL 设置。不要把只对个别游戏有效的改动加到这里，另建一个以它为 base 的文件。",
   "version": 1,
   "components": [
     "quartz",
     "amstream",
     "lavfilters"
   ],
-  "dllOverrides": {
-    "quartz": "native,builtin",
-    "*quartz": "native,builtin",
-    "amstream": "native,builtin",
-    "*amstream": "native,builtin"
-  },
   "registry": [
     {
       "key": "HKCU\\Software\\LAV\\Audio\\Formats",

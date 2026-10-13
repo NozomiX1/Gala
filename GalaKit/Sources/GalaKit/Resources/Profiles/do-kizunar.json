@@ -1,14 +1,12 @@
 {
   "id": "do-kizunar",
   "name": "家族計画",
-  "notes": "只用于家族計画 ～追憶～。quartz 用 Wine 自带的，并去掉通用环境对 amstream 的设置（null 表示去掉继承来的那一项）。游戏目录固定映射为 G: 盘，安装路径的注册表项都指向它。",
+  "notes": "只用于家族計画 ～追憶～。quartz 用 Wine 自带的。游戏目录固定映射为 G: 盘，安装路径的注册表项都指向它。",
   "base": "common",
   "version": 1,
   "dllOverrides": {
     "quartz": "builtin",
-    "*quartz": "builtin",
-    "amstream": null,
-    "*amstream": null
+    "*quartz": "builtin"
   },
   "registry": [
     {

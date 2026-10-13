@@ -53,10 +53,8 @@ public enum RuntimeProfileMigration {
     /// Until rules v3 KiriKiri games had a profile and a prefix of their own.
     private static func usesRetiredKiriKiriPrefix(_ game: Game, bottlesDirectory: URL) -> Bool {
         guard (game.runtimeProfileMigrationVersion ?? 0) < 3, game.engine == .kirikiri else { return false }
-        return game.bottleConfig.prefixPath == BottleManager.prefixPath(
-            forProfile: RuntimeProfile.kirikiri.rawValue,
-            bottlesDirectory: bottlesDirectory
-        )
+        // Spelled out: asked today, the kirikiri profile answers with common's prefix.
+        return game.bottleConfig.prefixPath == bottlesDirectory.appendingPathComponent("Profiles/kirikiri").path
     }
 
     public static func didChangeRuntimeProfile(from oldGames: [Game], to newGames: [Game]) -> Bool {

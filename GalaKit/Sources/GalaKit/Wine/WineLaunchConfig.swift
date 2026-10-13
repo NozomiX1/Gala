@@ -31,8 +31,8 @@ public struct WineLaunchConfig: Sendable {
         var env = ProcessInfo.processInfo.environment
 
         env["WINEPREFIX"] = game.bottleConfig.prefixPath
-        env["LANG"] = game.launchLocale
-        env["LC_ALL"] = game.launchLocale
+        env["LANG"] = game.launchLocale(recipe: recipe)
+        env["LC_ALL"] = game.launchLocale(recipe: recipe)
         // Errors are always kept, so the first failed launch already has something to show, and so is which DLLs
         // load as native or builtin: `LaunchObservation` reads from them what the game really uses. Debug adds fixme lines.
         env["WINEDEBUG"] = debug ? "+loaddll" : "fixme-all,+loaddll"
@@ -55,13 +55,15 @@ public struct WineLaunchConfig: Sendable {
             applyMediaFoundationRuntime(mediaFoundationRuntime, to: &env)
         }
 
-        let dllOverrides = game.launchDLLOverrides
+        // The profile's choices first, then the game's switches and hand-written ones on top.
+        let dllOverrides = (recipe?.preset.dllOverrides ?? [:]).merging(game.launchDLLOverrides) { _, own in own }
         if !dllOverrides.isEmpty {
             env["WINEDLLOVERRIDES"] = dllOverrides.sorted { $0.key < $1.key }
                 .map { "\($0.key)=\($0.value)" }.joined(separator: ";")
         }
 
-        for (key, value) in game.bottleConfig.environment {
+        // The profile's first, so what the user typed for this one game wins.
+        for (key, value) in (recipe?.environment ?? [:]).merging(game.bottleConfig.environment, uniquingKeysWith: { _, own in own }) {
             env[key] = value
         }
 
@@ -107,7 +109,8 @@ public struct WineLaunchConfig: Sendable {
 
         if !shouldMapGameDirectory {
             return WineLaunchConfig(
-                arguments: game.bottleConfig.launchArguments + [exeName],
+                // The game's arguments follow its executable; before it, Wine would take the first one for the program to run.
+                arguments: [exeName] + game.launchArguments(recipe: recipe),
                 workingDirectory: gameDir,
                 driveMapping: nil
             )
@@ -125,7 +128,7 @@ public struct WineLaunchConfig: Sendable {
         )
 
         return WineLaunchConfig(
-            arguments: game.bottleConfig.launchArguments + ["g:\\" + exeName],
+            arguments: ["g:\\" + exeName] + game.launchArguments(recipe: recipe),
             workingDirectory: gameDir,
             driveMapping: DriveMapping(driveLetter: "g:", targetPath: gameDir.path)
         )

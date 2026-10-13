@@ -59,6 +59,9 @@ public struct RuntimeProfileMarker: Codable, Equatable, Sendable {
     public let managedComponents: [String]
     /// What the prefix was built from. Absent in markers written before profiles became files.
     public let recipeFingerprint: String?
+    /// 2 since the fingerprint covers only what is in the prefix. Absent in older markers, whose fingerprint
+    /// also covered DLL overrides and the Wine build and so cannot be compared with today's.
+    public let format: Int?
 
     public init(
         profile: String,
@@ -66,7 +69,8 @@ public struct RuntimeProfileMarker: Codable, Equatable, Sendable {
         configuredAt: Date,
         wineVersionName: String,
         managedComponents: [String],
-        recipeFingerprint: String? = nil
+        recipeFingerprint: String? = nil,
+        format: Int? = nil
     ) {
         self.profile = profile
         self.configVersion = configVersion
@@ -74,6 +78,20 @@ public struct RuntimeProfileMarker: Codable, Equatable, Sendable {
         self.wineVersionName = wineVersionName
         self.managedComponents = managedComponents
         self.recipeFingerprint = recipeFingerprint
+        self.format = format
+    }
+
+    static let currentFormat = 2
+
+    /// Whether this marker was written for the given recipe as it reads now.
+    func matches(_ recipe: RuntimeRecipe) -> Bool {
+        let current = Self.current(for: recipe, configuredAt: configuredAt)
+        return profile == current.profile &&
+            configVersion == current.configVersion &&
+            wineVersionName == current.wineVersionName &&
+            managedComponents == current.managedComponents &&
+            // An edited profile file changes the fingerprint even when nobody raised its version.
+            (format != Self.currentFormat || recipeFingerprint == current.recipeFingerprint)
     }
 
     static func current(for recipe: RuntimeRecipe, configuredAt: Date) -> RuntimeProfileMarker {
@@ -83,7 +101,8 @@ public struct RuntimeProfileMarker: Codable, Equatable, Sendable {
             configuredAt: configuredAt,
             wineVersionName: recipe.usesDXMTWine ? WineManager.dxmtWineVersionName : WineManager.wineVersionName,
             managedComponents: recipe.preset.managedComponents.map(\.runtimeMarkerName),
-            recipeFingerprint: recipe.fingerprint
+            recipeFingerprint: recipe.fingerprint,
+            format: currentFormat
         )
     }
 }
@@ -107,22 +126,22 @@ public final class BottleManager: @unchecked Sendable {
     private var profiles: ProfileStore { wineManager?.profiles ?? .bundled }
 
     public func prefixPath(for engine: Engine?) -> String {
-        Self.prefixPath(for: engine, bottlesDirectory: bottlesDirectory)
+        Self.prefixPath(for: engine, bottlesDirectory: bottlesDirectory, profiles: profiles)
     }
 
-    static func prefixPath(for engine: Engine?, bottlesDirectory: URL) -> String {
-        prefixPath(forProfile: (engine?.runtimeProfile ?? .common).rawValue, bottlesDirectory: bottlesDirectory)
+    static func prefixPath(for engine: Engine?, bottlesDirectory: URL, profiles: ProfileStore = .bundled) -> String {
+        prefixPath(forProfile: (engine?.runtimeProfile ?? .common).rawValue, bottlesDirectory: bottlesDirectory, profiles: profiles)
     }
 
-    /// One prefix per profile id, shared by every game using that profile.
+    /// The prefix a profile's games run in: its own, or its base's when it only changes how a game is launched.
     public func prefixPath(forProfile id: String) -> String {
-        Self.prefixPath(forProfile: id, bottlesDirectory: bottlesDirectory)
+        Self.prefixPath(forProfile: id, bottlesDirectory: bottlesDirectory, profiles: profiles)
     }
 
-    static func prefixPath(forProfile id: String, bottlesDirectory: URL) -> String {
+    static func prefixPath(forProfile id: String, bottlesDirectory: URL, profiles: ProfileStore = .bundled) -> String {
         bottlesDirectory
             .appendingPathComponent("Profiles")
-            .appendingPathComponent(ProfileStore.bottleID(forProfile: id))
+            .appendingPathComponent(profiles.bottleID(forProfile: id))
             .path
     }
 
@@ -133,8 +152,37 @@ public final class BottleManager: @unchecked Sendable {
         return FileManager.default.fileExists(atPath: systemReg.path)
     }
 
+    /// A built prefix of one of the game's ancestors, nearest first, to start the game's own from.
+    func cloneSource(for game: Game) -> URL? {
+        guard let recipe = profiles.bottleRecipe(for: game) else { return nil }
+        for id in recipe.cloneCandidates {
+            guard let candidate = profiles.recipe(id: id) else { continue }
+            let prefix = URL(fileURLWithPath: prefixPath(forProfile: id))
+            guard prefix.path != game.bottleConfig.prefixPath,
+                  FileManager.default.fileExists(atPath: prefix.appendingPathComponent("system.reg").path),
+                  let marker = Self.readMarker(prefix: prefix.path), marker.matches(candidate) else { continue }
+            // Before format 2 a profile's DLL overrides were written into its prefix; a clone would carry them along.
+            if marker.format != RuntimeProfileMarker.currentFormat, !candidate.preset.dllOverrides.isEmpty { continue }
+            return prefix
+        }
+        return nil
+    }
+
     public func createBottle(for game: Game) async throws {
         let prefixURL = URL(fileURLWithPath: game.bottleConfig.prefixPath)
+
+        if let source = cloneSource(for: game) {
+            // On APFS this takes no time and no space until the copy is written to; elsewhere it is an ordinary copy.
+            try? FileManager.default.removeItem(at: prefixURL)
+            try FileManager.default.createDirectory(at: prefixURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            guard copyfile(source.path, prefixURL.path, nil, copyfile_flags_t(COPYFILE_ALL | COPYFILE_RECURSIVE | COPYFILE_CLONE)) == 0 else {
+                throw WineError.helperToolFailed("copyfile", errno)
+            }
+            // The copy is not configured as this game's profile until its own half has been applied.
+            try? FileManager.default.removeItem(at: Self.runtimeMarkerURL(prefix: prefixURL.path))
+            return
+        }
+
         try FileManager.default.createDirectory(at: prefixURL, withIntermediateDirectories: true)
 
         guard let wineBinary = wineManager?.wineBinaryURL else {
@@ -197,20 +245,25 @@ public final class BottleManager: @unchecked Sendable {
         guard let preset = profiles.recipe(for: game)?.preset else { return }
         let registryValues = preset.registryValues
         let registryKeysToDelete = preset.registryKeysToDelete
+        // DLL overrides are not written here: they are passed at every launch (`WineLaunchConfig`), so they never
+        // need undoing and a profile that differs only in them needs no prefix of its own.
         guard !preset.components.isEmpty ||
             !preset.managedComponents.isEmpty ||
-            !preset.dllOverrides.isEmpty ||
             !registryValues.isEmpty ||
             !registryKeysToDelete.isEmpty else { return }
 
-        let totalUnitCount = preset.components.count +
+        // winetricks keeps a list of what it installed; in a cloned prefix that covers everything the source had.
+        let installedLog = URL(fileURLWithPath: game.bottleConfig.prefixPath).appendingPathComponent("winetricks.log")
+        let installed = Set(((try? String(contentsOf: installedLog, encoding: .utf8)) ?? "").split(separator: "\n").map(String.init))
+        let components = preset.components.filter { !installed.contains($0) }
+
+        let totalUnitCount = components.count +
             preset.managedComponents.count +
-            preset.dllOverrides.count +
             registryKeysToDelete.count +
             registryValues.count
         var completedUnitCount = 0
 
-        for component in preset.components {
+        for component in components {
             progressHandler?(
                 EnginePresetProgress(
                     message: "正在安装 \(Self.displayName(forWinetricksComponent: component))...",
@@ -260,7 +313,7 @@ public final class BottleManager: @unchecked Sendable {
             )
         }
 
-        if !preset.dllOverrides.isEmpty || !registryValues.isEmpty || !registryKeysToDelete.isEmpty {
+        if !registryValues.isEmpty || !registryKeysToDelete.isEmpty {
             guard let wineBinary = wineManager?.wineBinaryURL else { return }
 
             for key in registryKeysToDelete {
@@ -274,24 +327,6 @@ public final class BottleManager: @unchecked Sendable {
                 try await deleteRegistryKeyIfPresent(
                     key,
                     wineBinary: wineBinary,
-                    prefix: game.bottleConfig.prefixPath,
-                    locale: game.bottleConfig.locale
-                )
-                completedUnitCount += 1
-            }
-
-            for (dll, mode) in preset.dllOverrides {
-                progressHandler?(
-                    EnginePresetProgress(
-                        message: "正在写入 DLL 覆盖 \(dll)...",
-                        completedUnitCount: completedUnitCount,
-                        totalUnitCount: totalUnitCount
-                    )
-                )
-                try await runWineCommand(
-                    wineBinary: wineBinary,
-                    arguments: ["reg", "add", "HKCU\\Software\\Wine\\DllOverrides",
-                               "/v", dll, "/t", "REG_SZ", "/d", mode, "/f"],
                     prefix: game.bottleConfig.prefixPath,
                     locale: game.bottleConfig.locale
                 )
@@ -375,27 +410,32 @@ public final class BottleManager: @unchecked Sendable {
         guard let recipe = profiles.recipe(for: game), let bottleRecipe = profiles.bottleRecipe(for: game) else {
             return .missing
         }
-        // The game's own marker is still accepted: prefixes made before a profile began sharing a bottle carry it.
-        let accepted = [recipe, bottleRecipe].map { RuntimeProfileMarker.current(for: $0, configuredAt: Date()) }
-
         let markerURL = Self.runtimeMarkerURL(prefix: game.bottleConfig.prefixPath)
         guard FileManager.default.fileExists(atPath: markerURL.path) else {
             return .missing
         }
 
-        let data = try Data(contentsOf: markerURL)
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        let marker = try decoder.decode(RuntimeProfileMarker.self, from: data)
+        let marker = try decoder.decode(RuntimeProfileMarker.self, from: Data(contentsOf: markerURL))
 
-        return accepted.contains { current in
-            marker.profile == current.profile &&
-                marker.configVersion == current.configVersion &&
-                marker.wineVersionName == current.wineVersionName &&
-                marker.managedComponents == current.managedComponents &&
-                // An edited profile file changes the fingerprint even when nobody raised its version.
-                (marker.recipeFingerprint == nil || marker.recipeFingerprint == current.recipeFingerprint)
-        } ? .current : .outdated
+        // The game's own marker is still accepted: prefixes made before a profile began sharing a bottle carry it.
+        return [recipe, bottleRecipe].contains(where: marker.matches) ? .current : .outdated
+    }
+
+    private static func readMarker(prefix: String) -> RuntimeProfileMarker? {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return (try? Data(contentsOf: runtimeMarkerURL(prefix: prefix))).flatMap { try? decoder.decode(RuntimeProfileMarker.self, from: $0) }
+    }
+
+    /// Rewrites a marker from before format 2 once it has been found current, so later edits to the profile file
+    /// are noticed again: the old fingerprint cannot be compared with today's.
+    public func adoptOlderMarker(for game: Game) {
+        guard let marker = Self.readMarker(prefix: game.bottleConfig.prefixPath),
+              marker.format != RuntimeProfileMarker.currentFormat,
+              (try? runtimeMarkerStatus(for: game)) == .current else { return }
+        try? writeRuntimeMarker(for: game, configuredAt: marker.configuredAt)
     }
 
     private static func runtimeMarkerURL(prefix: String) -> URL {

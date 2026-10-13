@@ -231,7 +231,7 @@ final class LibraryViewModel {
     /// Switches a game to another runtime profile; nil goes back to its engine's default.
     func useProfile(_ id: String?, for game: Game) {
         var updated = game
-        updated.useProfile(id, bottlesDirectory: wineManager.bottlesDirectory)
+        updated.useProfile(id, bottlesDirectory: wineManager.bottlesDirectory, profiles: wineManager.profiles)
         updateGame(updated)
     }
 

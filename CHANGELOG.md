@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### 更新摘要
+- 新建运行环境快了很多：需要单独环境的游戏不再从头安装，而是从通用环境复制一份再补上自己的部分。白色相簿 2、家族计画的环境从几分钟缩短到十几秒，也几乎不多占磁盘。
+- 只改了 DLL 设置的运行环境（包括你自己写的）不再需要单独的环境，改完直接启动就生效。
+- 运行环境文件可以写环境变量、启动参数和文字区域了，「把当前配置导出为文件…」导出的是完整的配置。
+- 修复：运行设置里填的启动参数以前会让游戏启动不了。
+- 已经配置好的游戏不受影响。
+
+### Changed
+- A profile now has two halves. `components` and `registry` go into the prefix; `wine`, `dllOverrides`, and the new `environment`, `launchArguments`, and `locale` are passed at every launch and are no longer written into it. Both are inherited along `base`.
+- A profile's prefix is the nearest one in its `base` chain that installs something. A profile that only changes launch settings runs in its base's prefix and needs no configuring.
+- A new prefix is cloned from its nearest built ancestor and only what the profile adds is installed. Measured: `leaf` and `do-kizunar` 12 s each, `siglus-engine` 75 s, where each took minutes. A profile without a `base` is still built from scratch.
+- `common` no longer lists DLL overrides: winetricks sets the same ones when it installs the components.
+- Prefixes built by earlier versions keep working as they are. Their markers are accepted by profile and version and rewritten in the new format when found current.
+- 把当前配置导出为文件… writes the environment variables, launch arguments, and locale into the file instead of a note asking to set them by hand.
+
+### Fixed
+- Launch arguments typed in run settings were put before the game's executable, where Wine took the first one for the program to run. They now follow it.
+
 ## [2.1.0] - 2026-10-13
 
 ### 更新摘要

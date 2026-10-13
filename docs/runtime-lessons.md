@@ -50,6 +50,18 @@ Checked on 2026-10-13 with ハミダシクリエイティブ凸 (64-bit, D3D11) 
 - Until 2.0, configuring a DXMT profile also copied every DLL from the variant's `lib/wine` into the prefix. The copies were builtin-marked, so Wine loaded its own `lib/wine` files regardless, and the copy overwrote what winetricks had installed just before: in those prefixes `quartz`, `amstream`, and `d3dcompiler_47` were Wine's builtin files and loaded as builtin, whatever the profile's overrides said. The copy is gone. `"wine": "dxmt"` in a profile is all DXMT needs, and it implies the download.
 - ハミダシ plays its logo and movies in both states: builtin `quartz` (an old `artemis-d3d11` prefix) and native `quartz` (the `common` prefix), each through LAV Splitter/Video and EVR. `d3dcompiler_47` loaded as builtin in every run, so the two Artemis D3D11 profiles no longer install the native one. アマカノ3 was not re-run; its prefix contents are unchanged by this, since the native DLL never survived the copy.
 
+## Cloned Prefixes And Launch-Time Settings
+
+Checked on 2026-10-14 in a clone of a real library.
+
+- Copying a 1.2 GB prefix with `copyfile(..., COPYFILE_CLONE)` on APFS takes 0.4 s and no space until the copy is written to. Games run in such copies; a dozen were used for diagnosis the day before.
+- winetricks records what it installed in `winetricks.log` inside the prefix, and a copy carries the list. Asked for a component already there it answers "already installed, skipping", but each call still costs about 4 s to start, so Gala filters the list itself and calls winetricks only for what is new.
+- winetricks writes DLL overrides when it installs a component: `native,builtin` for `quartz` and for `amstream`, dozens for `xact`, more for `vcrun`. A component is therefore switched on by its own installation, and the overrides come along with a copy of the prefix. `common`'s own four overrides were the same values and are gone from its file.
+- A profile's DLL overrides passed in `WINEDLLOVERRIDES` do what the registry entries did: WHITE ALBUM2 in a prefix cloned from `common` loads builtin `quartz` and `devenum`, 家族計画 builtin `quartz`, with neither written into the prefix. Building those two prefixes took 12 s each; `siglus-engine`, which installs three components, 75 s.
+- Each game reached its window in the rebuilt prefix. Whether their movies play there was left to the maintainer to watch.
+- 穢翼のユースティア needs about 40 s to show its window from `gala-cli`, in 2.1.0 as well. A 30-second watch reads as "did not start".
+- `launchArguments` were placed before the executable since 1.x, where Wine takes the first one as the program. They now follow it.
+
 ## Reading What A Game Used
 
 - A normal launch runs with `WINEDEBUG=fixme-all,+loaddll`: about 250 lines for a game reaching its title. `LaunchObservation` parses them. Checked on 2026-10-13: ハミダシ shows D3D11, 千恋＊万花 D3D9; a video path appears only once a movie has actually played in that run.

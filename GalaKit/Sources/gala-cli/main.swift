@@ -79,9 +79,11 @@ Gala 排查指南（给人和 AI 助手）
   把一个 .json 文件放进数据目录下的 Profiles 文件夹（默认是 ~/Library/Application Support/Gala/Profiles）：
     { "id": "my-test", "name": "我的试验", "base": "common", "dllOverrides": { "quartz": "builtin" } }
   写了 base 就是继承它的全部，再加上或覆盖这里写的。可用的字段：
-    components（要装的 Windows 组件，winetricks 的名字）、dllOverrides（值写 null 表示去掉继承来的那一条）、
-    registry（key、name、type、data）、registryDelete、wine（default 或 dxmt）、notes、
-    advice（需要用户自己动手的一件事，会显示在游戏页面和运行设置里）。
+    启动时带上、不写进环境的：dllOverrides（值写 null 表示去掉继承来的那一条）、wine（default 或 dxmt）、
+      environment（环境变量）、launchArguments（给游戏的启动参数）、locale（例如 ja_JP.UTF-8）。
+    装进环境的：components（要装的 Windows 组件，winetricks 的名字）、registry（key、name、type、data）、registryDelete。
+    只写了前一类的文件不建新环境，直接用 base 的；写了后一类的，会克隆 base 的环境再加上这些，通常十几秒。
+    其余：notes、advice（需要用户自己动手的一件事，会显示在游戏页面和运行设置里）。
   gala-cli profiles              确认它被读到了，没有报错
   gala-cli use <游戏> my-test     让这个游戏用它
   gala-cli configure <游戏>       建好环境
@@ -161,7 +163,7 @@ struct LaunchResult: Encodable {
 func applyOverrides(to game: inout Game, wineManager: WineManager) throws {
     if let id = try takeValue("--profile") {
         try requireProfile(id, in: wineManager)
-        game.useProfile(id, bottlesDirectory: wineManager.bottlesDirectory)
+        game.useProfile(id, bottlesDirectory: wineManager.bottlesDirectory, profiles: wineManager.profiles)
         // The saved flag describes the game's own runtime, not the one being tried.
         game.isRuntimeConfigured = true
     }
@@ -288,7 +290,7 @@ func run() async throws {
         let id = arguments[1] == "default" ? nil : arguments[1]
         if let id { try requireProfile(id, in: wineManager) }
         guard let index = games.firstIndex(where: { $0.id == game.id }) else { return }
-        games[index].useProfile(id, bottlesDirectory: wineManager.bottlesDirectory)
+        games[index].useProfile(id, bottlesDirectory: wineManager.bottlesDirectory, profiles: wineManager.profiles)
         try store.save(games)
         let now = wineManager.profiles.recipe(for: games[index])?.id ?? "无"
         print("\(game.title) 现在使用运行环境 \(now)。接下来运行：gala-cli configure \(arguments[0])")

@@ -29,6 +29,12 @@ public struct ProfileFile: Codable, Equatable, Sendable {
     public var managedComponents: [String]?
     /// A null value removes an entry inherited from `base`.
     public var dllOverrides: [String: String?]?
+    /// Passed to the game's process at launch. A null value removes one inherited from `base`.
+    public var environment: [String: String?]?
+    /// Arguments for the game itself, after its executable. Replaces the base's list when present.
+    public var launchArguments: [String]?
+    /// The locale Wine starts in, for example `ja_JP.UTF-8`.
+    public var locale: String?
     public var registry: [RegistryEntry]?
     public var registryDelete: [String]?
     /// Behaviour that lives in code and is switched on by name. See `ProfileFeature`.
@@ -42,7 +48,8 @@ public enum ProfileFeature: String, Sendable {
     case gameDriveG
 }
 
-/// A profile with its `base` chain folded in: everything needed to build and recognise its prefix.
+/// A profile with its `base` chain folded in. It has two halves: what goes into the prefix (components, registry)
+/// and what is passed at each launch (the Wine build, DLL overrides). Only the first half decides which prefix it lives in.
 public struct RuntimeRecipe: Equatable, Sendable {
     public let id: String
     public let name: String
@@ -51,26 +58,27 @@ public struct RuntimeRecipe: Equatable, Sendable {
     public let version: Int
     public let usesDXMTWine: Bool
     public let preset: EnginePreset
+    /// The rest of the launch half, next to `usesDXMTWine` and the preset's DLL overrides.
+    public let environment: [String: String]
+    public let launchArguments: [String]
+    public let locale: String?
     public let features: Set<ProfileFeature>
     public let verifiedGames: [String]
     /// True for a file from the user's Profiles folder rather than one shipped with Gala.
     public let isUserProvided: Bool
+    /// The profile whose prefix this one lives in: itself when it installs components or writes registry values,
+    /// otherwise the nearest ancestor that does. A profile that only changes how a game is launched needs no prefix of its own.
+    public let bottleID: String
+    /// Ancestors with a prefix of their own, nearest first. A new prefix is cloned from the first one that is already built.
+    public let cloneCandidates: [String]
 
     public var usesMediaFoundation: Bool { preset.managedComponents.contains(.mediaFoundation) }
 
     /// Changes whenever anything that ends up in the prefix changes, so an edited profile is noticed without a version bump.
+    /// The launch half (Wine build, DLL overrides) is left out: changing it changes nothing in the prefix.
     public var fingerprint: String {
-        let overrides = preset.dllOverrides.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }
         let registry = preset.registryValues.map { "\($0.key)|\($0.valueName)|\($0.type)|\($0.data)" }
-        let parts = [
-            [usesDXMTWine ? "dxmt" : "default"],
-            preset.components,
-            preset.managedComponents.map(\.rawValue),
-            overrides,
-            registry,
-            preset.registryKeysToDelete,
-            features.map(\.rawValue).sorted(),
-        ]
+        let parts = [preset.components, registry, preset.registryKeysToDelete]
         let text = parts.map { $0.joined(separator: "\n") }.joined(separator: "\n--\n")
         return SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined()
     }
@@ -83,6 +91,7 @@ public enum ProfileError: Error, Equatable, LocalizedError {
     case cycle(id: String)
     case unknownManagedComponent(id: String, component: String)
     case unknownFeature(id: String, feature: String)
+    case reservedEnvironment(id: String, name: String)
 
     public var errorDescription: String? {
         switch self {
@@ -92,6 +101,7 @@ public enum ProfileError: Error, Equatable, LocalizedError {
         case .cycle(let id): return "运行环境 \(id) 的 base 绕了一圈又回到自己。"
         case .unknownManagedComponent(let id, let component): return "运行环境 \(id) 里的 managedComponents 有不认识的一项：\(component)。"
         case .unknownFeature(let id, let feature): return "运行环境 \(id) 里的 features 有不认识的一项：\(feature)。"
+        case .reservedEnvironment(let id, let name): return "运行环境 \(id) 不能设置环境变量 \(name)：它由 Gala 自己管理。DLL 设置请写在 dllOverrides 里，文字区域写在 locale 里。"
         }
     }
 }
@@ -100,7 +110,7 @@ public enum ProfileError: Error, Equatable, LocalizedError {
 public struct ProfileStore: Sendable {
     public let recipes: [RuntimeRecipe]
 
-    private static let bundledFiles: [ProfileFile] = {
+    static let bundledFiles: [ProfileFile] = {
         let directory = Bundle.module.url(forResource: "Profiles", withExtension: nil)!
         // A broken bundled file is a build defect, caught by the tests.
         return try! files(in: directory)
@@ -167,18 +177,15 @@ public struct ProfileStore: Sendable {
         return game.engine.flatMap { recipe(id: $0.runtimeProfile.rawValue) }
     }
 
-    /// Profiles that put nothing of their own into the prefix and so live in another profile's.
-    /// `artemis-d3d11` is `common` started with the DXMT Wine build.
-    static let sharedBottles = ["artemis-d3d11": "common"]
-
-    public static func bottleID(forProfile id: String) -> String {
-        sharedBottles[id] ?? id
+    /// The profile whose prefix the given one lives in. An unknown id owns its own.
+    public func bottleID(forProfile id: String) -> String {
+        recipe(id: id)?.bottleID ?? id
     }
 
     /// The recipe the game's prefix is built from and marked with; the game's own unless it shares a bottle.
     public func bottleRecipe(for game: Game) -> RuntimeRecipe? {
         guard let recipe = recipe(for: game) else { return nil }
-        return self.recipe(id: Self.bottleID(forProfile: recipe.id)) ?? recipe
+        return self.recipe(id: recipe.bottleID) ?? recipe
     }
 
     public static func files(in directory: URL) throws -> [ProfileFile] {
@@ -193,6 +200,10 @@ public struct ProfileStore: Sendable {
             }
         }
     }
+
+    static let reservedEnvironment: Set<String> = [
+        "WINEPREFIX", "WINESERVER", "WINELOADER", "WINEDLLPATH", "WINEDLLOVERRIDES", "WINEDEBUG", "LANG", "LC_ALL", "PATH", "HOME",
+    ]
 
     private static func resolve(_ file: ProfileFile, in byID: [String: ProfileFile], userIDs: Set<String>) throws -> RuntimeRecipe {
         // Oldest ancestor first, so each later file adds to or overrides what came before.
@@ -210,7 +221,19 @@ public struct ProfileStore: Sendable {
         var deletions: [String] = []
         var features: Set<ProfileFeature> = []
         var wine = ProfileFile.Wine.standard
+        var environment: [String: String] = [:]
+        var launchArguments: [String] = []
+        var locale: String?
         for link in chain {
+            for (name, value) in link.environment ?? [:] {
+                // These decide which prefix and which Wine run, or have a field of their own; a pasted file must not redirect them.
+                guard !reservedEnvironment.contains(name), !name.hasPrefix("DYLD_") else {
+                    throw ProfileError.reservedEnvironment(id: link.id, name: name)
+                }
+                environment[name] = value
+            }
+            launchArguments = link.launchArguments ?? launchArguments
+            locale = link.locale ?? locale
             components += (link.components ?? []).filter { !components.contains($0) }
             for name in link.managedComponents ?? [] {
                 guard let component = ManagedRuntimeComponent(rawValue: name) else {
@@ -237,6 +260,11 @@ public struct ProfileStore: Sendable {
         // Asking for the DXMT Wine is enough to get it downloaded; a file need not also list it as a component.
         if wine == .dxmt, !managed.contains(.dxmt) { managed.insert(.dxmt, at: 0) }
 
+        // A root always has a prefix; a later file gets its own only when it puts something into one.
+        let owners = chain.filter { link in
+            link.base == nil || !(link.components ?? []).isEmpty || !(link.registry ?? []).isEmpty || !(link.registryDelete ?? []).isEmpty
+        }.map(\.id)
+
         return RuntimeRecipe(
             id: file.id,
             name: file.name,
@@ -252,9 +280,14 @@ public struct ProfileStore: Sendable {
                 registryValues: registry,
                 registryKeysToDelete: deletions
             ),
+            environment: environment,
+            launchArguments: launchArguments,
+            locale: locale,
             features: features,
             verifiedGames: file.verifiedGames ?? [],
-            isUserProvided: userIDs.contains(file.id)
+            isUserProvided: userIDs.contains(file.id),
+            bottleID: owners.last ?? file.id,
+            cloneCandidates: owners.dropLast().reversed()
         )
     }
 }

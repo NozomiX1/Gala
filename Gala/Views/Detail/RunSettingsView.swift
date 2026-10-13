@@ -185,7 +185,7 @@ struct RunSettingsView: View {
         var updated = game
         // Moving to another profile's prefix means configuring again; leave a game alone when it did not move.
         if profileID != updated.profileID {
-            updated.useProfile(profileID, bottlesDirectory: library.wineManagerInstance.bottlesDirectory)
+            updated.useProfile(profileID, bottlesDirectory: library.wineManagerInstance.bottlesDirectory, profiles: profiles)
         }
         updated.launchSwitches = switches
         updated.acknowledgedAdvice = seenAdvice

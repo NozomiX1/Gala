@@ -142,6 +142,25 @@ private final class Messages: @unchecked Sendable {
     #expect(game.launchLocale == "zh_CN.UTF-8")
 }
 
+@Test func aProfilesDLLChoicesArePassedAtLaunchWithTheGamesOwnOnTop() throws {
+    var game = Game(title: "SP", executablePath: "/tmp/g/SiglusEngine.exe", engine: .siglusEngine, bottleConfig: BottleConfig(prefixPath: "/tmp/p"))
+    let wine = URL(fileURLWithPath: "/tmp/wine/bin/wine")
+    let recipe = try #require(ProfileStore.bundled.recipe(for: game))
+
+    let fromProfile = try #require(WineLaunchConfig.buildEnvironment(game: game, wineBinary: wine, recipe: recipe)["WINEDLLOVERRIDES"])
+    #expect(fromProfile.contains("quartz=builtin"))
+    #expect(fromProfile.contains("xaudio2_7=native"))
+
+    game.launchSwitches = ["video": "native"]
+    let withSwitch = try #require(WineLaunchConfig.buildEnvironment(game: game, wineBinary: wine, recipe: recipe)["WINEDLLOVERRIDES"])
+    #expect(withSwitch.contains("quartz=native,builtin"))
+    #expect(withSwitch.contains("xaudio2_7=native"))
+
+    // A common game passes nothing: the components brought their own settings into the prefix.
+    let bgi = Game(title: "B", executablePath: "/tmp/g/BGI.exe", engine: .bgi, bottleConfig: BottleConfig(prefixPath: "/tmp/p"))
+    #expect(WineLaunchConfig.buildEnvironment(game: bgi, wineBinary: wine)["WINEDLLOVERRIDES"] == nil)
+}
+
 @Test func graphicsSwitchPicksTheWineBuildInBothDirections() throws {
     let home = FileManager.default.temporaryDirectory.appendingPathComponent("gala-switch-\(UUID().uuidString)")
     defer { try? FileManager.default.removeItem(at: home) }
@@ -178,13 +197,34 @@ private final class Messages: @unchecked Sendable {
     var game = Game(title: "千恋＊万花", executablePath: "/tmp/g/game.exe", engine: .kirikiri)
     game.launchSwitches = ["video": "builtin", "graphics": "dxmt"]
     game.bottleConfig.environment = ["FOO": "1"]
+    game.bottleConfig.launchArguments = ["-windowed"]
     let base = try #require(ProfileStore.bundled.recipe(for: game))
 
-    let file = game.exportedProfile(base: base)
+    var file = game.exportedProfile(base: base)
     #expect(file.base == "common")
     #expect(file.wine == .dxmt)
     #expect(file.dllOverrides == ["quartz": "builtin", "amstream": "builtin"])
-    #expect(file.notes?.contains("FOO=1") == true)
+    // Nothing is left for a note to explain: the file holds the whole launch half.
+    #expect(file.environment == ["FOO": "1"])
+    #expect(file.launchArguments == ["-windowed"])
+    #expect(file.locale == nil)
+    #expect(file.notes == nil)
+
+    game.launchSwitches["locale"] = "ja"
+    file = game.exportedProfile(base: base)
+    #expect(file.locale == "ja_JP.UTF-8")
+
+    // Read back as someone else's profile, it launches a plain game the same way.
+    let store = try ProfileStore(files: ProfileStore.bundledFiles + [file])
+    let recipe = try #require(store.recipe(id: file.id))
+    let other = Game(title: "T", executablePath: "/tmp/h/h.exe", profileID: file.id, bottleConfig: BottleConfig(prefixPath: "/tmp/p"))
+    let environment = WineLaunchConfig.buildEnvironment(game: other, wineBinary: URL(fileURLWithPath: "/tmp/wine/bin/wine"), recipe: recipe)
+    #expect(environment["FOO"] == "1")
+    #expect(environment["LC_ALL"] == "ja_JP.UTF-8")
+    #expect(environment["WINEDLLOVERRIDES"] == "amstream=builtin;quartz=builtin")
+    #expect(try WineLaunchConfig.resolve(game: other, recipe: recipe).arguments == ["h.exe", "-windowed"])
+    #expect(recipe.usesDXMTWine)
+    #expect(recipe.bottleID == "common")
 
     // Round-trips through JSON the way a user's file is read.
     let decoded = try JSONDecoder().decode(ProfileFile.self, from: JSONEncoder().encode(file))

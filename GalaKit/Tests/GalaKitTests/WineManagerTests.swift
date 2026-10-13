@@ -337,8 +337,9 @@ import Foundation
     #expect(artemisMFD3D11 == bottlesDir.appendingPathComponent("Profiles/artemis-mf-d3d11").path)
     #expect(artemisMFD3D11 != artemisD3D11)
     #expect(kirikiri == bgi)
-    // The retired profile keeps its own prefix for games pinned to it.
-    #expect(bottleManager.prefixPath(forProfile: "kirikiri") == bottlesDir.appendingPathComponent("Profiles/kirikiri").path)
+    // It only changes a DLL choice, which is passed at launch, so it needs no prefix of its own.
+    // Games pinned to it before keep the path stored on them.
+    #expect(bottleManager.prefixPath(forProfile: "kirikiri") == bgi)
 }
 
 @Test func bottleManagerUsesCommonSharedPrefixWithoutEngine() throws {

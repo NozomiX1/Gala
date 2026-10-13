@@ -110,6 +110,7 @@ public struct GameRuntime: Sendable {
         ) {
             throw LaunchBlocker.presetOutdated
         }
+        bottleManager.adoptOlderMarker(for: game)
         return wineBinary
     }
 
@@ -184,10 +185,10 @@ public struct GameRuntime: Sendable {
 extension Game {
     /// Moves the game to another profile's prefix; nil goes back to its engine's default.
     /// The game then needs configuring, which is instant when that prefix already exists and is current.
-    public mutating func useProfile(_ id: String?, bottlesDirectory: URL) {
+    public mutating func useProfile(_ id: String?, bottlesDirectory: URL, profiles: ProfileStore = .bundled) {
         profileID = id
-        bottleConfig.prefixPath = id.map { BottleManager.prefixPath(forProfile: $0, bottlesDirectory: bottlesDirectory) }
-            ?? BottleManager.prefixPath(for: engine, bottlesDirectory: bottlesDirectory)
+        bottleConfig.prefixPath = id.map { BottleManager.prefixPath(forProfile: $0, bottlesDirectory: bottlesDirectory, profiles: profiles) }
+            ?? BottleManager.prefixPath(for: engine, bottlesDirectory: bottlesDirectory, profiles: profiles)
         isRuntimeConfigured = false
     }
 }

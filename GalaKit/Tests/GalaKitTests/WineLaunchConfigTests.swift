@@ -260,7 +260,7 @@ import Foundation
     #expect(env["GST_REGISTRY_FORK"] == "no")
 }
 
-@Test func launchArgumentsArePrepended() throws {
+@Test func launchArgumentsFollowTheExecutable() throws {
     let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: dir) }
@@ -277,5 +277,6 @@ import Foundation
 
     let config = try WineLaunchConfig.resolve(game: game)
 
-    #expect(config.arguments == ["--some-flag", "game.exe"])
+    // Before the executable Wine would take the flag for the program to run.
+    #expect(config.arguments == ["game.exe", "--some-flag"])
 }

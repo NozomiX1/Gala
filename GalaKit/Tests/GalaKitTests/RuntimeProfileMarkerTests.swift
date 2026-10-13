@@ -127,3 +127,72 @@ import Foundation
 
     #expect(try BottleManager(bottlesDirectory: tempDir).runtimeMarkerStatus(for: game) == .missing)
 }
+
+/// A stand-in for a built prefix: the file Wine leaves behind, something to tell copies apart, and a marker.
+private func makeBuiltPrefix(_ manager: BottleManager, profile: String, markerJSON: String? = nil) throws -> URL {
+    let prefix = URL(fileURLWithPath: manager.prefixPath(forProfile: profile))
+    try FileManager.default.createDirectory(at: prefix.appendingPathComponent("drive_c"), withIntermediateDirectories: true)
+    try Data("registry of \(profile)".utf8).write(to: prefix.appendingPathComponent("system.reg"))
+    try Data("quartz\namstream\nlavfilters\n".utf8).write(to: prefix.appendingPathComponent("winetricks.log"))
+    if let markerJSON {
+        try Data(markerJSON.utf8).write(to: prefix.appendingPathComponent(".gala-runtime.json"))
+    } else {
+        try manager.writeRuntimeMarker(for: Game(title: profile, executablePath: "/g/a.exe", profileID: profile,
+                                                 bottleConfig: BottleConfig(prefixPath: prefix.path)))
+    }
+    return prefix
+}
+
+@Test func aNewPrefixStartsAsACopyOfItsBuiltBase() async throws {
+    let bottles = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: bottles) }
+    let manager = BottleManager(bottlesDirectory: bottles)
+    let common = try makeBuiltPrefix(manager, profile: "common")
+
+    let leaf = Game(title: "WA2", executablePath: "/g/WA2.exe", engine: .leaf,
+                    bottleConfig: BottleConfig(prefixPath: manager.prefixPath(for: Engine.leaf)))
+    #expect(manager.cloneSource(for: leaf)?.path == common.path)
+
+    // No Wine is needed for this path, which is the point: nothing is installed again.
+    try await manager.createBottle(for: leaf)
+    let prefix = URL(fileURLWithPath: leaf.bottleConfig.prefixPath)
+    #expect(try String(contentsOf: prefix.appendingPathComponent("system.reg"), encoding: .utf8) == "registry of common")
+    #expect(FileManager.default.fileExists(atPath: prefix.appendingPathComponent("winetricks.log").path))
+    // Not yet marked: the game's own registry values still have to be written.
+    #expect(try manager.runtimeMarkerStatus(for: leaf) == .missing)
+    #expect(manager.isBottleReady(for: leaf))
+
+    // A profile without a base, and common itself, have nothing to copy.
+    let mf = Game(title: "A3", executablePath: "/g/a.exe", engine: .artemisMFD3D11,
+                  bottleConfig: BottleConfig(prefixPath: manager.prefixPath(for: Engine.artemisMFD3D11)))
+    #expect(manager.cloneSource(for: mf) == nil)
+    let bgi = Game(title: "B", executablePath: "/g/b.exe", engine: .bgi,
+                   bottleConfig: BottleConfig(prefixPath: manager.prefixPath(for: Engine.bgi)))
+    #expect(manager.cloneSource(for: bgi) == nil)
+}
+
+@Test func anOlderPrefixWithDLLOverridesWrittenIntoItIsNotCopied() throws {
+    let bottles = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: bottles) }
+    let wineManager = WineManager(baseURL: bottles)
+    try Data(#"{"id":"on-leaf","name":"x","base":"leaf","components":["xact"]}"#.utf8)
+        .write(to: wineManager.profilesDirectory.appendingPathComponent("on-leaf.json"))
+    wineManager.reloadProfiles()
+    let manager = BottleManager(bottlesDirectory: wineManager.bottlesDirectory, wineManager: wineManager)
+    let older = { (profile: String) in
+        #"{"profile":"\#(profile)","configVersion":1,"configuredAt":"2026-01-01T00:00:00Z","wineVersionName":"wine-staging-11.6","managedComponents":[],"recipeFingerprint":"from-2.1"}"#
+    }
+    // As 2.1 left them: common's own overrides equal what winetricks writes, leaf's do not.
+    let common = try makeBuiltPrefix(manager, profile: "common", markerJSON: older("common"))
+    _ = try makeBuiltPrefix(manager, profile: "leaf", markerJSON: older("leaf"))
+
+    var game = Game(title: "T", executablePath: "/g/a.exe", engine: .bgi)
+    game.useProfile("on-leaf", bottlesDirectory: wineManager.bottlesDirectory, profiles: wineManager.profiles)
+    #expect(game.bottleConfig.prefixPath.hasSuffix("Profiles/on-leaf"))
+    #expect(wineManager.profiles.recipe(id: "on-leaf")?.cloneCandidates == ["leaf", "common"])
+    #expect(manager.cloneSource(for: game)?.path == common.path)
+
+    // Built by this version, leaf's prefix holds no DLL overrides of Gala's and is the nearer source.
+    let leaf = try makeBuiltPrefix(manager, profile: "leaf")
+    #expect(manager.cloneSource(for: game)?.path == leaf.path)
+}

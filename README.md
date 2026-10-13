@@ -105,14 +105,31 @@ Gala 用 Wine 运行 Windows 视觉小说。日系引擎五花八门，同一套
 }
 ```
 
-写了 `base` 就是继承那个环境的全部内容，这里只写不同的部分。可用的字段：
+写了 `base` 就是继承那个环境的全部内容，这里只写不同的部分。字段分成两类。
+
+**启动时带上的**，不会写进环境，改完直接启动就生效：
+
+| 字段 | 含义 |
+| --- | --- |
+| `dllOverrides` | 某个 DLL 用 Windows 原版（`native`）还是 Wine 自带的（`builtin`）；值写 `null` 表示去掉继承来的那一条 |
+| `wine` | `default` 或 `dxmt`（用带 DXMT 的 Wine，由它渲染 D3D11） |
+| `environment` | 环境变量；值写 `null` 表示去掉继承来的那一个 |
+| `launchArguments` | 给游戏程序的启动参数，例如 `["-windowed"]` |
+| `locale` | 文字区域，例如 `ja_JP.UTF-8` |
+
+**装进环境里的**：
 
 | 字段 | 含义 |
 | --- | --- |
 | `components` | 要安装的 Windows 组件，写 winetricks 里的名字 |
-| `dllOverrides` | 某个 DLL 用 Windows 原版（`native`）还是 Wine 自带的（`builtin`）；值写 `null` 表示去掉继承来的那一条 |
 | `registry`、`registryDelete` | 要写入或删除的注册表项 |
-| `wine` | `default` 或 `dxmt`（用带 DXMT 的 Wine，由它渲染 D3D11） |
+
+只写了第一类的文件不需要建新环境，直接用 `base` 的那个。写了第二类的，Gala 会把 `base` 的环境克隆一份，再把这里的组件和注册表加进去，通常只要十几秒，也几乎不多占空间。
+
+其余字段：
+
+| 字段 | 含义 |
+| --- | --- |
 | `notes`、`verifiedGames` | 说明文字，和用它验证过的游戏 |
 | `advice` | 需要用户自己动手的一件事，比如"在游戏设置里改某一项"。会显示在游戏页面和运行设置里 |
 

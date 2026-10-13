@@ -3,7 +3,7 @@
 ## Project Snapshot
 - Gala is a macOS SwiftUI galgame launcher. Core logic lives in the `GalaKit` Swift package, which has no third-party dependencies. The app target has one: Sparkle, for updates, pinned to an exact version in `project.yml`.
 - Runtime is app-managed Wine Staging 11.6.
-- Wine prefixes (bottles) are shared by runtime profile, not created per game. A game's prefix is the path stored on the game, not one derived from its profile.
+- Wine prefixes (bottles) are shared, not created per game: one per profile that installs something, used by every profile built on it that does not. A game's prefix is the path stored on the game, not one derived from its profile.
 - App data lives in `~/Library/Application Support/Gala`.
 - `gala-cli` (`GalaKit/Sources/gala-cli`) exposes the library and diagnostics on the command line. It is built twice from the same sources: as a SwiftPM product for `swift run gala-cli`, and as an Xcode tool target copied into the app bundle. `--home <dir>` points it at another data directory.
 
@@ -16,8 +16,10 @@
 - Runtime profiles are JSON files in `GalaKit/Sources/GalaKit/Resources/Profiles/`, one per profile; `ProfileStore` folds each file's `base` chain into a recipe. Users add their own in `Profiles/` under the data directory, and a game can be pointed at any profile by hand (`Game.profileID`). Always ask `ProfileStore.recipe(for: game)` (through `WineManager.profiles` or `GameRuntime.recipe(for:)`) what a game runs with; never decide from `game.engine` alone, or a hand-picked profile is ignored. Do not make `common` absorb special-profile DLL overrides: add a file with `"base": "common"` instead.
 - Detection from files is only the first guess: packers hide imports, launchers have none, VNDB can name another release. Every launch records which DLLs Wine loaded, and `LaunchObservation` reads from that log what the game really used; `GameRuntime.advice(for:)` turns it, plus the profile's own `advice` text, into things the user can try. Add a rule there when a failure can be recognised from loaded modules, rather than adding a per-game special case. Advice only suggests; it never changes a setting or a game file.
 - Per-game switches are defined once, in `LaunchSwitch`; the run settings panel and `gala-cli guide` are generated from that list. A switch must take effect at launch and leave the prefix alone, and is added only after a real game has shown that it does (record the check in `docs/runtime-lessons.md`). `WineManager.usesDXMTWine(for:)`, `Game.launchDLLOverrides`, and `Game.launchLocale` are where switches meet the launch; bottle creation and the prefix marker follow the profile only.
-- A profile that puts nothing of its own into the prefix can live in another profile's (`ProfileStore.sharedBottles`). The prefix then carries the owner's marker, and a test must keep the two recipes' prefix contents equal. Games configured before such a change keep the prefix they have: `RuntimeProfileMigration` never moves a configured game whose engine did not change.
-- Editing a profile file changes its fingerprint, which makes existing prefixes of that profile reconfigure; raise `version` only to force that when the recipe itself reads the same. If a change moves games to a different profile, add a migration with tests for existing library entries.
+- A profile has two halves. What goes into the prefix: `components`, `registry`, `registryDelete`. What is passed at every launch and never written into the prefix: `wine`, `dllOverrides`, `environment`, `launchArguments`, `locale`. Both are inherited along `base`. Only the first half decides the prefix: `RuntimeRecipe.bottleID` is the nearest profile in the chain that has one, so a profile that only changes the launch half runs in its base's prefix and needs no building. The prefix carries its owner's marker.
+- A new prefix is cloned from the nearest ancestor prefix that is already built (`BottleManager.cloneSource`), then the profile's own components and registry values are applied; winetricks skips what the copy already has. A root (no `base`) is built from scratch. Never clone to refresh an existing prefix: games keep saves in them. Components can only be added along a chain; a profile that must not have one cannot be based on a profile that installs it, which is why `artemis-mf-d3d11` is a root.
+- winetricks writes a component's own DLL overrides into the prefix when it installs it. Those stay there as part of the component, so `common` lists none. Do not write a profile's `dllOverrides` into a prefix again: prefixes made by 2.0 and 2.1 have them, are still accepted, and are not used as clone sources when they do.
+- Editing the prefix half of a profile file changes its fingerprint, which makes existing prefixes of that profile reconfigure in place; editing the launch half changes nothing in any prefix and takes effect at the next launch. Markers from before format 2 carry a fingerprint that cannot be compared; they are judged by profile and version and rewritten when found current. To force a reconfigure regardless, raise `version` only to force that when the recipe itself reads the same. If a change moves games to a different profile, add a migration with tests for existing library entries.
 - Do not read or write the real `~/Library/Application Support/Gala` in tests or experiments. Use temporary directories and remove them afterward, including temporary prefixes and copied game assets.
 
 ## Runtime Profiles
@@ -25,11 +27,11 @@ The files are the source of truth; this table is a summary.
 
 | Profile | Engines / Games | Key Runtime Notes |
 | --- | --- | --- |
-| `common` | BGI, KiriKiri, legacy Artemis, NScripter, YU-RIS, RealLive, Majiro, AdvHD, QLIE, Unknown | DirectShow stack: `quartz`, `amstream`, `lavfilters`; LAV WMA registry switches |
-| `kirikiri` | No engine any more; games configured in it earlier stay pinned to it | Common video components with `quartz=native` |
-| `leaf` | Leaf/AQUAPLUS, WHITE ALBUM2 | Builtin DirectShow, disabled Wine WMA/WMV codecs, LAV RGB output |
-| `do-kizunar` | 家族計画 追憶 | Builtin `quartz`, `G:\` game mapping, D.O. registry install paths |
-| `artemis-d3d11` | DirectShow-oriented Artemis/iarsys D3D11, e.g. ハミダシクリエイティブ凸 | `common` launched with the DXMT v0.80 Wine variant; lives in `common`'s prefix (`ProfileStore.sharedBottles`) |
+| `common` | BGI, KiriKiri, legacy Artemis, NScripter, YU-RIS, RealLive, Majiro, AdvHD, QLIE, Unknown | The shared root: DirectShow stack `quartz`, `amstream`, `lavfilters`; LAV WMA registry switches. No launch settings of its own |
+| `kirikiri` | No engine any more; games configured in it earlier stay pinned to it | `common` launched with `quartz=native`; lives in `common`'s prefix |
+| `leaf` | Leaf/AQUAPLUS, WHITE ALBUM2 | Clone of `common` with LAV RGB output; launched with builtin DirectShow and Wine's WMA/WMV codecs disabled |
+| `do-kizunar` | 家族計画 追憶 | Clone of `common` with D.O. registry install paths; launched with builtin `quartz` and the game folder as `G:\` |
+| `artemis-d3d11` | DirectShow-oriented Artemis/iarsys D3D11, e.g. ハミダシクリエイティブ凸 | `common` launched with the DXMT v0.80 Wine variant; lives in `common`'s prefix |
 | `artemis-mf-d3d11` | Media Foundation Artemis/iarsys D3D11, e.g. 甜蜜女友3 / アマカノ3 | Separate DXMT profile for MF/WMV routing; no DirectShow/LAV preset; Gala MF Runtime plus per-game WMV audio overlay |
 | `cat-system2` | CatSystem2 | Unverified, no tested game: common video components plus `dotnet40`, `vcrun2015` |
 | `siglus-engine` | SiglusEngine | Unverified, no tested game: common video components plus `xact`, `xinput`, `vcrun2019`, native `xaudio2_7`/`xactengine3_7` |

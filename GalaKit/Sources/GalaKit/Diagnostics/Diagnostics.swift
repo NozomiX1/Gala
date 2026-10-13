@@ -97,11 +97,11 @@ public struct Diagnostics: Codable, Equatable, Sendable {
             isRuntimeConfigured: game.isRuntimeConfigured,
             isBottleReady: bottleManager.isBottleReady(for: game),
             runtimeMarker: marker,
-            locale: game.launchLocale,
+            locale: game.launchLocale(recipe: recipe),
             launchSwitches: game.launchSwitches,
             dllOverrides: game.bottleConfig.dllOverrides,
-            environment: game.bottleConfig.environment.mapValues(scrub),
-            launchArguments: game.bottleConfig.launchArguments.map(scrub),
+            environment: (recipe?.environment ?? [:]).merging(game.bottleConfig.environment, uniquingKeysWith: { _, own in own }).mapValues(scrub),
+            launchArguments: game.launchArguments(recipe: recipe).map(scrub),
             detectionThreshold: EngineDetector.detectionThreshold,
             candidates: EngineDetector.candidates(in: gameDirectory).map {
                 Candidate(engine: $0.engine.displayName, score: $0.score, reasons: $0.reasons)

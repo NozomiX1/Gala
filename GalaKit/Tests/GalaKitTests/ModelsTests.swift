@@ -107,7 +107,7 @@ import Foundation
     let preset = Engine.kirikiri.preset
     #expect(preset.components.contains("quartz"))
     #expect(preset.components.contains("lavfilters"))
-    #expect(preset.dllOverrides["quartz"] == "native,builtin")
+    #expect(preset.dllOverrides.isEmpty)
 }
 
 @Test func commonPresetCoversUnknownAndUnderdetectedLegacyEngines() {
@@ -119,10 +119,8 @@ import Foundation
         #expect(preset.components.contains("quartz"))
         #expect(preset.components.contains("amstream"))
         #expect(preset.components.contains("lavfilters"))
-        #expect(preset.dllOverrides["quartz"] == "native,builtin")
-        #expect(preset.dllOverrides["*quartz"] == "native,builtin")
-        #expect(preset.dllOverrides["amstream"] == "native,builtin")
-        #expect(preset.dllOverrides["*amstream"] == "native,builtin")
+        // winetricks sets "native,builtin" for these when it installs them; the profile adds nothing at launch.
+        #expect(preset.dllOverrides.isEmpty)
     }
 }
 
@@ -168,10 +166,8 @@ import Foundation
         #expect(preset.components.contains("quartz"))
         #expect(preset.components.contains("amstream"))
         #expect(preset.components.contains("lavfilters"))
-        #expect(preset.dllOverrides["quartz"] == "native,builtin")
-        #expect(preset.dllOverrides["*quartz"] == "native,builtin")
-        #expect(preset.dllOverrides["amstream"] == "native,builtin")
-        #expect(preset.dllOverrides["*amstream"] == "native,builtin")
+        // winetricks sets "native,builtin" for these when it installs them; the profile adds nothing at launch.
+        #expect(preset.dllOverrides.isEmpty)
     }
 }
 
@@ -189,10 +185,6 @@ import Foundation
     #expect(preset.components.contains("lavfilters"))
     #expect(preset.components == Engine.bgi.preset.components)
     #expect(preset.managedComponents == [.dxmt])
-    #expect(preset.dllOverrides["quartz"] == "native,builtin")
-    #expect(preset.dllOverrides["*quartz"] == "native,builtin")
-    #expect(preset.dllOverrides["amstream"] == "native,builtin")
-    #expect(preset.dllOverrides["*amstream"] == "native,builtin")
     #expect(preset.dllOverrides == Engine.bgi.preset.dllOverrides)
     #expect(preset.dllOverrides["d3d11"] == nil)
     #expect(preset.dllOverrides["dxgi"] == nil)
