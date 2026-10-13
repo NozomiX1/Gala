@@ -73,6 +73,22 @@ import Foundation
     #expect(selected == .unknown)
 }
 
+@Test func engineSelectionPolicyDoesNotGuessWhenReleasesDisagree() {
+    // ノラと皇女と野良猫ハート: the 2016 original runs on Whale, the 2019 re-release on KiriKiri.
+    let releases = [
+        VNDBRelease(id: "r1", title: "Original", engine: "Whale", platforms: ["win"], patch: false),
+        VNDBRelease(id: "r2", title: "Re-release", engine: "KiriKiri", platforms: ["win"], patch: false),
+    ]
+
+    let selected = EngineSelectionPolicy.select(
+        localDetection: nil,
+        vndbReleases: releases,
+        gameDirectory: nil
+    )
+
+    #expect(selected == .unknown)
+}
+
 private func makeFamilyProjectDirectory() throws -> URL {
     let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

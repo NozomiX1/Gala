@@ -66,16 +66,10 @@ public enum EngineSelectionPolicy {
     ) -> Engine {
         if let localDetection { return localDetection }
 
-        for release in vndbReleases where isUsableWindowsRelease(release) {
-            if let engine = EngineAliasResolver.resolve(
-                vndbEngineName: release.engine,
-                gameDirectory: gameDirectory
-            ) {
-                return engine
-            }
-        }
-
-        return .unknown
+        // One title can ship on several engines (a Whale original, a KiriKiri re-release), and VNDB cannot tell which copy this is.
+        let names = Set(vndbReleases.filter(isUsableWindowsRelease).compactMap(\.engine))
+        guard names.count == 1, let name = names.first else { return .unknown }
+        return EngineAliasResolver.resolve(vndbEngineName: name, gameDirectory: gameDirectory) ?? .unknown
     }
 
     private static func isUsableWindowsRelease(_ release: VNDBRelease) -> Bool {

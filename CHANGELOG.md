@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixed
+- A game whose releases use different engines (an original and a re-release on another engine) is no longer labelled with one of them by guesswork when nothing in its folder identifies the engine. It is added as unknown and runs in `common`.
+
 ## [2.0.0] - 2026-10-13
 
 ### Added
