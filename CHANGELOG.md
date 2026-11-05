@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [2.2.1] - 2026-11-05
+
+### 更新摘要
+- 修复：在 macOS 14 和 15 上，游戏页面的「···」按钮点了没有反应。
+
+### Fixed
+- The game page's ··· button opens its menu again on macOS 14 and 15, where an invisible menu laid over an ordinary button never received the click. On macOS 15 and later the button now pops up the menu itself, so it keeps the same glass as its neighbours; macOS 14 uses a plain menu button.
+
 ## [2.2.0] - 2026-10-14
 
 ### 更新摘要
