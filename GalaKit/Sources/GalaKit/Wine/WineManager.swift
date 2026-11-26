@@ -134,20 +134,42 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
         }
     }
 
+    /// Official mirror for Gala release assets, tried before GitHub Releases for faster domestic downloads.
+    public static let mirrorBaseURL = URL(string: "https://gala.feng7.cn")!
+    private static let githubReleasePathPrefix = "/NozomiX1/Gala/releases/download/"
+
+    /// Returns the mirror URL first when the asset belongs to Gala's GitHub releases, followed by the canonical URL.
+    public static func downloadCandidates(for canonicalURL: URL) -> [URL] {
+        guard canonicalURL.host?.lowercased() == "github.com",
+              canonicalURL.path.hasPrefix(githubReleasePathPrefix) else {
+            return [canonicalURL]
+        }
+        let relativePath = String(canonicalURL.path.dropFirst(githubReleasePathPrefix.count))
+        guard !relativePath.isEmpty,
+              let mirrorURL = URL(string: relativePath, relativeTo: mirrorBaseURL)?.absoluteURL else {
+            return [canonicalURL]
+        }
+        return [mirrorURL, canonicalURL]
+    }
+
     /// Download URL for Wine Staging (hosted in Gala releases for stability)
     public static let wineDownloadURL = URL(string: "https://github.com/NozomiX1/Gala/releases/download/deps-v1/wine-staging-11.6-osx64.tar.xz")!
+    public static let wineSHA256 = "054113ce6d9322ccb2444df2a89abad3c7a8fee12b836ae0f400e00e6398eb70"
     public static let wineVersionName = "wine-staging-11.6"
     public static let dxmtWineVersionName = "wine-staging-11.6-dxmt-v0.80"
 
     /// Download URL for Source Han Sans SC (OFL-licensed CJK font, hosted in Gala releases)
     public static let fontDownloadURL = URL(string: "https://github.com/NozomiX1/Gala/releases/download/deps-v1/SourceHanSansSC-Regular.otf")!
+    public static let fontSHA256 = "f1d8611151880c6c336aabeac4640ef434fa13cbfbf1ffe82d0a71b2a5637256"
     public static let bundledFontName = "SourceHanSansSC-Regular.otf"
 
     /// Download URL for cabextract (needed by winetricks to install Windows components)
     public static let cabextractDownloadURL = URL(string: "https://github.com/NozomiX1/Gala/releases/download/deps-v1/cabextract")!
+    public static let cabextractSHA256 = "ace8ade5fe5ee05c6e2c472df813bd4466917ea44f110d295c144498f0830996"
 
     /// Download URL for winetricks (needed to install engine-specific Windows components)
     public static let winetricksDownloadURL = URL(string: "https://github.com/NozomiX1/Gala/releases/download/deps-v1/winetricks")!
+    public static let winetricksSHA256 = "431f82fc74000e6c864409f1d8fb495d696c03928808e3e8acffc45179312a7b"
 
     /// Download URL for DXMT v0.80 builtin (hosted in Gala releases for stability)
     public static let dxmtDownloadURL = URL(string: "https://github.com/NozomiX1/Gala/releases/download/deps-v2/dxmt-v0.80-builtin.tar.gz")!
@@ -170,7 +192,7 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
 
     public func downloadFont() async throws {
         guard !isFontInstalled else { return }
-        try await downloadFile(from: Self.fontDownloadURL, to: fontFileURL, description: "中文字体")
+        try await downloadFile(from: Self.fontDownloadURL, to: fontFileURL, expectedSHA256: Self.fontSHA256, description: "中文字体")
     }
 
     public var cabextractURL: URL {
@@ -271,13 +293,13 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
 
     public func downloadCabextract() async throws {
         guard !isCabextractInstalled else { return }
-        try await downloadFile(from: Self.cabextractDownloadURL, to: cabextractURL, description: "cabextract")
+        try await downloadFile(from: Self.cabextractDownloadURL, to: cabextractURL, expectedSHA256: Self.cabextractSHA256, description: "cabextract")
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: cabextractURL.path)
     }
 
     public func downloadWinetricks() async throws {
         guard !isWinetricksInstalled else { return }
-        try await downloadFile(from: Self.winetricksDownloadURL, to: winetricksURL, description: "winetricks")
+        try await downloadFile(from: Self.winetricksDownloadURL, to: winetricksURL, expectedSHA256: Self.winetricksSHA256, description: "winetricks")
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: winetricksURL.path)
     }
 
@@ -368,7 +390,7 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
         progressHandler: (@Sendable (Double?) -> Void)?
     ) async throws {
         if FileManager.default.fileExists(atPath: archiveURL.path) {
-            if (try? verifySHA256(fileURL: archiveURL, expected: sha256)) != nil { return }
+            if (try? Self.verifySHA256(fileURL: archiveURL, expected: sha256)) != nil { return }
             try? FileManager.default.removeItem(at: archiveURL)
         }
 
@@ -384,13 +406,16 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
                 at: archiveURL.deletingLastPathComponent(),
                 withIntermediateDirectories: true
             )
-            try await Self.downloadFile(from: url, to: archiveURL) { progress in
+            try await Self.downloadWithFallback(
+                candidates: Self.downloadCandidates(for: url),
+                to: archiveURL,
+                expectedSHA256: sha256
+            ) { progress in
                 progressHandler?(progress)
                 Task { @MainActor in
                     self.downloadProgress = progress
                 }
             }
-            try verifySHA256(fileURL: archiveURL, expected: sha256)
             await MainActor.run {
                 downloadProgress = 1.0
                 finishDownloadState()
@@ -477,12 +502,22 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
         }
     }
 
-    private func verifySHA256(fileURL: URL, expected: String) throws {
-        let data = try Data(contentsOf: fileURL)
-        let digest = SHA256.hash(data: data)
-        let actual = digest.map { String(format: "%02x", $0) }.joined()
+    static func sha256Hex(of fileURL: URL) throws -> String {
+        let handle = try FileHandle(forReadingFrom: fileURL)
+        defer { try? handle.close() }
+        var hasher = SHA256()
+        while true {
+            let chunk = try handle.read(upToCount: 1024 * 1024) ?? Data()
+            if chunk.isEmpty { break }
+            hasher.update(data: chunk)
+        }
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+
+    static func verifySHA256(fileURL: URL, expected: String, displayName: String? = nil) throws {
+        let actual = try sha256Hex(of: fileURL)
         guard actual == expected else {
-            throw WineError.checksumMismatch(fileURL.lastPathComponent)
+            throw WineError.checksumMismatch(displayName ?? fileURL.lastPathComponent)
         }
     }
 
@@ -501,7 +536,14 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
             .appendingPathComponent(UUID().uuidString)
             .appendingPathExtension("tar.xz")
 
-        try await downloadFile(from: url, to: tempURL, description: "Wine 运行时", keepStateActive: true)
+        let expectedSHA256 = url == Self.wineDownloadURL ? Self.wineSHA256 : nil
+        try await downloadFile(
+            from: url,
+            to: tempURL,
+            expectedSHA256: expectedSHA256,
+            description: "Wine 运行时",
+            keepStateActive: true
+        )
 
         await MainActor.run {
             currentDownloadDescription = "正在解压 Wine 运行时..."
@@ -540,6 +582,7 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
     private func downloadFile(
         from url: URL,
         to destination: URL,
+        expectedSHA256: String? = nil,
         description: String,
         keepStateActive: Bool = false
     ) async throws {
@@ -555,7 +598,11 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
                 at: destination.deletingLastPathComponent(),
                 withIntermediateDirectories: true
             )
-            try await Self.downloadFile(from: url, to: destination) { progress in
+            try await Self.downloadWithFallback(
+                candidates: Self.downloadCandidates(for: url),
+                to: destination,
+                expectedSHA256: expectedSHA256
+            ) { progress in
                 Task { @MainActor in
                     self.downloadProgress = progress
                 }
@@ -581,33 +628,159 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
         isDownloadProgressIndeterminate = false
     }
 
-    private static func downloadFile(
-        from url: URL,
+    private static func defaultDownloadSessionConfiguration() -> URLSessionConfiguration {
+        let config = URLSessionConfiguration.ephemeral
+        // Fail fast when a mirror stalls so we can resume or fall back to GitHub Releases.
+        config.timeoutIntervalForRequest = 30
+        config.timeoutIntervalForResource = 1800
+        config.waitsForConnectivity = false
+        return config
+    }
+
+    /// Downloads from each candidate URL in order (retrying transient resets and resuming mid-transfer drops) and verifies SHA256 before moving into place.
+    static func downloadWithFallback(
+        candidates: [URL],
         to destination: URL,
+        expectedSHA256: String? = nil,
+        configuration: URLSessionConfiguration? = nil,
+        maxResumeAttempts: Int = 2,
+        resumeDelayNanoseconds: UInt64 = 1_000_000_000,
+        transientRetryDelaysNanoseconds: [UInt64] = [1_000_000_000, 3_000_000_000],
         onProgress: @escaping @Sendable (Double) -> Void
     ) async throws {
+        precondition(!candidates.isEmpty, "downloadWithFallback requires at least one URL")
+        try FileManager.default.createDirectory(
+            at: destination.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+
+        var lastError: Error = URLError(.unknown)
+        for (index, candidate) in candidates.enumerated() {
+            if index > 0 {
+                onProgress(0)
+            }
+            let stagedURL = destination.deletingLastPathComponent()
+                .appendingPathComponent(".gala-download-\(UUID().uuidString)")
+            defer { try? FileManager.default.removeItem(at: stagedURL) }
+
+            do {
+                try await downloadSingleCandidate(
+                    from: candidate,
+                    to: stagedURL,
+                    configuration: configuration ?? defaultDownloadSessionConfiguration(),
+                    maxResumeAttempts: maxResumeAttempts,
+                    resumeDelayNanoseconds: resumeDelayNanoseconds,
+                    transientRetryDelaysNanoseconds: transientRetryDelaysNanoseconds,
+                    onProgress: onProgress
+                )
+                if let expectedSHA256 {
+                    try verifySHA256(fileURL: stagedURL, expected: expectedSHA256, displayName: destination.lastPathComponent)
+                }
+                try? FileManager.default.removeItem(at: destination)
+                try FileManager.default.moveItem(at: stagedURL, to: destination)
+                return
+            } catch {
+                lastError = error
+            }
+        }
+        throw lastError
+    }
+
+    static func shouldRetryTransientConnectionError(_ error: Error) -> Bool {
+        guard let urlError = error as? URLError else { return false }
+        switch urlError.code {
+        case .networkConnectionLost, .secureConnectionFailed, .cannotConnectToHost, .cannotLoadFromNetwork:
+            return true
+        default:
+            return false
+        }
+    }
+
+    private static func downloadSingleCandidate(
+        from url: URL,
+        to destination: URL,
+        configuration: URLSessionConfiguration,
+        maxResumeAttempts: Int,
+        resumeDelayNanoseconds: UInt64,
+        transientRetryDelaysNanoseconds: [UInt64],
+        onProgress: @escaping @Sendable (Double) -> Void
+    ) async throws {
+        var resumeData: Data?
+        var resumeAttempt = 0
+        var transientRetryAttempt = 0
+
+        while true {
+            let outcome = await performDownloadAttempt(
+                url: url,
+                resumeData: resumeData,
+                destination: destination,
+                configuration: configuration,
+                onProgress: onProgress
+            )
+            switch outcome {
+            case .success:
+                return
+            case .failure(let error, let nextResumeData):
+                if let nextResumeData, resumeAttempt < maxResumeAttempts {
+                    resumeAttempt += 1
+                    resumeData = nextResumeData
+                    if resumeDelayNanoseconds > 0 {
+                        try? await Task.sleep(nanoseconds: resumeDelayNanoseconds)
+                    }
+                    continue
+                }
+                if nextResumeData == nil,
+                   transientRetryAttempt < transientRetryDelaysNanoseconds.count,
+                   shouldRetryTransientConnectionError(error) {
+                    let delay = transientRetryDelaysNanoseconds[transientRetryAttempt]
+                    transientRetryAttempt += 1
+                    resumeData = nil
+                    if delay > 0 {
+                        try? await Task.sleep(nanoseconds: delay)
+                    }
+                    continue
+                }
+                throw error
+            }
+        }
+    }
+
+    fileprivate enum DownloadAttemptOutcome {
+        case success
+        case failure(Error, resumeData: Data?)
+    }
+
+    private static func performDownloadAttempt(
+        url: URL,
+        resumeData: Data?,
+        destination: URL,
+        configuration: URLSessionConfiguration,
+        onProgress: @escaping @Sendable (Double) -> Void
+    ) async -> DownloadAttemptOutcome {
         let delegate = FileDownloadDelegate(destination: destination, onProgress: onProgress)
         let queue = OperationQueue()
         queue.maxConcurrentOperationCount = 1
-        let session = URLSession(configuration: .default, delegate: delegate, delegateQueue: queue)
+        let session = URLSession(configuration: configuration, delegate: delegate, delegateQueue: queue)
         defer {
             session.finishTasksAndInvalidate()
         }
 
-        try await withCheckedThrowingContinuation { continuation in
+        return await withCheckedContinuation { continuation in
             delegate.continuation = continuation
-            session.downloadTask(with: url).resume()
+            let task = resumeData.map { session.downloadTask(withResumeData: $0) } ?? session.downloadTask(with: url)
+            task.resume()
         }
     }
 }
 
 private final class FileDownloadDelegate: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
-    fileprivate var continuation: CheckedContinuation<Void, Error>?
+    fileprivate var continuation: CheckedContinuation<WineManager.DownloadAttemptOutcome, Never>?
 
     private let destination: URL
     private let onProgress: @Sendable (Double) -> Void
     private var didMoveDownload = false
     private var didResume = false
+    private var failureError: Error?
 
     init(destination: URL, onProgress: @escaping @Sendable (Double) -> Void) {
         self.destination = destination
@@ -630,12 +803,16 @@ private final class FileDownloadDelegate: NSObject, URLSessionDownloadDelegate, 
         downloadTask: URLSessionDownloadTask,
         didFinishDownloadingTo location: URL
     ) {
+        if let http = downloadTask.response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+            failureError = WineError.httpStatus(http.statusCode)
+            return
+        }
         do {
             try? FileManager.default.removeItem(at: destination)
             try FileManager.default.moveItem(at: location, to: destination)
             didMoveDownload = true
         } catch {
-            resume(with: .failure(error))
+            failureError = error
         }
     }
 
@@ -644,28 +821,28 @@ private final class FileDownloadDelegate: NSObject, URLSessionDownloadDelegate, 
         task: URLSessionTask,
         didCompleteWithError error: Error?
     ) {
+        if let failureError {
+            resume(with: .failure(failureError, resumeData: nil))
+            return
+        }
         if let error {
-            resume(with: .failure(error))
+            let resumeData = (error as NSError).userInfo[NSURLSessionDownloadTaskResumeData] as? Data
+            resume(with: .failure(error, resumeData: resumeData))
             return
         }
 
         guard didMoveDownload else {
-            resume(with: .failure(URLError(.cannotCreateFile)))
+            resume(with: .failure(URLError(.cannotCreateFile), resumeData: nil))
             return
         }
 
-        resume(with: .success(()))
+        resume(with: .success)
     }
 
-    private func resume(with result: Result<Void, Error>) {
+    private func resume(with outcome: WineManager.DownloadAttemptOutcome) {
         guard !didResume else { return }
         didResume = true
-        switch result {
-        case .success:
-            continuation?.resume()
-        case .failure(let error):
-            continuation?.resume(throwing: error)
-        }
+        continuation?.resume(returning: outcome)
         continuation = nil
     }
 }
@@ -677,6 +854,7 @@ public enum WineError: Error, LocalizedError {
     case helperToolNotInstalled(String)
     case helperToolFailed(String, Int32)
     case checksumMismatch(String)
+    case httpStatus(Int)
 
     public var errorDescription: String? {
         switch self {
@@ -686,6 +864,7 @@ public enum WineError: Error, LocalizedError {
         case .helperToolNotInstalled(let name): return "\(name) is not installed"
         case .helperToolFailed(let name, let status): return "\(name) failed with exit code \(status)"
         case .checksumMismatch(let name): return "\(name) checksum mismatch"
+        case .httpStatus(let code): return "Server returned HTTP \(code)"
         }
     }
 }

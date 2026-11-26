@@ -35,13 +35,24 @@ awk -v v="$VERSION" 'index($0, "## [" v "]") == 1 { on = 1; next } /^## \[/ { on
 grep -q '^### 更新摘要' dist/Gala.md || { echo "CHANGELOG.md: the $VERSION section has no '### 更新摘要'" >&2; exit 1; }
 
 SPARKLE_BIN=build/SourcePackages/artifacts/sparkle/Sparkle/bin
-FEED_ARGS=(--embed-release-notes --download-url-prefix "https://github.com/NozomiX1/Gala/releases/download/v$VERSION/" dist)
-if [ -n "${SPARKLE_PRIVATE_KEY:-}" ]; then
-  echo "$SPARKLE_PRIVATE_KEY" | "$SPARKLE_BIN/generate_appcast" --ed-key-file - "${FEED_ARGS[@]}"
-else
-  "$SPARKLE_BIN/generate_appcast" --account gala "${FEED_ARGS[@]}"
-fi
-# An unsigned feed entry would be rejected by every installed copy, so fail here instead.
-grep -q 'sparkle:edSignature=' dist/appcast.xml || { echo "error: appcast.xml has no update signature" >&2; exit 1; }
+generate_feed() {
+  local prefix="$1"
+  local output="$2"
+  rm -f dist/appcast.xml
+  local args=(--embed-release-notes --download-url-prefix "$prefix" dist)
+  if [ -n "${SPARKLE_PRIVATE_KEY:-}" ]; then
+    echo "$SPARKLE_PRIVATE_KEY" | "$SPARKLE_BIN/generate_appcast" --ed-key-file - "${args[@]}"
+  else
+    "$SPARKLE_BIN/generate_appcast" --account gala "${args[@]}"
+  fi
+  # An unsigned feed entry would be rejected by every installed copy, so fail here instead.
+  grep -q 'sparkle:edSignature=' dist/appcast.xml || { echo "error: $output has no update signature" >&2; exit 1; }
+  if [ "$output" != "dist/appcast.xml" ]; then
+    mv dist/appcast.xml "$output"
+  fi
+}
 
-echo "dist/Gala.dmg, dist/appcast.xml (Gala $VERSION)"
+generate_feed "https://gala.feng7.cn/releases/v$VERSION/" dist/appcast-mirror.xml
+generate_feed "https://github.com/NozomiX1/Gala/releases/download/v$VERSION/" dist/appcast.xml
+
+echo "dist/Gala.dmg, dist/appcast.xml, dist/appcast-mirror.xml (Gala $VERSION)"

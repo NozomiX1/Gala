@@ -50,9 +50,9 @@ Gala 用 Wine 运行 Windows 视觉小说。日系引擎五花八门，同一套
 
 ## 安装
 
-1. 下载 [Gala.dmg](https://github.com/NozomiX1/Gala/releases/latest)，打开后将 Gala 拖入 Applications
+1. 下载 [Gala.dmg（国内直连）](https://gala.feng7.cn/releases/latest/Gala.dmg) 或前往 [GitHub Releases](https://github.com/NozomiX1/Gala/releases/latest) 下载，打开后将 Gala 拖入 Applications
 2. 前往访达 → 应用程序，双击 Gala 启动。Gala 没有 Apple 的开发者签名，首次打开需要在「系统设置 → 隐私与安全性」里点「仍要打开」。如果点了之后没有反应或者密码框不出现，把 Gala 从应用程序里删掉、重新从 DMG 拖进去，然后在第一次打开之前在「终端」里运行 `xattr -dr com.apple.quarantine /Applications/Gala.app`；仍然打不开的话重启一次 Mac
-3. 首次启动会自动准备 Wine 运行时、CJK 字体和辅助工具，并显示当前下载项目与进度。下载量约 1.5 GB，部分依赖在海外，建议打开代理
+3. 首次启动会自动准备 Wine 运行时、CJK 字体和辅助工具，并显示当前下载项目与进度。Gala 管理的运行环境会优先从国内镜像下载（失败时自动回退 GitHub），支持断线续传；首次配置游戏环境时部分 Windows 组件仍需联网获取
 
 之后的更新在应用内完成。从 1.x 升级需要手动下载一次 2.0 的 DMG 覆盖旧版；游戏库、游玩时间和已经配置好的环境都会保留。
 

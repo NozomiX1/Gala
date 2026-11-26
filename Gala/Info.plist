@@ -29,7 +29,7 @@
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
 	<key>SUFeedURL</key>
-	<string>https://github.com/NozomiX1/Gala/releases/latest/download/appcast.xml</string>
+	<string>https://gala.feng7.cn/releases/latest/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>KJKBiYQmjLMWF6CDpOk2g4R9gfjaCxD1ri0X22MAVeY=</string>
 </dict>

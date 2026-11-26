@@ -43,7 +43,7 @@ Ren'Py, RPG Maker, and Unity games also run in `common`. That is unverified: no 
 Read `docs/runtime-lessons.md` before changing a profile or debugging playback, rendering, font, or path problems. It holds the diagnosis order, the failure taxonomy, and the table of known bugs and their fixes. Add to it when a bug teaches a reusable rule.
 
 ## Dependencies
-- Gala-managed dependencies download from Gala GitHub release assets, never directly from upstream. Upload the asset first, then reference its URL and sha256 in `WineManager`.
+- Gala-managed dependencies live on Gala GitHub Releases as the canonical source, never directly from upstream, and are mirrored to Cloudflare R2 (`https://gala.feng7.cn`). Upload new assets to GitHub Releases first, mirror them with `scripts/sync-deps-to-r2.sh`, and reference their canonical URL and sha256 in `WineManager`. `WineManager` tries `gala.feng7.cn` first, falls back to GitHub Releases on error or checksum mismatch, and verifies SHA256 for every dependency.
 - Apple's on-demand fonts (SimSong, STHeiti) are the one exception: they cannot be redistributed, so `BottleManager` asks macOS to download them and falls back to fonts every macOS ships.
 - `deps-v1`: Wine Staging 11.6, Source Han Sans SC, winetricks, cabextract.
 - `deps-v2`: DXMT v0.80 builtin.
@@ -61,8 +61,8 @@ Read `docs/runtime-lessons.md` before changing a profile or debugging playback, 
 ## Releasing
 - Set the version in `project.yml` and move the `[Unreleased]` changelog entries under a `## [X.Y.Z] - date` heading.
 - `scripts/release.sh` builds `dist/Gala.dmg` and the signed `dist/appcast.xml` locally.
-- Pushing a `vX.Y.Z` tag runs `.github/workflows/release.yml`: it tests, builds, and publishes the DMG and `appcast.xml` with that changelog section as the release notes. The tag must match the version in `project.yml`.
-- Installed copies read `releases/latest/download/appcast.xml`, so every release must carry that asset. Keep the `vX.Y.Z` tag format and the `.dmg` asset too: the 1.x update check finds new versions through them.
+- Pushing a `vX.Y.Z` tag runs `.github/workflows/release.yml`: it tests, builds, publishes the DMG and GitHub-pointed `appcast.xml` to GitHub Releases, and (when `R2_*` repository secrets are set) mirrors `Gala.dmg` and `appcast-mirror.xml` to `https://gala.feng7.cn/releases/`. The tag must match the version in `project.yml`.
+- Installed copies from 2.0–2.3.0 read GitHub's `releases/latest/download/appcast.xml`, while newer copies read `https://gala.feng7.cn/releases/latest/appcast.xml`; every release must carry both feeds (signed with the same EdDSA key). Keep the `vX.Y.Z` tag format and the `.dmg` asset on GitHub too: the 1.x update check finds new versions through them.
 - Updates are signed with a Sparkle EdDSA key. The private key lives in the maintainer's login keychain (account `gala`) and in the `SPARKLE_PRIVATE_KEY` repository secret; the public key is in `project.yml`. Never replace the key pair: copies already installed would reject every later update.
 
 ## Verification

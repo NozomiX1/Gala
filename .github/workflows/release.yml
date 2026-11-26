@@ -46,3 +46,18 @@ jobs:
           else
             gh release create "$GITHUB_REF_NAME" dist/Gala.dmg dist/appcast.xml --title "Gala $VERSION" --notes-file dist/Gala.md
           fi
+
+      - name: Sync release to Cloudflare R2 mirror
+        env:
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          if [ -z "${R2_ACCESS_KEY_ID:-}" ]; then
+            echo "R2 secrets not configured; skipping mirror sync."
+            exit 0
+          fi
+          scripts/r2-upload.sh dist/Gala.dmg "releases/v$VERSION/Gala.dmg" "public, max-age=31536000, immutable" "application/octet-stream"
+          scripts/r2-upload.sh dist/Gala.dmg "releases/latest/Gala.dmg" "public, max-age=300" "application/octet-stream"
+          scripts/r2-upload.sh dist/appcast-mirror.xml "releases/latest/appcast.xml" "no-cache" "application/xml"

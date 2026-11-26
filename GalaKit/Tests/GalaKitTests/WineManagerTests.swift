@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import CryptoKit
 @testable import GalaKit
 
 @Test func wineManagerDirectoryStructure() throws {
@@ -430,4 +431,322 @@ import Foundation
     #expect(FileManager.default.fileExists(atPath: manager.fontsDirectory.path))
     #expect(FileManager.default.fileExists(atPath: manager.toolsDirectory.path))
     #expect(FileManager.default.fileExists(atPath: manager.cacheDirectory.path))
+}
+
+@Test func downloadCandidatesPreferMirrorThenGitHubForGalaAssets() {
+    let pairs: [(URL, String)] = [
+        (WineManager.wineDownloadURL, "https://gala.feng7.cn/deps-v1/wine-staging-11.6-osx64.tar.xz"),
+        (WineManager.fontDownloadURL, "https://gala.feng7.cn/deps-v1/SourceHanSansSC-Regular.otf"),
+        (WineManager.cabextractDownloadURL, "https://gala.feng7.cn/deps-v1/cabextract"),
+        (WineManager.winetricksDownloadURL, "https://gala.feng7.cn/deps-v1/winetricks"),
+        (WineManager.dxmtDownloadURL, "https://gala.feng7.cn/deps-v2/dxmt-v0.80-builtin.tar.gz"),
+        (WineManager.mediaFoundationRuntimeDownloadURL, "https://gala.feng7.cn/deps-v3/gala-mf-runtime-1.1-macos.tar.gz"),
+    ]
+
+    for (canonical, expectedMirror) in pairs {
+        let candidates = WineManager.downloadCandidates(for: canonical)
+        #expect(candidates.count == 2)
+        #expect(candidates[0].absoluteString == expectedMirror)
+        #expect(candidates[1] == canonical)
+    }
+
+    let external = URL(string: "https://example.com/custom.tar.xz")!
+    #expect(WineManager.downloadCandidates(for: external) == [external])
+}
+
+@Test func downloadWithFallbackUsesMirrorWhenHealthy() async throws {
+    let token = UUID().uuidString
+    let payload = Data("healthy-mirror-payload".utf8)
+    let expectedSHA = sha256Hex(payload)
+    let mirrorURL = URL(string: "https://mirror.test/\(token)/asset.bin")!
+    let fallbackURL = URL(string: "https://github.test/\(token)/asset.bin")!
+
+    let tracker = RequestTracker()
+    StubDownloadProtocol.register(prefix: "/\(token)/") { url in
+        tracker.record(url)
+        return .http(200, payload)
+    }
+    defer { StubDownloadProtocol.unregister(prefix: "/\(token)/") }
+
+    let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: tempDir) }
+    let destination = tempDir.appendingPathComponent("asset.bin")
+
+    try await WineManager.downloadWithFallback(
+        candidates: [mirrorURL, fallbackURL],
+        to: destination,
+        expectedSHA256: expectedSHA,
+        configuration: StubDownloadProtocol.sessionConfiguration(),
+        resumeDelayNanoseconds: 0
+    ) { _ in }
+
+    #expect(try Data(contentsOf: destination) == payload)
+    #expect(tracker.urls == [mirrorURL])
+}
+
+@Test func downloadWithFallbackRecoversFromMirrorHTTP404() async throws {
+    let token = UUID().uuidString
+    let payload = Data("github-fallback-payload".utf8)
+    let expectedSHA = sha256Hex(payload)
+    let mirrorURL = URL(string: "https://mirror.test/\(token)/asset.bin")!
+    let fallbackURL = URL(string: "https://github.test/\(token)/asset.bin")!
+
+    let tracker = RequestTracker()
+    StubDownloadProtocol.register(prefix: "/\(token)/") { url in
+        tracker.record(url)
+        if url == mirrorURL {
+            return .http(404, Data("Not Found".utf8))
+        }
+        return .http(200, payload)
+    }
+    defer { StubDownloadProtocol.unregister(prefix: "/\(token)/") }
+
+    let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: tempDir) }
+    let destination = tempDir.appendingPathComponent("asset.bin")
+
+    try await WineManager.downloadWithFallback(
+        candidates: [mirrorURL, fallbackURL],
+        to: destination,
+        expectedSHA256: expectedSHA,
+        configuration: StubDownloadProtocol.sessionConfiguration(),
+        resumeDelayNanoseconds: 0
+    ) { _ in }
+
+    #expect(try Data(contentsOf: destination) == payload)
+    #expect(tracker.urls == [mirrorURL, fallbackURL])
+}
+
+@Test func downloadWithFallbackRecoversFromMirrorChecksumMismatch() async throws {
+    let token = UUID().uuidString
+    let goodPayload = Data("verified-good-bytes".utf8)
+    let expectedSHA = sha256Hex(goodPayload)
+    let mirrorURL = URL(string: "https://mirror.test/\(token)/asset.bin")!
+    let fallbackURL = URL(string: "https://github.test/\(token)/asset.bin")!
+
+    let tracker = RequestTracker()
+    StubDownloadProtocol.register(prefix: "/\(token)/") { url in
+        tracker.record(url)
+        if url == mirrorURL {
+            return .http(200, Data("corrupted-mirror-bytes".utf8))
+        }
+        return .http(200, goodPayload)
+    }
+    defer { StubDownloadProtocol.unregister(prefix: "/\(token)/") }
+
+    let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: tempDir) }
+    let destination = tempDir.appendingPathComponent("asset.bin")
+
+    try await WineManager.downloadWithFallback(
+        candidates: [mirrorURL, fallbackURL],
+        to: destination,
+        expectedSHA256: expectedSHA,
+        configuration: StubDownloadProtocol.sessionConfiguration(),
+        resumeDelayNanoseconds: 0
+    ) { _ in }
+
+    #expect(try Data(contentsOf: destination) == goodPayload)
+    #expect(tracker.urls == [mirrorURL, fallbackURL])
+}
+
+@Test func downloadWithFallbackThrowsAndLeavesNoFileWhenAllCandidatesFail() async throws {
+    let token = UUID().uuidString
+    let mirrorURL = URL(string: "https://mirror.test/\(token)/asset.bin")!
+    let fallbackURL = URL(string: "https://github.test/\(token)/asset.bin")!
+
+    StubDownloadProtocol.register(prefix: "/\(token)/") { _ in
+        .http(503, Data("Service Unavailable".utf8))
+    }
+    defer { StubDownloadProtocol.unregister(prefix: "/\(token)/") }
+
+    let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: tempDir) }
+    let destination = tempDir.appendingPathComponent("asset.bin")
+
+    await #expect(throws: Error.self) {
+        try await WineManager.downloadWithFallback(
+            candidates: [mirrorURL, fallbackURL],
+            to: destination,
+            expectedSHA256: nil,
+            configuration: StubDownloadProtocol.sessionConfiguration(),
+            resumeDelayNanoseconds: 0
+        ) { _ in }
+    }
+
+    #expect(!FileManager.default.fileExists(atPath: destination.path))
+}
+
+@Test func streamingSHA256MatchesCryptoKitAcrossMultipleChunks() throws {
+    let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: tempDir) }
+
+    // 2.5 MB spans multiple 1 MB read chunks.
+    let data = Data((0..<(2_500_000)).map { UInt8($0 & 0xFF) })
+    let file = tempDir.appendingPathComponent("blob.bin")
+    try data.write(to: file)
+
+    #expect(try WineManager.sha256Hex(of: file) == sha256Hex(data))
+}
+
+@Test func downloadWithFallbackRetriesTransientTLSResetsBeforeFallingBack() async throws {
+    let token = UUID().uuidString
+    let payload = Data("recovered-on-third-attempt".utf8)
+    let expectedSHA = sha256Hex(payload)
+    let mirrorURL = URL(string: "https://mirror.test/\(token)/asset.bin")!
+    let fallbackURL = URL(string: "https://github.test/\(token)/asset.bin")!
+
+    let tracker = RequestTracker()
+    StubDownloadProtocol.register(prefix: "/\(token)/") { url in
+        let attempt = tracker.recordAndCount(url)
+        if url == mirrorURL && attempt <= 2 {
+            return .error(URLError(.secureConnectionFailed))
+        }
+        return .http(200, payload)
+    }
+    defer { StubDownloadProtocol.unregister(prefix: "/\(token)/") }
+
+    let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: tempDir) }
+    let destination = tempDir.appendingPathComponent("asset.bin")
+
+    try await WineManager.downloadWithFallback(
+        candidates: [mirrorURL, fallbackURL],
+        to: destination,
+        expectedSHA256: expectedSHA,
+        configuration: StubDownloadProtocol.sessionConfiguration(),
+        resumeDelayNanoseconds: 0,
+        transientRetryDelaysNanoseconds: [0, 0]
+    ) { _ in }
+
+    #expect(try Data(contentsOf: destination) == payload)
+    #expect(tracker.urls == [mirrorURL, mirrorURL, mirrorURL])
+}
+
+@Test func downloadWithFallbackDoesNotRetryTimedOutOrMissingHostOnMirror() async throws {
+    for errorCode in [URLError.Code.timedOut, URLError.Code.cannotFindHost] {
+        let token = UUID().uuidString
+        let payload = Data("github-direct-fallback".utf8)
+        let mirrorURL = URL(string: "https://mirror.test/\(token)/asset.bin")!
+        let fallbackURL = URL(string: "https://github.test/\(token)/asset.bin")!
+
+        let tracker = RequestTracker()
+        StubDownloadProtocol.register(prefix: "/\(token)/") { url in
+            tracker.record(url)
+            if url == mirrorURL {
+                return .error(URLError(errorCode))
+            }
+            return .http(200, payload)
+        }
+        defer { StubDownloadProtocol.unregister(prefix: "/\(token)/") }
+
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+        let destination = tempDir.appendingPathComponent("asset.bin")
+
+        try await WineManager.downloadWithFallback(
+            candidates: [mirrorURL, fallbackURL],
+            to: destination,
+            expectedSHA256: nil,
+            configuration: StubDownloadProtocol.sessionConfiguration(),
+            resumeDelayNanoseconds: 0,
+            transientRetryDelaysNanoseconds: [0, 0]
+        ) { _ in }
+
+        #expect(try Data(contentsOf: destination) == payload)
+        #expect(tracker.urls == [mirrorURL, fallbackURL])
+    }
+}
+
+private func sha256Hex(_ data: Data) -> String {
+    SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+}
+
+private final class RequestTracker: @unchecked Sendable {
+    private let lock = NSLock()
+    private var recorded: [URL] = []
+
+    var urls: [URL] {
+        lock.lock()
+        defer { lock.unlock() }
+        return recorded
+    }
+
+    func record(_ url: URL) {
+        lock.lock()
+        recorded.append(url)
+        lock.unlock()
+    }
+
+    func recordAndCount(_ url: URL) -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        recorded.append(url)
+        return recorded.filter { $0 == url }.count
+    }
+}
+
+private final class StubDownloadProtocol: URLProtocol {
+    enum StubResponse {
+        case http(Int, Data)
+        case error(Error)
+    }
+    typealias Handler = @Sendable (URL) -> StubResponse
+
+    private static let lock = NSLock()
+    private static var handlers: [String: Handler] = [:]
+
+    static func register(prefix: String, handler: @escaping Handler) {
+        lock.lock()
+        handlers[prefix] = handler
+        lock.unlock()
+    }
+
+    static func unregister(prefix: String) {
+        lock.lock()
+        handlers.removeValue(forKey: prefix)
+        lock.unlock()
+    }
+
+    static func sessionConfiguration() -> URLSessionConfiguration {
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [StubDownloadProtocol.self]
+        return config
+    }
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        guard let url = request.url else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badURL))
+            return
+        }
+        Self.lock.lock()
+        let handler = Self.handlers.first { url.path.hasPrefix($0.key) }?.value
+        Self.lock.unlock()
+
+        guard let handler else {
+            client?.urlProtocol(self, didFailWithError: URLError(.fileDoesNotExist))
+            return
+        }
+
+        switch handler(url) {
+        case .error(let error):
+            client?.urlProtocol(self, didFailWithError: error)
+        case .http(let statusCode, let data):
+            let response = HTTPURLResponse(
+                url: url,
+                statusCode: statusCode,
+                httpVersion: "HTTP/1.1",
+                headerFields: ["Content-Length": "\(data.count)"]
+            )!
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: data)
+            client?.urlProtocolDidFinishLoading(self)
+        }
+    }
+
+    override func stopLoading() {}
 }

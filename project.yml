@@ -57,7 +57,7 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         # Sparkle compares CFBundleVersion, so it tracks the marketing version instead of a separate build number.
         CFBundleVersion: $(MARKETING_VERSION)
-        SUFeedURL: https://github.com/NozomiX1/Gala/releases/latest/download/appcast.xml
+        SUFeedURL: https://gala.feng7.cn/releases/latest/appcast.xml
         SUPublicEDKey: KJKBiYQmjLMWF6CDpOk2g4R9gfjaCxD1ri0X22MAVeY=
         SUEnableAutomaticChecks: true
         LSMinimumSystemVersion: "14.0"

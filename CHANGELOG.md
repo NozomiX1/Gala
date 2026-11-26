@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### 更新摘要
+- 改进：Wine 运行时、字体、辅助工具、DXMT、媒体运行时和应用内更新现在优先从国内加速镜像（`gala.feng7.cn`）下载，网络异常时自动回退 GitHub，降低国内首次装机卡顿。
+- 改进：所有运行时依赖下载现已支持断线自动续传与完整 SHA256 校验，不再因偶发断网从头重下。
+
+### Added
+- Added `scripts/r2-upload.sh` and `scripts/sync-deps-to-r2.sh`, and extended `.github/workflows/release.yml` and `scripts/release.sh` to mirror release DMGs and a signed mirror `appcast.xml` to Cloudflare R2 (`gala.feng7.cn`) alongside GitHub Releases.
+
+### Changed
+- `WineManager` now resolves Gala-managed GitHub release assets to `[mirror, github]` candidates, checks HTTP status codes before accepting a download, resumes transient drops via `URLSession` resume data, streams SHA256 verification for all managed dependencies (including `deps-v1`), and falls back to GitHub automatically on error or checksum mismatch.
+- Switched Sparkle `SUFeedURL` to `https://gala.feng7.cn/releases/latest/appcast.xml` while keeping GitHub's `appcast.xml` published for earlier versions.
+
 ## [2.3.0] - 2026-11-26
 
 ### 更新摘要
