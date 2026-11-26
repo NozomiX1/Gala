@@ -119,9 +119,9 @@ import Foundation
 
     let manager = WineManager(baseURL: tempDir)
 
-    #expect(manager.mediaFoundationRuntimeArchiveURL.path == tempDir.appendingPathComponent("Cache/media-foundation/gala-mf-runtime-1.0/gala-mf-runtime-1.0-macos.tar.gz").path)
-    #expect(manager.mediaFoundationRuntimeDirectory.path == tempDir.appendingPathComponent("Tools/MediaFoundation/gala-mf-runtime-1.0").path)
-    #expect(manager.mediaFoundationFFmpegURL.path == tempDir.appendingPathComponent("Tools/MediaFoundation/gala-mf-runtime-1.0/bin/ffmpeg").path)
+    #expect(manager.mediaFoundationRuntimeArchiveURL.path == tempDir.appendingPathComponent("Cache/media-foundation/gala-mf-runtime-1.1/gala-mf-runtime-1.1-macos.tar.gz").path)
+    #expect(manager.mediaFoundationRuntimeDirectory.path == tempDir.appendingPathComponent("Tools/MediaFoundation/gala-mf-runtime-1.1").path)
+    #expect(manager.mediaFoundationFFmpegURL.path == tempDir.appendingPathComponent("Tools/MediaFoundation/gala-mf-runtime-1.1/bin/ffmpeg").path)
 }
 
 @Test func wineManagerSelectsDXMTWineForArtemisD3D11ProfilesOnly() throws {

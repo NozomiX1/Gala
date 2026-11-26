@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### 更新摘要
+- 修复：使用 Media Foundation 播放 H.264/MP4 片头视频（如 D.C.5 汉化版）时，因为缺少 GStreamer 解析插件导致有声音但黑屏。
+- 改进：运行建议现在能识别 Direct2D（`DrawDeviceD2D*` / `d2d1`）游戏，不再误推荐开启不兼容的 DXMT，并直接给出禁用插件以回退 D3D9 渲染的提示。
+
+### Fixed
+- Updated the Media Foundation runtime bundle to `gala-mf-runtime-1.1`, adding GStreamer 1.28.2 `libgstvideoparsersbad.dylib` (`h264parse`), `libgstaudioparsers.dylib` (`aacparse`), and `libgstisomp4.dylib` so Media Foundation H.264/AAC MP4 videos decode instead of playing audio with a black screen.
+- `LaunchObservation` now reports `Direct2D` when `d2d1.dll` is loaded, stops recommending DXMT when Direct2D is layered over D3D11 (DXMT v0.80 lacks `IDXGISurface`), and advises disabling KiriKiri Z `DrawDeviceD2D*` plugins (such as `DrawDeviceD2Dv2=disabled`) so the game falls back to D3D9.
+
 ## [2.2.1] - 2026-11-05
 
 ### 更新摘要

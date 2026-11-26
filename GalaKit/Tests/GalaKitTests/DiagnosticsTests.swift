@@ -239,3 +239,35 @@ private let d3d11Log = #"""
     #expect(report.text.contains("【建议】"))
     #expect(try JSONDecoder().decode(Game.self, from: JSONEncoder().encode(game)).acknowledgedAdvice.isEmpty)
 }
+
+@Test func direct2DOnD3D11DoesNotRecommendDXMTAndSuggestsDisablingDrawDeviceD2D() {
+    let drawDeviceLog = #"""
+    00e0:trace:loaddll:build_module Loaded L"Z:\\Games\\DC5\\plugin\\DrawDeviceD2Dv2.dll" at 777B0000: native
+    00e0:trace:loaddll:build_module Loaded L"C:\\windows\\system32\\D3D11.DLL" at 773D0000: builtin
+    00e0:trace:loaddll:build_module Loaded L"C:\\windows\\system32\\D2D1.DLL" at 76E90000: builtin
+    """#
+    let d2dPluginObs = LaunchObservation(log: drawDeviceLog)
+    #expect(d2dPluginObs.usesD3D11)
+    #expect(d2dPluginObs.usesD2D1)
+    #expect(d2dPluginObs.direct2DDrawPlugin == "DrawDeviceD2Dv2")
+    #expect(d2dPluginObs.summary == "图形：D3D11、Direct2D · 视频：这次运行没有用到")
+
+    let plainAdvice = d2dPluginObs.advice(usesDXMTWine: false, usesMediaFoundationRuntime: false)
+    #expect(plainAdvice.count == 1)
+    #expect(plainAdvice[0].contains("DrawDeviceD2Dv2=disabled"))
+    #expect(!plainAdvice[0].contains("换成 DXMT"))
+
+    let dxmtAdvice = d2dPluginObs.advice(usesDXMTWine: true, usesMediaFoundationRuntime: false)
+    #expect(dxmtAdvice.count == 1)
+    #expect(dxmtAdvice[0].contains("DrawDeviceD2Dv2=disabled"))
+    #expect(dxmtAdvice[0].contains("不兼容"))
+
+    let genericD2DLog = #"""
+    00e0:trace:loaddll:build_module Loaded L"C:\\windows\\system32\\D3D11.DLL" at 773D0000: builtin
+    00e0:trace:loaddll:build_module Loaded L"C:\\windows\\system32\\D2D1.DLL" at 76E90000: builtin
+    """#
+    let genericObs = LaunchObservation(log: genericD2DLog)
+    #expect(genericObs.direct2DDrawPlugin == nil)
+    #expect(genericObs.advice(usesDXMTWine: false, usesMediaFoundationRuntime: false).isEmpty)
+    #expect(genericObs.advice(usesDXMTWine: true, usesMediaFoundationRuntime: false).first?.contains("Wine 自带") == true)
+}

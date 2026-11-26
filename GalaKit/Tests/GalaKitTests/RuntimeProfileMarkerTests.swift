@@ -81,7 +81,7 @@ import Foundation
     #expect(marker.profile == "artemis-mf-d3d11")
     #expect(marker.configVersion == Engine.artemisMFD3D11.runtimeConfigVersion)
     #expect(marker.wineVersionName == WineManager.dxmtWineVersionName)
-    #expect(marker.managedComponents == ["dxmt@v0.80", "gala-mf-runtime@1.0"])
+    #expect(marker.managedComponents == ["dxmt@v0.80", "gala-mf-runtime@1.1"])
 }
 
 @Test func runtimeMarkerStatusDetectsOutdatedConfigVersion() throws {

@@ -155,10 +155,10 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
     public static let dxmtSHA256 = "8f260e36b5739e68f3bad613381441385c4dc7b85b78ba8de653d5a6a264529d"
 
     /// Download URL for the Gala Media Foundation runtime bundle.
-    public static let mediaFoundationRuntimeDownloadURL = URL(string: "https://github.com/NozomiX1/Gala/releases/download/deps-v3/gala-mf-runtime-1.0-macos.tar.gz")!
-    public static let mediaFoundationRuntimeVersionName = "gala-mf-runtime-1.0"
-    public static let mediaFoundationRuntimeArchiveName = "gala-mf-runtime-1.0-macos.tar.gz"
-    public static let mediaFoundationRuntimeSHA256 = "66596147ba88f694ae2280e780c501f991e0e83a0c08253e39cbea43f8b14da5"
+    public static let mediaFoundationRuntimeDownloadURL = URL(string: "https://github.com/NozomiX1/Gala/releases/download/deps-v3/gala-mf-runtime-1.1-macos.tar.gz")!
+    public static let mediaFoundationRuntimeVersionName = "gala-mf-runtime-1.1"
+    public static let mediaFoundationRuntimeArchiveName = "gala-mf-runtime-1.1-macos.tar.gz"
+    public static let mediaFoundationRuntimeSHA256 = "021f43bea3871e00e8a1bb0eec3e4a112bcc19fc4a3960e5e50df42f5ff94df9"
 
     public var fontFileURL: URL {
         fontsDirectory.appendingPathComponent(Self.bundledFontName)

@@ -1080,7 +1080,7 @@ private extension ManagedRuntimeComponent {
         case .dxmt:
             return "dxmt@v0.80"
         case .mediaFoundation:
-            return "gala-mf-runtime@1.0"
+            return "gala-mf-runtime@1.1"
         }
     }
 }
