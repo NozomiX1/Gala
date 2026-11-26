@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [2.2.2] - 2026-11-26
+
 ### 更新摘要
 - 修复：使用 Media Foundation 播放 H.264/MP4 片头视频（如 D.C.5 汉化版）时，因为缺少 GStreamer 解析插件导致有声音但黑屏。
 - 改进：运行建议现在能识别 Direct2D（`DrawDeviceD2D*` / `d2d1`）游戏，不再误推荐开启不兼容的 DXMT，并直接给出禁用插件以回退 D3D9 渲染的提示。
