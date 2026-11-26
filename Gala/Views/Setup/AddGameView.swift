@@ -61,13 +61,13 @@ struct AddGameView: View {
             resultList
                 .padding(.top, 10)
 
-            Divider()
+            GalaSheetDivider()
 
             HStack {
                 Button("不匹配，直接添加") {
                     add(matching: nil)
                 }
-                .buttonStyle(.link)
+                .galaSubtleButtonStyle()
                 Spacer()
                 if let addingStatus {
                     ProgressView()
@@ -78,6 +78,7 @@ struct AddGameView: View {
                 Button("取消", role: .cancel) {
                     dismiss()
                 }
+                .galaButtonStyle()
                 .keyboardShortcut(.cancelAction)
             }
             .padding(.horizontal, 24)
@@ -111,6 +112,7 @@ struct AddGameView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
             }
+            .galaOverlayScrollbars()
         }
     }
 

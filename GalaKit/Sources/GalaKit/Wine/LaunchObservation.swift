@@ -1,5 +1,34 @@
 import Foundation
 
+/// One actionable or informational suggestion shown for a game.
+/// Applying an action only edits the user's draft in run settings; advice never changes a game silently.
+public struct RuntimeAdvice: Equatable, Sendable, Identifiable {
+    public struct Action: Equatable, Sendable {
+        public var profileID: String?
+        public var launchSwitches: [String: String]
+        public var dllOverrides: [String: String]
+
+        public init(
+            profileID: String? = nil,
+            launchSwitches: [String: String] = [:],
+            dllOverrides: [String: String] = [:]
+        ) {
+            self.profileID = profileID
+            self.launchSwitches = launchSwitches
+            self.dllOverrides = dllOverrides
+        }
+    }
+
+    public var id: String { message }
+    public let message: String
+    public let action: Action?
+
+    public init(message: String, action: Action? = nil) {
+        self.message = message
+        self.action = action
+    }
+}
+
 /// What a launch log shows the game really used, read from Wine's `loaddll` lines.
 /// The files in a game folder can mislead: a packer hides the imports, a launcher has none, VNDB names another release.
 /// What Wine loaded for the running game cannot.
@@ -66,27 +95,53 @@ public struct LaunchObservation: Equatable, Sendable {
     }
 
     /// What the user could try, given what the game used and what it was run with.
-    public func advice(usesDXMTWine: Bool, usesMediaFoundationRuntime: Bool) -> [String] {
-        var advice: [String] = []
+    public func adviceItems(usesDXMTWine: Bool, usesMediaFoundationRuntime: Bool) -> [RuntimeAdvice] {
+        var items: [RuntimeAdvice] = []
         if let plugin = direct2DDrawPlugin {
             if usesDXMTWine {
-                advice.append("这个游戏通过 \(plugin) 用 Direct2D 绘制画面，和 DXMT 不兼容，容易白屏或闪烁。可以把「图形渲染」改回「自动」或「Wine 自带」，并在「高级 → 自定义 DLL 设置」里填入 \(plugin)=disabled，让游戏退回传统的 D3D9 渲染（启动时若弹出加载失败提示，点确定即可）。")
+                items.append(RuntimeAdvice(
+                    message: "这个游戏通过 \(plugin) 用 Direct2D 绘制画面，和 DXMT 不兼容，容易白屏或闪烁。可以把「图形渲染」改回「自动」或「Wine 自带」，并在「高级 → 自定义 DLL 设置」里填入 \(plugin)=disabled，让游戏退回传统的 D3D9 渲染（启动时若弹出加载失败提示，点确定即可）。",
+                    action: .init(
+                        launchSwitches: [LaunchSwitch.graphics.id: "builtin"],
+                        dllOverrides: [plugin: "disabled"]
+                    )
+                ))
             } else {
-                advice.append("这个游戏通过 \(plugin) 用 Direct2D 绘制画面，在 macOS 上容易白屏或闪烁。可以在「高级 → 自定义 DLL 设置」里填入 \(plugin)=disabled，让游戏退回传统的 D3D9 渲染（启动时若弹出加载失败提示，点确定即可）。")
+                items.append(RuntimeAdvice(
+                    message: "这个游戏通过 \(plugin) 用 Direct2D 绘制画面，在 macOS 上容易白屏或闪烁。可以在「高级 → 自定义 DLL 设置」里填入 \(plugin)=disabled，让游戏退回传统的 D3D9 渲染（启动时若弹出加载失败提示，点确定即可）。",
+                    action: .init(dllOverrides: [plugin: "disabled"])
+                ))
             }
         } else if usesD3D11, usesD2D1 {
             if usesDXMTWine {
-                advice.append("这个游戏用 Direct2D 叠加在 D3D11 上绘制画面，DXMT 目前不兼容 Direct2D。如果画面白屏或闪烁，把「图形渲染」改回「Wine 自带」。")
+                items.append(RuntimeAdvice(
+                    message: "这个游戏用 Direct2D 叠加在 D3D11 上绘制画面，DXMT 目前不兼容 Direct2D。如果画面白屏或闪烁，把「图形渲染」改回「Wine 自带」。",
+                    action: .init(launchSwitches: [LaunchSwitch.graphics.id: "builtin"])
+                ))
             }
         } else if usesD3D11, !usesDXMTWine {
-            advice.append("这个游戏用 D3D11 绘制画面。如果画面全黑、花屏或者闪烁，把「图形渲染」换成 DXMT。")
+            items.append(RuntimeAdvice(
+                message: "这个游戏用 D3D11 绘制画面。如果画面全黑、花屏或者闪烁，把「图形渲染」换成 DXMT。",
+                action: .init(launchSwitches: [LaunchSwitch.graphics.id: "dxmt"])
+            ))
         }
         if usesStubMediaPlayer {
-            advice.append("这个游戏调用 Windows Media Player 来放视频，这里放不出来，视频会被直接跳过。如果游戏自己的设置里可以选别的播放方式（比如 MCI），请换掉它。")
+            items.append(RuntimeAdvice(
+                message: "这个游戏调用 Windows Media Player 来放视频，这里放不出来，视频会被直接跳过。如果游戏自己的设置里可以选别的播放方式（比如 MCI），请换掉它。"
+            ))
         }
         if usesMediaFoundation, !usesMediaFoundationRuntime {
-            advice.append("这个游戏用 Media Foundation 放视频。如果视频黑屏或者被跳过，可以试试「Artemis（D3D11 · 新式视频）」这个运行环境。")
+            items.append(RuntimeAdvice(
+                message: "这个游戏用 Media Foundation 放视频。如果视频黑屏或者被跳过，可以试试「Artemis（D3D11 · 新式视频）」这个运行环境。",
+                action: .init(profileID: RuntimeProfile.artemisMFD3D11.rawValue)
+            ))
         }
-        return advice
+        return items
+    }
+
+    /// Plain-text form of `adviceItems`, for diagnostics and acknowledged-advice tracking.
+    public func advice(usesDXMTWine: Bool, usesMediaFoundationRuntime: Bool) -> [String] {
+        adviceItems(usesDXMTWine: usesDXMTWine, usesMediaFoundationRuntime: usesMediaFoundationRuntime)
+            .map(\.message)
     }
 }

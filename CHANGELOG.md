@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### 更新摘要
+- 改进：运行设置里的建议文字现在可以直接选中复制，还支持点一下「采纳」自动填入对应的运行环境、开关或 DLL 设置。
+- 改进：重新梳理了运行设置与各弹窗的界面排版，统一为更克制的圆角卡片、细滚动条与玻璃按钮，跟随系统明暗外观。
+- 修复：应用菜单栏（如「关于 Gala」「设置…」「退出 Gala」）与更新提示现在统一显示为简体中文，不再中英混杂。
+
+### Added
+- `LaunchObservation` and `GameRuntime.adviceItems(for:)` now attach structured one-click actions (target profile, launch switches, and DLL overrides) to actionable runtime advice; `RunSettingsView` makes advice text selectable and adds a per-item 「采纳」 button that applies the recommendation in place.
+
+### Changed
+- Redesigned `RunSettingsView` and secondary sheets (`ImportProfileView`, `HelpRequestView`, `FailureView`, `UnusedPrefixesView`, `AddGameView`) around adaptive translucent cards (`GalaSheetCard`), hairline dividers, compact menu pickers, subtle hover-pill links, and pure glass buttons on macOS 26+ while keeping macOS 14/15 fallbacks.
+- Enforced macOS overlay scrollbars across scrollable views so connecting an external mouse no longer introduces thick legacy scrollbar tracks.
+
+### Fixed
+- Declared Simplified Chinese (`zh-Hans`) in `project.yml` (`developmentLanguage` and `CFBundleLocalizations`) so macOS system menus, file panels, and Sparkle update dialogs render in Chinese alongside Gala's UI.
+
 ## [2.2.2] - 2026-11-26
 
 ### 更新摘要

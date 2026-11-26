@@ -138,13 +138,17 @@ public struct GameRuntime: Sendable {
     }
 
     /// Things the user could do for this game: what its profile's author says, then what the last launch showed.
-    public func advice(for game: Game) -> [String] {
+    public func adviceItems(for game: Game) -> [RuntimeAdvice] {
         let recipe = recipe(for: game)
-        let observed = observation(for: game)?.advice(
+        let observed = observation(for: game)?.adviceItems(
             usesDXMTWine: wineManager.usesDXMTWine(for: game),
             usesMediaFoundationRuntime: recipe?.usesMediaFoundation == true
         ) ?? []
-        return [recipe?.advice].compactMap { $0 } + observed
+        return [recipe?.advice.map { RuntimeAdvice(message: $0) }].compactMap { $0 } + observed
+    }
+
+    public func advice(for game: Game) -> [String] {
+        adviceItems(for: game).map(\.message)
     }
 
     /// Whether GStreamer will accept its index as it is. It rebuilds one that names another plugin folder or is older

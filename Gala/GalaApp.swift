@@ -12,6 +12,12 @@ struct GalaApp: App {
         userDriverDelegate: nil
     )
 
+    init() {
+        // Keep macOS's slim overlay scrollbars from the very first frame (scoped to Gala's own defaults domain)
+        // so sheets never flash a legacy bar when an external mouse is connected.
+        UserDefaults.standard.set("WhenScrolling", forKey: "AppleShowScrollBars")
+    }
+
     var body: some Scene {
         Window("Gala", id: "main") {
             ContentView(library: library, gameVM: gameVM)

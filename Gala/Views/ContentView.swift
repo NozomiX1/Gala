@@ -136,13 +136,15 @@ struct ContentView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 520)
-            HStack {
+            HStack(spacing: 10) {
                 Button("重新读取") {
                     library.loadLibrary()
                 }
+                .galaButtonStyle(prominent: true)
                 Button("打开设置") {
                     openSettings()
                 }
+                .galaButtonStyle()
             }
         }
         .padding(32)

@@ -8,7 +8,7 @@ struct GameDetailView: View {
     let gameVM: GameViewModel
 
     @State private var sheet: Sheet?
-    @State private var advice: [String] = []
+    @State private var advice: [RuntimeAdvice] = []
     @State private var moreButtonFrame: CGRect = .zero
 
     /// One sheet at a time, so the failure sheet can hand over to the run settings or the help text.
@@ -43,13 +43,14 @@ struct GameDetailView: View {
                 .padding(48)
                 .frame(minWidth: proxy.size.width, minHeight: proxy.size.height)
             }
+            .galaOverlayScrollbars()
         }
         .background { AmbientBackground(image: cover, style: .detail) }
         .task(id: game.id) { await library.loadFactsIfMissing(for: game) }
         // Read again when a run ends or the profile changes: both can change what there is to suggest. The log can be large.
         .task(id: "\(game.id)|\(isRunning)|\(game.profileID ?? "")|\(game.launchSwitches)") {
             let game = game, wineManager = library.wineManagerInstance
-            advice = await Task.detached { GameRuntime(wineManager: wineManager).advice(for: game) }.value
+            advice = await Task.detached { GameRuntime(wineManager: wineManager).adviceItems(for: game) }.value
         }
         // The page keeps its dark look in the light appearance too.
         .environment(\.colorScheme, .dark)
@@ -160,11 +161,25 @@ struct GameDetailView: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
             if !isRunning, !isSettingUp, errorMessage != nil {
-                Button("查看原因") { sheet = .failure }
-                    .buttonStyle(.link)
-            } else if !isRunning, !isSettingUp, advice.contains(where: { !game.acknowledgedAdvice.contains($0) }) {
-                Button("查看建议") { sheet = .runSettings }
-                    .buttonStyle(.link)
+                Button { sheet = .failure } label: {
+                    HStack(spacing: 3) {
+                        Text("查看原因")
+                        Image(systemName: "chevron.right")
+                            .font(.caption2.weight(.semibold))
+                    }
+                    .font(.callout)
+                }
+                .galaSubtleButtonStyle()
+            } else if !isRunning, !isSettingUp, advice.contains(where: { !game.acknowledgedAdvice.contains($0.message) }) {
+                Button { sheet = .runSettings } label: {
+                    HStack(spacing: 3) {
+                        Text("查看建议")
+                        Image(systemName: "chevron.right")
+                            .font(.caption2.weight(.semibold))
+                    }
+                    .font(.callout)
+                }
+                .galaSubtleButtonStyle()
             }
         }
     }

@@ -48,6 +48,7 @@ struct LibraryView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .galaOverlayScrollbars()
         .background { AmbientBackground(image: library.ambientCover, style: .wall) }
         .sheet(item: $helpGame) { HelpRequestView(game: $0, library: library) }
         // A game folder or an .exe can be dropped anywhere on the wall, not only on the add tile.

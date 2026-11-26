@@ -51,17 +51,23 @@ struct ImportProfileView: View {
             .padding(.top, 22)
 
             TextEditor(text: $text)
-                .font(.system(size: 11, design: .monospaced))
+                .font(.system(size: 12, design: .monospaced))
                 .scrollContentBackground(.hidden)
-                .padding(8)
+                .padding(.horizontal, 11)
+                .padding(.vertical, 12)
                 .frame(height: 96)
-                .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.09), lineWidth: 0.5)
+                }
                 .overlay(alignment: .topLeading) {
                     if text.isEmpty {
                         Text("在这里粘贴，或者把 .json 文件拖进来")
                             .font(.callout)
                             .foregroundStyle(.tertiary)
-                            .padding(14)
+                            .padding(.leading, 16)
+                            .padding(.top, 12)
                             .allowsHitTesting(false)
                     }
                 }
@@ -73,51 +79,61 @@ struct ImportProfileView: View {
                 .padding(.horizontal, 24)
                 .padding(.top, 14)
 
-            HStack(spacing: 14) {
+            HStack(spacing: 8) {
                 Button("粘贴") { text = NSPasteboard.general.string(forType: .string) ?? text }
+                    .galaButtonStyle()
+                    .controlSize(.small)
                 Button("选择文件…", action: chooseFile)
-                    .buttonStyle(.link)
+                    .font(.callout)
+                    .galaSubtleButtonStyle()
                 Spacer()
             }
             .padding(.horizontal, 24)
-            .padding(.top, 8)
+            .padding(.top, 10)
 
-            ScrollView {
-                Group {
-                    switch outcome {
-                    case nil:
-                        Text("粘贴之后，这里会列出它要做的事。")
-                            .foregroundStyle(.secondary)
-                    case .failure(let error):
-                        Label(error.localizedDescription, systemImage: "exclamationmark.triangle")
-                            .foregroundStyle(.orange)
-                    case .success(let imported):
-                        preview(imported)
+            GalaSheetCard {
+                ScrollView {
+                    Group {
+                        switch outcome {
+                        case nil:
+                            Text("粘贴之后，这里会列出它要做的事。")
+                                .foregroundStyle(.secondary)
+                        case .failure(let error):
+                            Label(error.localizedDescription, systemImage: "exclamationmark.triangle")
+                                .foregroundStyle(.orange)
+                        case .success(let imported):
+                            preview(imported)
+                        }
                     }
+                    .font(.callout)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(16)
                 }
-                .font(.callout)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 24)
-                .padding(.vertical, 14)
+                .galaOverlayScrollbars()
+                // Without this the list can open scrolled to its end when the text is already there as the sheet appears.
+                .defaultScrollAnchor(.top)
+                .frame(height: 204)
             }
-            // Without this the list can open scrolled to its end when the text is already there as the sheet appears.
-            .defaultScrollAnchor(.top)
-            .frame(height: 204)
+            .padding(.horizontal, 24)
+            .padding(.top, 12)
+            .padding(.bottom, 14)
 
             if case .success(let imported) = outcome {
-                Divider()
+                GalaSheetDivider()
                 consequences(imported)
             }
 
-            Divider()
+            GalaSheetDivider()
 
-            HStack(spacing: 14) {
+            HStack(spacing: 12) {
                 Spacer()
                 Button("取消", role: .cancel) { dismiss() }
+                    .galaButtonStyle()
                     .keyboardShortcut(.cancelAction)
                 Button("导入并使用") {
                     if case .success(let imported) = outcome { use(imported) }
                 }
+                .galaButtonStyle(prominent: true)
                 .keyboardShortcut(.defaultAction)
                 .disabled({ if case .success = outcome { return false } else { return true } }())
             }

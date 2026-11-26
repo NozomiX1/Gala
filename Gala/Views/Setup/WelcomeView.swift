@@ -30,13 +30,14 @@ struct WelcomeView: View {
                         isRetrying = true
                         startDownload()
                     }
-                    .buttonStyle(.borderedProminent)
+                    .galaButtonStyle(prominent: true)
                     .disabled(isRetrying)
 
                     if let onOpenEnvironment {
                         Button("环境检查") {
                             onOpenEnvironment()
                         }
+                        .galaButtonStyle()
                         .disabled(isRetrying)
                     }
                 }
@@ -107,12 +108,13 @@ struct ResetCompleteView: View {
                 Button("退出 Gala") {
                     onQuit()
                 }
+                .galaButtonStyle()
                 .controlSize(.large)
 
                 Button("重新安装运行环境") {
                     onInstallRuntime()
                 }
-                .buttonStyle(.borderedProminent)
+                .galaButtonStyle(prominent: true)
                 .controlSize(.large)
                 .keyboardShortcut(.defaultAction)
             }

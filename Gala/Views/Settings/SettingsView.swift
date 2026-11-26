@@ -30,6 +30,7 @@ struct SettingsView: View {
                 .tag("data")
         }
         .frame(width: 500)
+        .galaOverlayScrollbars()
     }
 }
 
@@ -396,40 +397,50 @@ private struct UnusedPrefixesView: View {
             .padding(.horizontal, 24)
             .padding(.top, 22)
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 10) {
-                    ForEach(found) { item in
-                        Toggle(isOn: Binding(
-                            get: { chosen.contains(item) },
-                            set: { isOn in if isOn { chosen.insert(item) } else { chosen.remove(item) } }
-                        )) {
-                            Text(item.name)
-                            Text(item.url.lastPathComponent == RuntimeProfile.common.rawValue
-                                ? "新建环境时要从它复制。删掉的话，下次需要重新安装，要等几分钟。"
-                                : item.url.lastPathComponent)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+            GalaSheetCard {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(Array(found.enumerated()), id: \.element.id) { index, item in
+                            if index > 0 { GalaSheetDivider().padding(.leading, 16) }
+                            Toggle(isOn: Binding(
+                                get: { chosen.contains(item) },
+                                set: { isOn in if isOn { chosen.insert(item) } else { chosen.remove(item) } }
+                            )) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(item.name)
+                                    Text(item.url.lastPathComponent == RuntimeProfile.common.rawValue
+                                        ? "新建环境时要从它复制。删掉的话，下次需要重新安装，要等几分钟。"
+                                        : item.url.lastPathComponent)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .toggleStyle(.checkbox)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 11)
                         }
-                        .toggleStyle(.checkbox)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 24)
-                .padding(.vertical, 16)
+                .galaOverlayScrollbars()
+                .frame(maxHeight: 240)
+                .fixedSize(horizontal: false, vertical: true)
             }
-            .frame(maxHeight: 240)
-            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 16)
 
-            Divider()
+            GalaSheetDivider()
 
-            HStack(spacing: 14) {
+            HStack(spacing: 12) {
                 Spacer()
                 Button("取消", role: .cancel) { dismiss() }
+                    .galaButtonStyle()
                     .keyboardShortcut(.cancelAction)
                 Button("删除选中的 \(chosen.count) 个", role: .destructive) {
                     onDelete(found.filter(chosen.contains))
                     dismiss()
                 }
+                .galaButtonStyle()
                 .disabled(chosen.isEmpty)
             }
             .padding(.horizontal, 24)

@@ -22,36 +22,40 @@ struct HelpRequestView: View {
             .padding(.horizontal, 24)
             .padding(.top, 22)
 
-            ScrollView {
-                if let text {
-                    Text(text)
-                        .font(.system(size: 11, design: .monospaced))
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(12)
-                } else {
-                    ProgressView()
-                        .controlSize(.small)
-                        .frame(maxWidth: .infinity)
-                        .padding(40)
+            GalaSheetCard {
+                ScrollView {
+                    if let text {
+                        Text(text)
+                            .font(.system(size: 11, design: .monospaced))
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(14)
+                    } else {
+                        ProgressView()
+                            .controlSize(.small)
+                            .frame(maxWidth: .infinity)
+                            .padding(40)
+                    }
                 }
+                .galaOverlayScrollbars()
+                .frame(height: 340)
             }
-            .frame(height: 340)
-            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
 
-            Divider()
+            GalaSheetDivider()
 
-            HStack {
+            HStack(spacing: 12) {
                 Spacer()
                 Button("取消", role: .cancel) { dismiss() }
+                    .galaButtonStyle()
                     .keyboardShortcut(.cancelAction)
                 Button("复制") {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(text ?? "", forType: .string)
                     dismiss()
                 }
+                .galaButtonStyle(prominent: true)
                 .keyboardShortcut(.defaultAction)
                 .disabled(text == nil)
             }

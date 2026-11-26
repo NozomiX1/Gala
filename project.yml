@@ -1,6 +1,7 @@
 name: Gala
 options:
   bundleIdPrefix: com.nozomi
+  developmentLanguage: zh-Hans
   deploymentTarget:
     macOS: "14.0"
   xcodeVersion: "16.0"
@@ -50,6 +51,8 @@ targets:
       path: Gala/Info.plist
       properties:
         CFBundleDisplayName: Gala
+        CFBundleLocalizations:
+          - zh-Hans
         CFBundleName: Gala
         CFBundleShortVersionString: $(MARKETING_VERSION)
         # Sparkle compares CFBundleVersion, so it tracks the marketing version instead of a separate build number.

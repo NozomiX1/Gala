@@ -252,15 +252,20 @@ private let d3d11Log = #"""
     #expect(d2dPluginObs.direct2DDrawPlugin == "DrawDeviceD2Dv2")
     #expect(d2dPluginObs.summary == "图形：D3D11、Direct2D · 视频：这次运行没有用到")
 
-    let plainAdvice = d2dPluginObs.advice(usesDXMTWine: false, usesMediaFoundationRuntime: false)
-    #expect(plainAdvice.count == 1)
-    #expect(plainAdvice[0].contains("DrawDeviceD2Dv2=disabled"))
-    #expect(!plainAdvice[0].contains("换成 DXMT"))
+    let plainItems = d2dPluginObs.adviceItems(usesDXMTWine: false, usesMediaFoundationRuntime: false)
+    #expect(plainItems.count == 1)
+    #expect(plainItems[0].message.contains("DrawDeviceD2Dv2=disabled"))
+    #expect(!plainItems[0].message.contains("换成 DXMT"))
+    #expect(plainItems[0].action == .init(dllOverrides: ["DrawDeviceD2Dv2": "disabled"]))
 
-    let dxmtAdvice = d2dPluginObs.advice(usesDXMTWine: true, usesMediaFoundationRuntime: false)
-    #expect(dxmtAdvice.count == 1)
-    #expect(dxmtAdvice[0].contains("DrawDeviceD2Dv2=disabled"))
-    #expect(dxmtAdvice[0].contains("不兼容"))
+    let dxmtItems = d2dPluginObs.adviceItems(usesDXMTWine: true, usesMediaFoundationRuntime: false)
+    #expect(dxmtItems.count == 1)
+    #expect(dxmtItems[0].message.contains("DrawDeviceD2Dv2=disabled"))
+    #expect(dxmtItems[0].message.contains("不兼容"))
+    #expect(dxmtItems[0].action == .init(
+        launchSwitches: [LaunchSwitch.graphics.id: "builtin"],
+        dllOverrides: ["DrawDeviceD2Dv2": "disabled"]
+    ))
 
     let genericD2DLog = #"""
     00e0:trace:loaddll:build_module Loaded L"C:\\windows\\system32\\D3D11.DLL" at 773D0000: builtin
@@ -268,6 +273,20 @@ private let d3d11Log = #"""
     """#
     let genericObs = LaunchObservation(log: genericD2DLog)
     #expect(genericObs.direct2DDrawPlugin == nil)
-    #expect(genericObs.advice(usesDXMTWine: false, usesMediaFoundationRuntime: false).isEmpty)
-    #expect(genericObs.advice(usesDXMTWine: true, usesMediaFoundationRuntime: false).first?.contains("Wine 自带") == true)
+    #expect(genericObs.adviceItems(usesDXMTWine: false, usesMediaFoundationRuntime: false).isEmpty)
+    #expect(genericObs.adviceItems(usesDXMTWine: true, usesMediaFoundationRuntime: false).first?.action == .init(
+        launchSwitches: [LaunchSwitch.graphics.id: "builtin"]
+    ))
+
+    let mfD3D11Log = #"""
+    00e0:trace:loaddll:build_module Loaded L"C:\\windows\\system32\\d3d11.dll" at 773D0000: builtin
+    00e0:trace:loaddll:build_module Loaded L"C:\\windows\\system32\\mf.dll" at 77DD0000: builtin
+    00e0:trace:loaddll:build_module Loaded L"C:\\windows\\system32\\wmp.dll" at 70000000: builtin
+    """#
+    let mfItems = LaunchObservation(log: mfD3D11Log).adviceItems(usesDXMTWine: false, usesMediaFoundationRuntime: false)
+    #expect(mfItems.map(\.action) == [
+        .init(launchSwitches: [LaunchSwitch.graphics.id: "dxmt"]),
+        nil,
+        .init(profileID: RuntimeProfile.artemisMFD3D11.rawValue),
+    ])
 }

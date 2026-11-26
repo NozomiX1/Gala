@@ -21,26 +21,31 @@ struct FailureView: View {
             .padding(.horizontal, 24)
             .padding(.top, 22)
 
-            ScrollView {
-                Text(message)
-                    .font(.system(size: 12, design: .monospaced))
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(12)
+            GalaSheetCard {
+                ScrollView {
+                    Text(message)
+                        .font(.system(size: 12, design: .monospaced))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(14)
+                }
+                .galaOverlayScrollbars()
+                .frame(minHeight: 70, maxHeight: 220)
+                .fixedSize(horizontal: false, vertical: true)
             }
-            .frame(minHeight: 70, maxHeight: 220)
-            .fixedSize(horizontal: false, vertical: true)
-            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             .padding(.horizontal, 24)
             .padding(.vertical, 16)
 
-            Divider()
+            GalaSheetDivider()
 
-            HStack {
+            HStack(spacing: 10) {
                 Button("换个运行环境试试", action: onChangeSettings)
+                    .galaButtonStyle()
                 Button("复制求助信息…", action: onCopyHelp)
+                    .galaButtonStyle()
                 Spacer()
                 Button("好") { dismiss() }
+                    .galaButtonStyle(prominent: true)
                     .keyboardShortcut(.defaultAction)
             }
             .padding(.horizontal, 24)
