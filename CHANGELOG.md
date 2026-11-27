@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-11-27
+
 ### 更新摘要
 - 新增：运行设置里加入独立的「新式视频解码（Media Foundation）」开关，可直接在通用环境（`common`）等任意环境下按需开启或关闭，无需为播放 MP4 影片而整体切换运行环境，也不会改动其他游戏的环境。
 - 修复：修复 Wine 11.6 中 `winegstreamer.dll` 将音频包截断在 16 KB 上限的缺陷，解决部分高码率 WMA Pro 音轨 WMV 影片（如 D.C.5 过场动画）播放时卡死的问题；现有已安装的 Wine 会在启动时自动原位修补，无需重新下载。
