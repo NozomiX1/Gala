@@ -25,7 +25,9 @@ public final class MediaCompatibilityManager: @unchecked Sendable {
         recipe: RuntimeRecipe? = nil,
         progressHandler: (@Sendable (MediaCompatibilityProgress) -> Void)? = nil
     ) async throws -> Game {
-        guard (recipe ?? ProfileStore.bundled.recipe(for: game))?.usesMediaFoundation == true else { return game }
+        let resolvedRecipe = recipe ?? ProfileStore.bundled.recipe(for: game)
+        guard resolvedRecipe?.usesWMVAudioOverlay == true,
+              game.usesMediaFoundationRuntime(recipe: resolvedRecipe) else { return game }
 
         let sourceExecutable = URL(fileURLWithPath: game.executablePath)
         let sourceRoot = sourceExecutable.deletingLastPathComponent()

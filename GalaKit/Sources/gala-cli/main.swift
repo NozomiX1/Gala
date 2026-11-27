@@ -55,7 +55,7 @@ Gala 排查指南（给人和 AI 助手）
 按症状判断
   启动就退出、弹出报错    看日志里的 err: 行。提到找不到某个 DLL 时，多半是运行环境缺组件。
   有声音但画面全黑        图形渲染的问题，和视频播放无关。先试 --switch graphics=dxmt。
-  片头或过场动画黑屏、被跳过  视频播放的问题，游戏本体通常还能运行。与 quartz、amstream、LAV 这几个组件用谁的实现有关。先试 --switch video=builtin 或 video=native。
+  片头或过场动画黑屏、被跳过  视频播放的问题，游戏本体通常还能运行。旧式 DirectShow 视频可先试 --switch video=builtin 或 video=native；使用 Media Foundation（MP4 等）的游戏可试 --switch mediaFoundation=on。
   文字是方框              字体的问题。
   文字是乱码、或因此报错  区域的问题。日文原版游戏需要日文区域。
 

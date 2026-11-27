@@ -287,6 +287,24 @@ private let d3d11Log = #"""
     #expect(mfItems.map(\.action) == [
         .init(launchSwitches: [LaunchSwitch.graphics.id: "dxmt"]),
         nil,
-        .init(profileID: RuntimeProfile.artemisMFD3D11.rawValue),
+        .init(launchSwitches: [LaunchSwitch.mediaFoundation.id: "on"]),
     ])
+    #expect(LaunchObservation(log: mfD3D11Log).adviceItems(usesDXMTWine: true, usesMediaFoundationRuntime: true).count == 1)
+}
+
+@Test func wmaPacketTooSmallAdviceRequiresWMADMODAndErrorText() {
+    let wmaLog = #"""
+    00e0:trace:loaddll:build_module Loaded L"C:\\windows\\syswow64\\wmadmod.dll" at 77000000: builtin
+    00f0:err:gstreamer:gst_ffmpeg_log_callback [wmapro @ 0x1] Input packet too small (16384 < 20434)
+    """#
+    let obs = LaunchObservation(log: wmaLog)
+    #expect(obs.hasWMAPacketTooSmallError)
+    let items = obs.adviceItems(usesDXMTWine: false, usesMediaFoundationRuntime: true)
+    #expect(items.count == 1)
+    #expect(items[0].message.contains("wmadmod=disabled"))
+    #expect(items[0].action == .init(dllOverrides: ["wmadmod": "disabled"]))
+
+    let withoutWMADMOD = LaunchObservation(log: "00f0:err:gstreamer: Input packet too small (16384 < 20434)")
+    #expect(!withoutWMADMOD.hasWMAPacketTooSmallError)
+    #expect(withoutWMADMOD.adviceItems(usesDXMTWine: false, usesMediaFoundationRuntime: true).isEmpty)
 }

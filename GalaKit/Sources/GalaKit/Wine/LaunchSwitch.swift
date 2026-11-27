@@ -22,6 +22,13 @@ public struct LaunchSwitch: Identifiable, Sendable {
         options: [Option(id: "native", label: "Windows 原版"), Option(id: "builtin", label: "Wine 自带")]
     )
 
+    public static let mediaFoundation = LaunchSwitch(
+        id: "mediaFoundation",
+        name: "新式视频解码",
+        hint: "MP4 或新式过场视频黑屏、无声时开启",
+        options: [Option(id: "on", label: "开启"), Option(id: "off", label: "关闭")]
+    )
+
     public static let graphics = LaunchSwitch(
         id: "graphics",
         name: "图形渲染",
@@ -36,7 +43,7 @@ public struct LaunchSwitch: Identifiable, Sendable {
         options: [Option(id: "zh", label: "中文"), Option(id: "ja", label: "日文")]
     )
 
-    public static let all = [video, graphics, locale]
+    public static let all = [video, mediaFoundation, graphics, locale]
 }
 
 extension Game {
@@ -65,6 +72,20 @@ extension Game {
         }
     }
 
+    /// Whether the Media Foundation switch enables or disables Gala's MF runtime; nil leaves it to the profile.
+    public var forcesMediaFoundationRuntime: Bool? {
+        switch launchSwitches[LaunchSwitch.mediaFoundation.id] {
+        case "on": true
+        case "off": false
+        default: nil
+        }
+    }
+
+    /// Whether this launch should inject Gala's Media Foundation runtime.
+    public func usesMediaFoundationRuntime(recipe: RuntimeRecipe?) -> Bool {
+        forcesMediaFoundationRuntime ?? (recipe?.usesMediaFoundation == true)
+    }
+
     /// The locale Wine starts in, which decides the Windows code page for that run:
     /// the game's switch, else what its profile asks for, else the one its prefix was built with.
     public func launchLocale(recipe: RuntimeRecipe?) -> String {
@@ -87,11 +108,15 @@ extension Game {
     public func exportedProfile(base recipe: RuntimeRecipe) -> ProfileFile {
         let overrides = launchDLLOverrides
         let locale = launchLocale(recipe: recipe)
+        let managed: [String]? = (forcesMediaFoundationRuntime == true && !recipe.usesMediaFoundation)
+            ? [ManagedRuntimeComponent.mediaFoundation.rawValue]
+            : nil
         return ProfileFile(
             id: "\(recipe.id)-\(id.uuidString.prefix(8).lowercased())",
             name: "\(title) 的配置",
             base: recipe.id,
             wine: forcesDXMTWine.map { $0 ? .dxmt : .standard },
+            managedComponents: managed,
             dllOverrides: overrides.isEmpty ? nil : overrides.mapValues { Optional($0) },
             environment: bottleConfig.environment.isEmpty ? nil : bottleConfig.environment.mapValues { Optional($0) },
             launchArguments: bottleConfig.launchArguments.isEmpty ? nil : bottleConfig.launchArguments,

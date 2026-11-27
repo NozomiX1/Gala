@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### 更新摘要
+- 新增：运行设置里加入独立的「新式视频解码（Media Foundation）」开关，可直接在通用环境（`common`）等任意环境下按需开启或关闭，无需为播放 MP4 影片而整体切换运行环境，也不会改动其他游戏的环境。
+- 修复：修复 Wine 11.6 中 `winegstreamer.dll` 将音频包截断在 16 KB 上限的缺陷，解决部分高码率 WMA Pro 音轨 WMV 影片（如 D.C.5 过场动画）播放时卡死的问题；现有已安装的 Wine 会在启动时自动原位修补，无需重新下载。
+- 改进：运行建议检测到 Media Foundation 视频时改为推荐直接打开「新式视频解码」开关；并在出现 WMA 音频包截断报错时补充禁用 `wmadmod` 的保底建议。
+
+### Added
+- Added a per-game `LaunchSwitch.mediaFoundation` (「新式视频解码」: `auto` / `on` / `off`) that injects `gala-mf-runtime-1.1` at launch and downloads it on demand without building a separate prefix; `GameRuntime.needsMediaPreparation(for:)` avoids unnecessary preparation UI when the GStreamer registry is already current and no WMV overlay applies.
+- Added `ProfileFeature.wmvAudioOverlay` so *Amakano 3*'s loose `movie/*.wmv` PCM audio transcode overlay stays scoped to `artemis-mf-d3d11` instead of triggering whenever Media Foundation is enabled on another profile.
+- Added `WineManager.patchWineGStreamerAudioSampleLimitIfNeeded(forWineBinary:)` to idempotently raise Wine Staging 11.6's hardcoded 16 KB (`0x4000`) audio sample buffer cap in 32-bit and 64-bit `winegstreamer.dll` (`wm_reader_read_stream_sample`) to 64 KB (`0x10000`) after exact unique byte-fingerprint matching.
+
+### Changed
+- Added `HKCU\Software\Wine\MediaFoundation\DisableGstByteStreamHandler = 1` to `common.json` so games in `common` and derived profiles can decode Media Foundation MP4 videos immediately when the `mediaFoundation` launch switch is enabled (triggers a fast in-place registry refresh for existing `common` prefixes).
+- Updated `LaunchObservation` advice to recommend enabling `LaunchSwitch.mediaFoundation` (`mediaFoundation=on`) instead of switching the entire profile to `artemis-mf-d3d11`, and added a fallback rule suggesting `wmadmod=disabled` when logs show `wmadmod.dll` with `"Input packet too small"`.
+
+### Fixed
+- Fixed DirectShow/WMV3 + high-bitrate WMA Pro (`block_align > 16384`, e.g. 20,434 bytes in D.C.5) cutscenes deadlocking inside `quartz` due to Wine 11.6's 16 KB audio sample cap in `winegstreamer.dll`.
+
 ## [2.3.1] - 2026-11-26
 
 ### 更新摘要

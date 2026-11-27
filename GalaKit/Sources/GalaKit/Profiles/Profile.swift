@@ -46,6 +46,8 @@ public struct ProfileFile: Codable, Equatable, Sendable {
 public enum ProfileFeature: String, Sendable {
     /// Always map the game's folder as drive G:, for games whose install registry points there.
     case gameDriveG
+    /// Transcode loose `movie/*.wmv` audio tracks to PCM in a per-game overlay for Media Foundation playback.
+    case wmvAudioOverlay
 }
 
 /// A profile with its `base` chain folded in. It has two halves: what goes into the prefix (components, registry)
@@ -78,6 +80,7 @@ public struct RuntimeRecipe: Equatable, Sendable {
     public let origins: [String: String]
 
     public var usesMediaFoundation: Bool { preset.managedComponents.contains(.mediaFoundation) }
+    public var usesWMVAudioOverlay: Bool { features.contains(.wmvAudioOverlay) }
 
     /// Changes whenever anything that ends up in the prefix changes, so an edited profile is noticed without a version bump.
     /// The launch half (Wine build, DLL overrides) is left out: changing it changes nothing in the prefix.

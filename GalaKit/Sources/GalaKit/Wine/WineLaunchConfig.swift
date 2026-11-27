@@ -51,7 +51,7 @@ public struct WineLaunchConfig: Sendable {
             prependLibraryPaths(existingLibPaths, to: &env)
         }
 
-        if recipe?.usesMediaFoundation == true, let mediaFoundationRuntime {
+        if game.usesMediaFoundationRuntime(recipe: recipe), let mediaFoundationRuntime {
             applyMediaFoundationRuntime(mediaFoundationRuntime, to: &env)
         }
 

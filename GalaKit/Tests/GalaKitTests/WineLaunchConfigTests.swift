@@ -258,6 +258,29 @@ import Foundation
     #expect(env["GST_PLUGIN_SCANNER_1_0"] == scanner.path)
     #expect(env["GST_REGISTRY"] == registry.path)
     #expect(env["GST_REGISTRY_FORK"] == "no")
+
+    let mfRuntime = MediaFoundationRuntime(rootURL: runtimeRoot, gStreamerRegistryURL: registry)
+
+    // Turning the switch on for a common game injects the same GStreamer environment.
+    var kirikiri = Game(
+        title: "DC5",
+        executablePath: dir.appendingPathComponent("dc5.exe").path,
+        engine: .kirikiri,
+        bottleConfig: BottleConfig(prefixPath: dir.appendingPathComponent("prefix").path)
+    )
+    let kirikiriOff = WineLaunchConfig.buildEnvironment(game: kirikiri, wineBinary: fakeBin, mediaFoundationRuntime: mfRuntime)
+    #expect(kirikiriOff["GST_PLUGIN_PATH_1_0"] == nil)
+
+    kirikiri.launchSwitches = ["mediaFoundation": "on"]
+    let kirikiriOn = WineLaunchConfig.buildEnvironment(game: kirikiri, wineBinary: fakeBin, mediaFoundationRuntime: mfRuntime)
+    #expect(kirikiriOn["GST_PLUGIN_PATH_1_0"] == pluginDir.path)
+    #expect(kirikiriOn["GST_REGISTRY"] == registry.path)
+
+    // Turning the switch off on an MF profile suppresses the GStreamer environment.
+    var amakanoOff = game
+    amakanoOff.launchSwitches = ["mediaFoundation": "off"]
+    let suppressed = WineLaunchConfig.buildEnvironment(game: amakanoOff, wineBinary: fakeBin, mediaFoundationRuntime: mfRuntime)
+    #expect(suppressed["GST_PLUGIN_PATH_1_0"] == nil)
 }
 
 @Test func launchArgumentsFollowTheExecutable() throws {

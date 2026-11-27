@@ -37,11 +37,19 @@ public struct LaunchObservation: Equatable, Sendable {
     public let modules: [String: String]
     /// Original casing of each module name as logged by Wine, keyed by lower-cased name.
     private let originalNames: [String: String]
+    /// True when Wine's WMA decoder DMO hit a truncated packet error in FFmpeg/libav (`Input packet too small`),
+    /// which can deadlock DirectShow playback.
+    public let hasWMAPacketTooSmallError: Bool
 
     public init(log: String) {
         var modules: [String: String] = [:]
         var originalNames: [String: String] = [:]
-        for line in log.split(separator: "\n") where line.contains("trace:loaddll") {
+        var sawInputPacketTooSmall = false
+        for line in log.split(separator: "\n") {
+            if line.contains("Input packet too small") {
+                sawInputPacketTooSmall = true
+            }
+            guard line.contains("trace:loaddll") else { continue }
             // ...Loaded L"C:\\windows\\system32\\quartz.dll" at 6FFFF9E90000: native
             guard let open = line.range(of: "Loaded L\""), let close = line.range(of: "\" at ", range: open.upperBound..<line.endIndex),
                   let kind = line.split(separator: " ").last, kind == "native" || kind == "builtin" else { continue }
@@ -53,6 +61,7 @@ public struct LaunchObservation: Equatable, Sendable {
         }
         self.modules = modules
         self.originalNames = originalNames
+        self.hasWMAPacketTooSmallError = sawInputPacketTooSmall && modules["wmadmod.dll"] != nil
     }
 
     public var isEmpty: Bool { modules.isEmpty }
@@ -132,8 +141,14 @@ public struct LaunchObservation: Equatable, Sendable {
         }
         if usesMediaFoundation, !usesMediaFoundationRuntime {
             items.append(RuntimeAdvice(
-                message: "这个游戏用 Media Foundation 放视频。如果视频黑屏或者被跳过，可以试试「Artemis（D3D11 · 新式视频）」这个运行环境。",
-                action: .init(profileID: RuntimeProfile.artemisMFD3D11.rawValue)
+                message: "这个游戏用 Media Foundation 放视频。如果视频黑屏或者被跳过，把「新式视频解码」改成「开启」。",
+                action: .init(launchSwitches: [LaunchSwitch.mediaFoundation.id: "on"])
+            ))
+        }
+        if hasWMAPacketTooSmallError {
+            items.append(RuntimeAdvice(
+                message: "上次播放 WMV 视频时，Wine 自带的 WMA 音频解码器遇到了数据包截断报错，容易导致画面卡死。可以在「高级 → 自定义 DLL 设置」里填入 wmadmod=disabled 避开卡死。",
+                action: .init(dllOverrides: ["wmadmod": "disabled"])
             ))
         }
         return items

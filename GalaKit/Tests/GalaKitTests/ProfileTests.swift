@@ -333,12 +333,14 @@ private func userDirectory(_ files: [String: String]) throws -> URL {
         .init(label: "DLL 设置", value: "quartz = Wine 自带", source: nil),
         .init(label: "DLL 设置", value: "xactengine3_7 = Windows 原版", source: nil),
         .init(label: "DLL 设置", value: "xaudio2_7 = Windows 原版", source: nil),
-        .init(label: "注册表", value: "9 条", source: "通用"),
+        .init(label: "注册表", value: "10 条", source: "通用"),
     ])
 
-    #expect(store.detail(of: try #require(store.recipe(id: "common"))).summary == "从零建立 · 装 3 个组件 · 9 条注册表")
+    #expect(store.detail(of: try #require(store.recipe(id: "common"))).summary == "从零建立 · 装 3 个组件 · 10 条注册表")
     #expect(store.detail(of: try #require(store.recipe(id: "artemis-d3d11"))).summary == "基于通用 · 1 条启动设置")
     #expect(store.detail(of: try #require(store.recipe(id: "cat-system2"))).summary == "基于通用 · 多装 2 个组件")
+    #expect(store.recipe(id: "common")?.usesWMVAudioOverlay == false)
+    #expect(store.recipe(id: "artemis-mf-d3d11")?.usesWMVAudioOverlay == true)
 
     // Something written on top of a profile that is itself on top of another: each line names its own file.
     let mine = ProfileFile(id: "mine", name: "我的", base: "siglus-engine", components: ["dotnet40"], environment: ["A": "1"])

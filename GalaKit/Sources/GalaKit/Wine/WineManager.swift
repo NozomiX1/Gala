@@ -266,18 +266,11 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
     }
 
     public func isManagedRuntimeReady(for game: Game) -> Bool {
-        guard let components = profiles.recipe(for: game)?.preset.managedComponents,
-              !components.isEmpty else {
-            return true
+        if usesDXMTWine(for: game), dxmtWineBinaryURL == nil {
+            return false
         }
-
-        for component in components {
-            switch component {
-            case .dxmt:
-                if wineBinaryURL(for: game) == nil { return false }
-            case .mediaFoundation:
-                if !isMediaFoundationRuntimeInstalled { return false }
-            }
+        if usesMediaFoundationRuntime(for: game), !isMediaFoundationRuntimeInstalled {
+            return false
         }
         return true
     }
@@ -285,6 +278,11 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
     /// The profile decides, unless the game's graphics switch says otherwise.
     public func usesDXMTWine(for game: Game) -> Bool {
         game.forcesDXMTWine ?? (profiles.recipe(for: game)?.usesDXMTWine == true)
+    }
+
+    /// The profile decides, unless the game's Media Foundation switch says otherwise.
+    public func usesMediaFoundationRuntime(for game: Game) -> Bool {
+        game.usesMediaFoundationRuntime(recipe: profiles.recipe(for: game))
     }
 
     public func wineBinaryURL(for game: Game) -> URL? {
@@ -333,6 +331,9 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
             try FileManager.default.createDirectory(at: extractDir, withIntermediateDirectories: true)
             try extractArchive(dxmtArchiveURL, to: extractDir)
             try installDXMTOverlay(from: extractDir.appendingPathComponent("v0.80"), to: destinationDir)
+            if let binary = wineBinary(in: destinationDir) {
+                _ = Self.patchWineGStreamerAudioSampleLimitIfNeeded(forWineBinary: binary)
+            }
             try? FileManager.default.removeItem(at: extractDir)
         } catch {
             try? FileManager.default.removeItem(at: extractDir)
@@ -502,6 +503,51 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
         }
     }
 
+    /// Wine Staging 11.6 (`dlls/winegstreamer/wm_reader.c`, `wm_reader_read_stream_sample`) caps every
+    /// audio sample at 16,384 bytes (`0x4000`), even when reading compressed WMA Pro packets whose
+    /// `block_align` exceeds 16 KB (e.g. 20,434 bytes in D.C.5). Slicing compressed packets makes
+    /// `avdec_wmapro` reject every chunk (`Input packet too small`) and deadlocks DirectShow.
+    ///
+    /// This idempotently raises that constant to 65,536 bytes (`0x10000`) in both 32-bit and 64-bit
+    /// `winegstreamer.dll` only when the exact Wine 11.6 instruction sequence matches uniquely.
+    @discardableResult
+    public static func patchWineGStreamerAudioSampleLimitIfNeeded(forWineBinary wineBinary: URL) -> Bool {
+        let wineLibDir = wineBinary
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("lib/wine")
+
+        let targets: [(relativePath: String, original: [UInt8], patched: [UInt8])] = [
+            // i386-windows: cmpl $0x4000,%eax; movl $0x4000,%edi; cmovbl %eax,%edi; cmpl $0x1,-0x100(%ebx); cmovnel %eax,%edi
+            (
+                "i386-windows/winegstreamer.dll",
+                [0x3d, 0x00, 0x40, 0x00, 0x00, 0xbf, 0x00, 0x40, 0x00, 0x00, 0x0f, 0x42, 0xf8, 0x83, 0xbb, 0x00, 0xff, 0xff, 0xff, 0x01, 0x0f, 0x45, 0xf8],
+                [0x3d, 0x00, 0x00, 0x01, 0x00, 0xbf, 0x00, 0x00, 0x01, 0x00, 0x0f, 0x42, 0xf8, 0x83, 0xbb, 0x00, 0xff, 0xff, 0xff, 0x01, 0x0f, 0x45, 0xf8]
+            ),
+            // x86_64-windows: cmpl $0x4000,%eax; movl $0x4000,%r12d; cmovbl %eax,%r12d; cmpl $0x1,-0x108(%rbp); cmovnel %eax,%r12d
+            (
+                "x86_64-windows/winegstreamer.dll",
+                [0x3d, 0x00, 0x40, 0x00, 0x00, 0x41, 0xbc, 0x00, 0x40, 0x00, 0x00, 0x44, 0x0f, 0x42, 0xe0, 0x83, 0xbd, 0xf8, 0xfe, 0xff, 0xff, 0x01, 0x44, 0x0f, 0x45, 0xe0],
+                [0x3d, 0x00, 0x00, 0x01, 0x00, 0x41, 0xbc, 0x00, 0x00, 0x01, 0x00, 0x44, 0x0f, 0x42, 0xe0, 0x83, 0xbd, 0xf8, 0xfe, 0xff, 0xff, 0x01, 0x44, 0x0f, 0x45, 0xe0]
+            ),
+        ]
+
+        var patchedAny = false
+        for target in targets {
+            let dllURL = wineLibDir.appendingPathComponent(target.relativePath)
+            guard var data = try? Data(contentsOf: dllURL) else { continue }
+            let needle = Data(target.original)
+            guard let firstMatch = data.range(of: needle) else { continue }
+            // Refuse to patch unless the instruction sequence is unique in the binary.
+            if data.range(of: needle, in: firstMatch.upperBound..<data.endIndex) != nil { continue }
+            data.replaceSubrange(firstMatch, with: target.patched)
+            if (try? data.write(to: dllURL, options: .atomic)) != nil {
+                patchedAny = true
+            }
+        }
+        return patchedAny
+    }
+
     static func sha256Hex(of fileURL: URL) throws -> String {
         let handle = try FileHandle(forReadingFrom: fileURL)
         defer { try? handle.close() }
@@ -565,6 +611,9 @@ public final class WineManager: ObservableObject, @unchecked Sendable {
             }
 
             try setActiveVersion(versionName)
+            if let binary = wineBinary(in: destinationDir) {
+                _ = Self.patchWineGStreamerAudioSampleLimitIfNeeded(forWineBinary: binary)
+            }
             try? FileManager.default.removeItem(at: tempURL)
 
             await MainActor.run {

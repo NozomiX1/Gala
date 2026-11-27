@@ -113,7 +113,7 @@ final class GameViewModel {
 
     private func prepareMediaCompatibilityIfNeeded(for game: Game, runtime: GameRuntime) async throws -> Game {
         // Checked here as well so other games do not flash the progress view.
-        guard runtime.recipe(for: game)?.usesMediaFoundation == true else { return game }
+        guard runtime.needsMediaPreparation(for: game) else { return game }
 
         isSettingUp = true
         setupStatus = "准备媒体兼容缓存..."

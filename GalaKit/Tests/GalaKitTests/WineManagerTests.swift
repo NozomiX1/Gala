@@ -590,6 +590,45 @@ import CryptoKit
     #expect(try WineManager.sha256Hex(of: file) == sha256Hex(data))
 }
 
+@Test func patchWineGStreamerAudioSampleLimitPatchesUniquePatternsIdempotently() throws {
+    let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: tempDir) }
+
+    let wineRoot = tempDir.appendingPathComponent("wine")
+    let wineBin = wineRoot.appendingPathComponent("bin/wine")
+    let dll32 = wineRoot.appendingPathComponent("lib/wine/i386-windows/winegstreamer.dll")
+    let dll64 = wineRoot.appendingPathComponent("lib/wine/x86_64-windows/winegstreamer.dll")
+    for url in [wineBin, dll32, dll64] {
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+    }
+    FileManager.default.createFile(atPath: wineBin.path, contents: Data())
+
+    let original32: [UInt8] = [0x3d, 0x00, 0x40, 0x00, 0x00, 0xbf, 0x00, 0x40, 0x00, 0x00, 0x0f, 0x42, 0xf8, 0x83, 0xbb, 0x00, 0xff, 0xff, 0xff, 0x01, 0x0f, 0x45, 0xf8]
+    let patched32: [UInt8] = [0x3d, 0x00, 0x00, 0x01, 0x00, 0xbf, 0x00, 0x00, 0x01, 0x00, 0x0f, 0x42, 0xf8, 0x83, 0xbb, 0x00, 0xff, 0xff, 0xff, 0x01, 0x0f, 0x45, 0xf8]
+    let original64: [UInt8] = [0x3d, 0x00, 0x40, 0x00, 0x00, 0x41, 0xbc, 0x00, 0x40, 0x00, 0x00, 0x44, 0x0f, 0x42, 0xe0, 0x83, 0xbd, 0xf8, 0xfe, 0xff, 0xff, 0x01, 0x44, 0x0f, 0x45, 0xe0]
+    let patched64: [UInt8] = [0x3d, 0x00, 0x00, 0x01, 0x00, 0x41, 0xbc, 0x00, 0x00, 0x01, 0x00, 0x44, 0x0f, 0x42, 0xe0, 0x83, 0xbd, 0xf8, 0xfe, 0xff, 0xff, 0x01, 0x44, 0x0f, 0x45, 0xe0]
+
+    let prefix = Data([0x90, 0x90, 0x90, 0x90])
+    let suffix = Data([0xc3, 0xcc])
+    try (prefix + Data(original32) + suffix).write(to: dll32)
+    try (prefix + Data(original64) + suffix).write(to: dll64)
+
+    #expect(WineManager.patchWineGStreamerAudioSampleLimitIfNeeded(forWineBinary: wineBin))
+    #expect(try Data(contentsOf: dll32) == prefix + Data(patched32) + suffix)
+    #expect(try Data(contentsOf: dll64) == prefix + Data(patched64) + suffix)
+
+    // Already patched: second call is a no-op.
+    #expect(!WineManager.patchWineGStreamerAudioSampleLimitIfNeeded(forWineBinary: wineBin))
+
+    // Duplicate pattern must be refused without altering the file.
+    let ambiguous = prefix + Data(original32) + prefix + Data(original32) + suffix
+    try ambiguous.write(to: dll32)
+    try Data("other-wine-version".utf8).write(to: dll64)
+    #expect(!WineManager.patchWineGStreamerAudioSampleLimitIfNeeded(forWineBinary: wineBin))
+    #expect(try Data(contentsOf: dll32) == ambiguous)
+    #expect(try Data(contentsOf: dll64) == Data("other-wine-version".utf8))
+}
+
 @Test func downloadWithFallbackRetriesTransientTLSResetsBeforeFallingBack() async throws {
     let token = UUID().uuidString
     let payload = Data("recovered-on-third-attempt".utf8)

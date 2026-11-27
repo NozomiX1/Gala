@@ -22,6 +22,36 @@ import Foundation
     #expect(launchGame.executablePath == game.executablePath)
 }
 
+@Test func mediaOverlayOnlyRunsWhenProfileRequestsWMVAudioOverlayAndMFIsEnabled() async throws {
+    let tempDir = try makeTempDir()
+    defer { try? FileManager.default.removeItem(at: tempDir) }
+
+    let gameDir = tempDir.appendingPathComponent("Game")
+    let movieDir = gameDir.appendingPathComponent("movie")
+    try FileManager.default.createDirectory(at: movieDir, withIntermediateDirectories: true)
+    let exe = gameDir.appendingPathComponent("game.exe")
+    FileManager.default.createFile(atPath: exe.path, contents: Data("exe".utf8))
+    FileManager.default.createFile(atPath: movieDir.appendingPathComponent("op.wmv").path, contents: Data("wmv".utf8))
+
+    let ffmpeg = try makeFakeFFmpeg(in: tempDir)
+    let manager = MediaCompatibilityManager(
+        overlaysDirectory: tempDir.appendingPathComponent("Overlays"),
+        ffmpegURL: ffmpeg
+    )
+
+    // common + mediaFoundation=on must NOT transcode movie/*.wmv.
+    var kirikiriWithMF = Game(title: "DC5", executablePath: exe.path, engine: .kirikiri)
+    kirikiriWithMF.launchSwitches = ["mediaFoundation": "on"]
+    let kirikiriLaunch = try await manager.prepareLaunchGame(for: kirikiriWithMF)
+    #expect(kirikiriLaunch.executablePath == exe.path)
+
+    // artemis-mf-d3d11 with mediaFoundation=off skips the overlay as well.
+    var amakanoMFOff = Game(title: "Amakano 3", executablePath: exe.path, engine: .artemisMFD3D11)
+    amakanoMFOff.launchSwitches = ["mediaFoundation": "off"]
+    let amakanoLaunch = try await manager.prepareLaunchGame(for: amakanoMFOff)
+    #expect(amakanoLaunch.executablePath == exe.path)
+}
+
 @Test func mediaOverlayConvertsWMVAudioAndLaunchesFromOverlay() async throws {
     let tempDir = try makeTempDir()
     defer { try? FileManager.default.removeItem(at: tempDir) }

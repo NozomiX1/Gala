@@ -5,6 +5,7 @@ public enum LaunchBlocker: Error, Equatable, LocalizedError, Sendable {
     case notConfigured
     case wineMissing
     case dxmtMissing
+    case mediaFoundationMissing
     case bottleMissing
     case presetOutdated
     case stateUnreadable(String)
@@ -12,7 +13,7 @@ public enum LaunchBlocker: Error, Equatable, LocalizedError, Sendable {
     /// The stored "configured" flag is wrong and the runtime has to be configured again.
     public var requiresReconfiguration: Bool {
         switch self {
-        case .dxmtMissing, .bottleMissing, .presetOutdated: return true
+        case .dxmtMissing, .mediaFoundationMissing, .bottleMissing, .presetOutdated: return true
         case .notConfigured, .wineMissing, .stateUnreadable: return false
         }
     }
@@ -22,6 +23,7 @@ public enum LaunchBlocker: Error, Equatable, LocalizedError, Sendable {
         case .notConfigured: return "请先配置运行环境。"
         case .wineMissing: return "Wine 未安装，请先安装。"
         case .dxmtMissing: return "DXMT 图形运行时未配置，请重新配置运行环境。"
+        case .mediaFoundationMissing: return "新式视频组件未下载，请重新配置运行环境。"
         case .bottleMissing: return "运行环境不存在或未完成，请重新配置环境。"
         case .presetOutdated: return "运行环境配置已过期，请重新配置环境。"
         case .stateUnreadable(let detail): return "运行环境状态检查失败：\(detail)"
@@ -51,7 +53,8 @@ public struct GameRuntime: Sendable {
         _ game: Game,
         progress: @escaping @Sendable (_ message: String, _ fraction: Double?) -> Void
     ) async throws {
-        guard wineManager.wineBinaryURL != nil else { throw LaunchBlocker.wineMissing }
+        guard let baseWineBinary = wineManager.wineBinaryURL else { throw LaunchBlocker.wineMissing }
+        _ = WineManager.patchWineGStreamerAudioSampleLimitIfNeeded(forWineBinary: baseWineBinary)
 
         progress("检查运行环境...", nil)
         let bottleManager = bottleManager
@@ -69,9 +72,12 @@ public struct GameRuntime: Sendable {
             try await bottleManager.createBottle(for: game)
         }
 
-        // A game can ask for the DXMT Wine through its graphics switch even when its profile does not.
+        // A game can ask for DXMT or Media Foundation through its launch switches even when its profile does not.
         if wineManager.usesDXMTWine(for: game) {
             try await wineManager.ensureDXMTWineVariant { progress("正在下载 DXMT 图形运行时...", $0) }
+        }
+        if wineManager.usesMediaFoundationRuntime(for: game) {
+            try await wineManager.ensureMediaFoundationRuntime { progress("正在下载新式视频组件...", $0) }
         }
 
         guard needsBottle || needsPreset else {
@@ -92,6 +98,9 @@ public struct GameRuntime: Sendable {
         guard let wineBinary = wineManager.wineBinaryURL(for: game) else {
             throw wineManager.usesDXMTWine(for: game) ? LaunchBlocker.dxmtMissing : LaunchBlocker.wineMissing
         }
+        if wineManager.usesMediaFoundationRuntime(for: game), !wineManager.isMediaFoundationRuntimeInstalled {
+            throw LaunchBlocker.mediaFoundationMissing
+        }
 
         let bottleManager = bottleManager
         guard bottleManager.isBottleReady(for: game) else { throw LaunchBlocker.bottleMissing }
@@ -111,20 +120,49 @@ public struct GameRuntime: Sendable {
             throw LaunchBlocker.presetOutdated
         }
         bottleManager.adoptOlderMarker(for: game)
+        _ = WineManager.patchWineGStreamerAudioSampleLimitIfNeeded(forWineBinary: wineBinary)
         return wineBinary
     }
 
-    /// Builds the media overlay some profiles need; returns the game to actually launch.
+    /// Whether launching this game will actually run WMV overlay preparation or GStreamer registry warmup.
+    public func needsMediaPreparation(for game: Game) -> Bool {
+        guard let recipe = recipe(for: game), wineManager.usesMediaFoundationRuntime(for: game) else {
+            return false
+        }
+        if recipe.usesWMVAudioOverlay {
+            let movieDir = URL(fileURLWithPath: game.executablePath)
+                .deletingLastPathComponent()
+                .appendingPathComponent("movie")
+            if FileManager.default.fileExists(atPath: movieDir.path) {
+                return true
+            }
+        }
+        if let runtime = wineManager.mediaFoundationRuntime,
+           !Self.isGStreamerRegistryCurrent(
+               registry: runtime.gStreamerRegistryURL,
+               pluginDirectory: runtime.rootURL.appendingPathComponent("lib/gstreamer-1.0")
+           ) {
+            return true
+        }
+        return false
+    }
+
+    /// Builds the media overlay some profiles need and pre-warms the GStreamer registry; returns the game to actually launch.
     public func prepareMedia(
         for game: Game,
         progress: @escaping @Sendable (MediaCompatibilityProgress) -> Void
     ) async throws -> Game {
-        guard let recipe = recipe(for: game), recipe.usesMediaFoundation else { return game }
-        let manager = MediaCompatibilityManager(
-            overlaysDirectory: wineManager.mediaOverlaysDirectory,
-            ffmpegURL: wineManager.mediaFoundationFFmpegURL
-        )
-        let launchGame = try await manager.prepareLaunchGame(for: game, recipe: recipe, progressHandler: progress)
+        guard let recipe = recipe(for: game), wineManager.usesMediaFoundationRuntime(for: game) else { return game }
+        let launchGame: Game
+        if recipe.usesWMVAudioOverlay {
+            let manager = MediaCompatibilityManager(
+                overlaysDirectory: wineManager.mediaOverlaysDirectory,
+                ffmpegURL: wineManager.mediaFoundationFFmpegURL
+            )
+            launchGame = try await manager.prepareLaunchGame(for: game, recipe: recipe, progressHandler: progress)
+        } else {
+            launchGame = game
+        }
         buildGStreamerRegistryIfStale(for: launchGame, recipe: recipe, progress: progress)
         return launchGame
     }
@@ -142,7 +180,7 @@ public struct GameRuntime: Sendable {
         let recipe = recipe(for: game)
         let observed = observation(for: game)?.adviceItems(
             usesDXMTWine: wineManager.usesDXMTWine(for: game),
-            usesMediaFoundationRuntime: recipe?.usesMediaFoundation == true
+            usesMediaFoundationRuntime: wineManager.usesMediaFoundationRuntime(for: game)
         ) ?? []
         return [recipe?.advice.map { RuntimeAdvice(message: $0) }].compactMap { $0 } + observed
     }

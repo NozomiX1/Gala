@@ -7,6 +7,9 @@
   "managedComponents": [
     "mediaFoundation"
   ],
+  "features": [
+    "wmvAudioOverlay"
+  ],
   "registry": [
     {
       "key": "HKCU\\Software\\Wine\\MediaFoundation",

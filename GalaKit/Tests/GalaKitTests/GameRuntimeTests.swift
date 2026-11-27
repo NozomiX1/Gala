@@ -181,6 +181,87 @@ private final class Messages: @unchecked Sendable {
     #expect(wineManager.usesDXMTWine(for: artemis))
 }
 
+@Test func mediaFoundationSwitchTogglesRuntimeInBothDirectionsAndBlocksWhenMissing() throws {
+    let (runtime, home) = try makeRuntime()
+    defer { try? FileManager.default.removeItem(at: home) }
+    let wineManager = runtime.wineManager
+
+    var kirikiri = game(.kirikiri, in: runtime)
+    try makeBottleReady(for: kirikiri)
+    try BottleManager(bottlesDirectory: wineManager.bottlesDirectory).writeRuntimeMarker(for: kirikiri)
+
+    #expect(!wineManager.usesMediaFoundationRuntime(for: kirikiri))
+    #expect(blocker { try runtime.wineBinaryForLaunch(kirikiri) } == nil)
+
+    kirikiri.launchSwitches = ["mediaFoundation": "on"]
+    #expect(wineManager.usesMediaFoundationRuntime(for: kirikiri))
+    let mfBlocker = blocker { try runtime.wineBinaryForLaunch(kirikiri) }
+    #expect(mfBlocker == .mediaFoundationMissing)
+    #expect(mfBlocker?.requiresReconfiguration == true)
+
+    var artemisMF = game(.artemisMFD3D11, in: runtime)
+    #expect(wineManager.usesMediaFoundationRuntime(for: artemisMF))
+    artemisMF.launchSwitches = ["mediaFoundation": "off"]
+    #expect(!wineManager.usesMediaFoundationRuntime(for: artemisMF))
+    // Unknown option falls back to the profile default.
+    artemisMF.launchSwitches = ["mediaFoundation": "maybe"]
+    #expect(wineManager.usesMediaFoundationRuntime(for: artemisMF))
+}
+
+@Test func needsMediaPreparationChecksOverlayAndGStreamerRegistry() throws {
+    let (runtime, home) = try makeRuntime()
+    defer { try? FileManager.default.removeItem(at: home) }
+    let wineManager = runtime.wineManager
+
+    // Install a fake Media Foundation runtime with one plugin so registry freshness can be tested.
+    let pluginDir = wineManager.mediaFoundationRuntimeDirectory.appendingPathComponent("lib/gstreamer-1.0")
+    try FileManager.default.createDirectory(at: pluginDir, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(at: wineManager.mediaFoundationFFmpegURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+    FileManager.default.createFile(atPath: wineManager.mediaFoundationFFmpegURL.path, contents: Data("#!/bin/sh\n".utf8))
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: wineManager.mediaFoundationFFmpegURL.path)
+    let plugin = pluginDir.appendingPathComponent("libgstlibav.dylib")
+    try Data("x".utf8).write(to: plugin)
+    try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSinceNow: -60)], ofItemAtPath: plugin.path)
+
+    var kirikiri = game(.kirikiri, in: runtime)
+    #expect(!runtime.needsMediaPreparation(for: kirikiri))
+
+    kirikiri.launchSwitches = ["mediaFoundation": "on"]
+    // Registry is missing -> needs warmup preparation.
+    #expect(runtime.needsMediaPreparation(for: kirikiri))
+
+    // Once the GStreamer registry is current, common + MF switch needs no preparation.
+    try FileManager.default.createDirectory(at: wineManager.mediaFoundationGStreamerRegistryURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try Data("\u{1}\(plugin.path)\u{0}".utf8).write(to: wineManager.mediaFoundationGStreamerRegistryURL)
+    #expect(!runtime.needsMediaPreparation(for: kirikiri))
+
+    // artemis-mf-d3d11 also carries wmvAudioOverlay: needs preparation when movie/ exists, and skips when MF is off.
+    let movieDir = home.appendingPathComponent("Amakano3/movie")
+    try FileManager.default.createDirectory(at: movieDir, withIntermediateDirectories: true)
+    var artemisMF = game(.artemisMFD3D11, in: runtime)
+    #expect(!runtime.needsMediaPreparation(for: artemisMF))
+    artemisMF.executablePath = home.appendingPathComponent("Amakano3/Amakano3_chs.exe").path
+    #expect(runtime.needsMediaPreparation(for: artemisMF))
+    artemisMF.launchSwitches = ["mediaFoundation": "off"]
+    #expect(!runtime.needsMediaPreparation(for: artemisMF))
+}
+
+@Test func exportedProfileIncludesMediaFoundationComponentWhenSwitchedOn() throws {
+    var game = Game(title: "DC5", executablePath: "/tmp/g/dc5.exe", engine: .kirikiri)
+    game.launchSwitches = ["mediaFoundation": "on"]
+    let base = try #require(ProfileStore.bundled.recipe(for: game))
+
+    let exported = game.exportedProfile(base: base)
+    #expect(exported.base == "common")
+    #expect(exported.managedComponents == ["mediaFoundation"])
+
+    let store = try ProfileStore(files: ProfileStore.bundledFiles + [exported])
+    let recipe = try #require(store.recipe(id: exported.id))
+    #expect(recipe.usesMediaFoundation)
+    #expect(!recipe.usesWMVAudioOverlay)
+    #expect(recipe.bottleID == "common")
+}
+
 @Test func switchesSurviveSavingAndOldLibrariesLoadWithoutThem() throws {
     var game = Game(title: "T", executablePath: "/tmp/g/game.exe")
     game.launchSwitches = ["video": "builtin"]
